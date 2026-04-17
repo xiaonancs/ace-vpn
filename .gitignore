@@ -1,0 +1,71 @@
+# Secrets & credentials
+*.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.crt
+id_rsa
+id_rsa.pub
+secrets/
+credentials/
+
+# Runtime configs (server-specific)
+config/local.*
+config/production.*
+xray/config.json
+sing-box/config.json
+/etc/xray/*
+
+# Oracle Cloud API
+.oci/
+oci_api_key*
+*.oci.config
+
+# Client configs (contain UUIDs / server IPs)
+clients/generated/
+clients/*/personal/
+*.vless
+*.vmess
+subscription.*
+
+# Logs
+*.log
+logs/
+nohup.out
+
+# Backups
+*.bak
+*.backup
+*.tar.gz
+*.zip
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Node
+node_modules/
+npm-debug.log
+
+# Terraform (if used later)
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# Temp
+tmp/
+temp/
+*.tmp
