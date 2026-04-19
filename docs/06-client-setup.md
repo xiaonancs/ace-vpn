@@ -20,11 +20,13 @@ source private/env.sh
 
 | 给谁用 | URL 形式 |
 |--------|---------|
-| **Clash 系**（Mac / Stash / Android Mihomo Party / Win Clash Verge Rev） | `$URL_CLASH_HOME` → `http://<VPS_IP>:25500/clash/<SUB_TOKEN>` |
-| **Shadowrocket**（iOS / iPadOS）| `$URL_XUI_SUB_HOME` → `https://<VPS_IP>:2096/<sub_path>/<subId>` |
+| **Clash 系 · 你自己**（Mac / iPad Stash / Android / Windows） | `http://<VPS_IP>:25500/clash/sub-hxn` |
+| **Clash 系 · 家人**（爸妈的 Windows / Android / Mac） | `http://<VPS_IP>:25500/clash/sub-hxn01` |
+| **Shadowrocket**（iOS / iPadOS，走原生 v2ray 订阅）| `https://<VPS_IP>:2096/<sub_path>/sub-hxn` |
 
-**两条 URL 的区别**：见 [05-journey-and-skill.md §1.3](05-journey-and-skill.md#13-架构图一屏)。  
-简答：前者是**节点+规则**的 Clash YAML；后者是**纯节点**的 v2ray base64。
+> 一个 sub-converter 实例同时服务多个 token，靠 `SUB_TOKENS=sub-hxn,sub-hxn01` 白名单区分，详见 [05-journey-and-skill.md §5.9](05-journey-and-skill.md#59-改了-sub-converter-环境变量但不生效--新-token-返回-0-节点) 和 [scripts/sub-converter.py](../scripts/sub-converter.py)。
+
+**两类 URL 的区别**：前者是**节点 + 路由规则**的 Clash YAML（推荐，分流/AI/国内直连全自动）；后者是**纯节点** base64（Shadowrocket 自己加规则）。
 
 ---
 
@@ -304,26 +306,74 @@ rules:
 
 ## 7. 面板「客户端」增删改（Add Client / Edit / Disable）
 
-### 7.1 一设备一 Client，还是多设备共用？
+### 7.1 推荐架构：一设备一 Client + 一家人一 SubId
 
-| 方式 | 适合 |
+| 维度 | 做法 |
 |------|------|
-| **一人一 Client**（4 个设备共用一个 UUID）| 最简单，订阅里节点数 = 1 |
-| **一设备一 Client**（每设备独立 UUID）| 能单独统计流量、单独吊销 |
+| **Client（UUID）粒度** | **一设备一个**。吊销某台设备时只影响它自己 |
+| **SubId（订阅）粒度** | **一家人一个**。自己一个 `sub-hxn`，家人共用 `sub-hxn01` |
 
-**家庭推荐**：**一人一 Client + 一家一 SubId**。即你 Mac/iPhone/iPad/Android 全用同一个 Client（同一 UUID），SubId=`sub-hxn`；爸爸一个 Client，SubId=`dad-home`；妈妈同理。
+为什么这样分？
 
-### 7.2 操作
+- `sub-hxn` = 你自己的所有设备（Mac / iPhone / iPad / Android / iHome Mac）→ 4~5 个 Client，全部挂 `sub-hxn`
+- `sub-hxn01` = 家人共用的 SubId，每个家人设备一个 Client，全部挂 `sub-hxn01`
+
+sub-converter 的 `SUB_TOKENS=sub-hxn,sub-hxn01` 白名单正好对应这两组。
+
+### 7.2 Client 命名规范
+
+Email 字段填**能看出设备的人类可读名**：
+
+```
+sub-hxn 下（你自己）：
+  hxn-macbook       ← 公司笔记本
+  hxn-iphone
+  hxn-ipad
+  hxn-ihome         ← 家里 Mac
+  hxn-android       ← 备用 Android
+
+sub-hxn01 下（家人）：
+  family-dad-phone
+  family-dad-pc
+  family-mom-phone
+  family-home-tv    ← 小米盒子之类
+```
+
+好处：订阅生成的 Clash YAML 里每条节点 name 就是 Client Email，一眼看出哪台设备在用哪条。
+
+### 7.3 操作
 
 **添加**：面板 → **Inbounds** → `ace-vpn-reality` 那行最右边 → 点绿色「客户端（+）」图标 → Add Client →  
 - ID：点刷新 🔄 随机 UUID
-- Email：**填有意义的**，如 `dad-win`、`xiaonan-home`
-- Sub ID：填 `sub-hxn` / `dad-home`
-- Save
+- Email：填命名规范里的名字（如 `hxn-macbook`）
+- Sub ID：填 `sub-hxn` 或 `sub-hxn01`
+- Flow：**选 `xtls-rprx-vision`**（Reality 性能更好 + 更抗检测）
+- Save → 再点 Inbound 行最外层的 Save（保存两次才真正生效）
 
 **吊销**：找到对应 Client → Edit → **Enable = OFF** → Save（保留数据但断连）；或直接删除。
 
-**查流量**：面板首页或 Inbounds 页每个 Client 有 Up / Down 统计。
+**查流量**：面板首页或 Inbounds 页每个 Client 有 Up / Down 统计，0 流量的通常是测试残留，可删。
+
+### 7.4 清理历史测试 Client（安全版流程）
+
+`configure-3xui.sh` 重跑过多次可能留了一堆重复 Client。清理步骤：
+
+```
+1. 面板里先给要保留的 Client 改 Email（按命名规范改名，不影响 UUID 不断网）
+2. 本机客户端刷新订阅 → 节点名变了但网还通 = 确认没删错
+3. 回面板删掉「Email 乱 + 0 流量」的残留 Client
+4. 客户端再刷一次订阅 → 节点数变成你期望的数字
+```
+
+**千万别一步到位直接删**。先改名观察，再动删除 —— 否则删到你 Mac 正在用的那个 UUID，立刻断网，Mac 上又没法登面板（因为你靠 VPN 访问），就尴尬了。
+
+验证命令（VPS 上跑）：
+
+```bash
+# 看每条 token 下的节点名，一行一个
+curl -s http://127.0.0.1:25500/clash/sub-hxn   | grep '^- name:'
+curl -s http://127.0.0.1:25500/clash/sub-hxn01 | grep '^- name:'
+```
 
 ---
 
@@ -338,6 +388,8 @@ rules:
 | Cursor / Claude Code 说「海外 IP 检测失败」 | Mac 端开 TUN 模式（不是系统代理）；`curl ipinfo.io/ip` 要返回日本 IP |
 | 面板 `https://<VPS>:<port>/<path>/` 打不开 | ❶ 改过端口/path？❷ `ufw status` 看端口是否放行 ❸ 证书过期（IP 证书 6 天续一次，`x-ui` 菜单 19） |
 | 抖音加载慢 | 你订阅里可能没有 `CHINA_DIRECT` 规则，或它被 FINAL→代理 兜底。**刷新订阅** |
+| 改了 sub-converter 环境变量但不生效 | 旧服务没真的重启：`sudo systemctl restart ace-vpn-sub`（新版 install 脚本已强制 restart） |
+| 某条 token 返回 0 个节点 | ❶ 面板里该 SubId 是否存在且 Enable ❷ `curl -sk https://127.0.0.1:2096/<sub_path>/<SubId>` 直接看上游 ❸ 服务是否 restart |
 
 ---
 

@@ -290,6 +290,16 @@ ERROR - XRAY: Failed to start: ... infra/conf: unknown config id: hysteria2
 
 **修复**：**只用 Profile，别写 Override**（除非你真要在客户端本地加公司 CIDR 直连，且不想污染订阅）。
 
+### 5.9 改了 sub-converter 环境变量但不生效 / 新 token 返回 0 节点
+
+**现象**：改 `SUB_TOKENS`、`UPSTREAM_BASE` 等环境变量后 `install-sub-converter.sh` 成功，`systemctl show -p Environment` 显示新值，但服务行为和没改一样。
+
+**根因**：旧脚本只做 `systemctl enable --now`，对已运行的服务**不触发重启**。daemon-reload 只加载新 unit 文件，旧进程仍在用老环境。
+
+**修复**：
+- 每次重装后手动 `sudo systemctl restart ace-vpn-sub`
+- install 脚本已改成 `enable` + 显式 `restart`，并在最后自检每条 token 节点数
+
 ---
 
 ## 6. 重复使用这个经验的「Cheatsheet」
@@ -321,7 +331,7 @@ systemctl restart x-ui
 
 ## 7. 待办 / 下次提升点
 
-- [ ] sub-converter 支持多 SubId 合并/路由（现在一个 token 对应一条上游 URL）
+- [x] ~~sub-converter 支持多 SubId 合并/路由~~ — 已实现：`UPSTREAM_BASE` + `SUB_TOKENS` 多 token 模式，一个实例服务全家
 - [ ] 改成通过域名 + Let's Encrypt 证书访问面板（目前 IP 证书 6 天一续）
 - [ ] 加 Fail2ban + 面板 IP 白名单
 - [ ] 把 `install.sh` 封装成「幂等、支持升级」

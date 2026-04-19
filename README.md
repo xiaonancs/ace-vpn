@@ -104,23 +104,24 @@ sudo AUTO_CONFIGURE=1 bash scripts/install.sh
 # 4. 登录面板改掉默认 admin/admin、端口、随机 path
 #    浏览器：https://<VPS_IP>:2053/<random-path>/
 
-# 5. 装 Clash 订阅转换器（让 Mac/Win/Android 直接吃一条 URL）
-sudo UPSTREAM_SUB='https://<VPS_IP>:2096/<sub_path>/<subId>' \
-     SUB_TOKEN='hxn-home-2026q2' \
+# 5. 装 Clash 订阅转换器（推荐：多 token 模式，一实例服务全家）
+sudo UPSTREAM_BASE='https://<VPS_IP>:2096/<sub_path>' \
+     SUB_TOKENS='sub-hxn,sub-hxn01' \
      SERVER_OVERRIDE='<VPS_IP>' \
      bash scripts/install-sub-converter.sh
 ```
 
-完整流程 + 每一步的踩坑解决见 [docs/05-journey-and-skill.md](docs/05-journey-and-skill.md)。
+> `SUB_TOKENS` 每个 token 对应 3x-ui 里一个 SubId。`sub-hxn` = 你自己，`sub-hxn01` = 家人，以后加人只需把新 SubId 加到白名单 + `systemctl restart ace-vpn-sub`。
+> 完整流程 + 每一步的踩坑解决见 [docs/05-journey-and-skill.md](docs/05-journey-and-skill.md)。
 
 ### 客户端接入
 
 | 设备 | 软件 | 订阅 URL |
 |------|------|---------|
-| Mac | Mihomo Party | `http://<VPS_IP>:25500/clash/<SUB_TOKEN>` |
-| iPhone/iPad | Stash（推荐）或 Shadowrocket | 同上 / 或 3x-ui 原订阅 |
-| Android | Mihomo Party | 同 Mac |
-| Windows（家人）| Clash Verge Rev | 同 Mac |
+| Mac（你自己）| Mihomo Party | `http://<VPS_IP>:25500/clash/sub-hxn` |
+| iPhone/iPad（你自己）| Stash / Shadowrocket | 同上 / 或 3x-ui 原订阅 |
+| Android（你自己）| Mihomo Party | 同 Mac |
+| Windows（家人）| Clash Verge Rev | `http://<VPS_IP>:25500/clash/sub-hxn01` |
 
 **每端的详细步骤**：[docs/06-client-setup.md](docs/06-client-setup.md)。
 
@@ -145,7 +146,7 @@ git clone <this-repo> && cd ace-vpn
 sudo bash scripts/install.sh             # 不带 AUTO_CONFIGURE，只装基础
 scp you@home-mac:~/backup/x-ui-*.db /etc/x-ui/x-ui.db
 systemctl restart x-ui
-# sub-converter 用原 SUB_TOKEN 重装
+# sub-converter 用原 SUB_TOKENS 白名单重装
 # 家人客户端仅需改订阅 URL 的 IP（或用域名就不用改）
 ```
 
@@ -153,10 +154,10 @@ systemctl restart x-ui
 
 - **`private/` 目录下所有实际值都不会提交**（`.gitignore` 强制排除）
 - **`docs/`、`scripts/`、`clients/` 里不得出现真实 IP / UUID / pbk / token / 订阅 URL**
-  - 修改时用占位符：`<VPS_IP>`、`<SUB_TOKEN>`、`<sub_path>`
+  - 修改时用占位符：`<VPS_IP>`、`<SUB_TOKENS>`、`<sub_path>`
   - 提交前 `git diff` 过一眼，或跑：`scripts/check-secrets.sh`（待写）
 - **面板**端口、路径、账号**不得使用默认值**（2053 / admin / admin = 裸奔）
-- 每 3–6 个月**轮换** `SUB_TOKEN`，`sub-converter` 重启即生效
+- 每 3–6 个月**轮换** `SUB_TOKENS`（3x-ui 里改 SubId + 白名单同步 + `systemctl restart ace-vpn-sub`）
 - 迁移后**卸载旧 VPS 的 3x-ui 并销毁磁盘**
 
 ## 📝 开发日志

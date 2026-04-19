@@ -1,13 +1,19 @@
 #!/usr/bin/env bash
 # 在 VPS 上安装 ace-vpn 订阅转换器（systemd 服务）
 # 依赖：Python 3 + PyYAML
-# 用法：
-#   sudo UPSTREAM_SUB='https://127.0.0.1:2096/<your-sub-path>/<your-sub-id>' \
-#        SUB_TOKEN='任意随机串' \
-#        LISTEN_PORT=25500 \
-#        COMPANY_CIDRS='10.0.0.0/8,172.16.0.0/12' \
-#        COMPANY_SFX='corp.example.com' \
+#
+# 模式 A：单 token（老部署兼容）
+#   sudo UPSTREAM_SUB='https://127.0.0.1:2096/<sub-path>/<sub-id>' \
+#        SUB_TOKEN='sub-hxn' \
 #        bash install-sub-converter.sh
+#
+# 模式 B：多 token（推荐，一个实例服务全家）
+#   sudo UPSTREAM_BASE='https://127.0.0.1:2096/<sub-path>' \
+#        SUB_TOKENS='sub-hxn,sub-hxn01' \
+#        SERVER_OVERRIDE='<VPS_IP>' \
+#        bash install-sub-converter.sh
+#
+# 所有设备访问 http://<VPS>:25500/clash/<token>，token 必须在白名单里。
 
 set -euo pipefail
 
@@ -19,20 +25,30 @@ require_root
 require_ubuntu
 
 UPSTREAM_SUB=${UPSTREAM_SUB:-}
-LISTEN_PORT=${LISTEN_PORT:-25500}
+UPSTREAM_BASE=${UPSTREAM_BASE:-}
 SUB_TOKEN=${SUB_TOKEN:-}
+SUB_TOKENS=${SUB_TOKENS:-}
+LISTEN_PORT=${LISTEN_PORT:-25500}
 COMPANY_CIDRS=${COMPANY_CIDRS:-}
 COMPANY_SFX=${COMPANY_SFX:-}
 SERVER_OVERRIDE=${SERVER_OVERRIDE:-}
 
-if [[ -z "$UPSTREAM_SUB" ]]; then
-  log_error "必须设置 UPSTREAM_SUB=https://127.0.0.1:2096/xxx/xxx"
+if [[ -n "$UPSTREAM_BASE" ]]; then
+  if [[ -z "$SUB_TOKENS" ]]; then
+    log_error "UPSTREAM_BASE 模式下必须设置 SUB_TOKENS（逗号分隔的 3x-ui SubId 白名单）"
+    log_error "例：SUB_TOKENS='sub-hxn,sub-hxn01'"
+    exit 1
+  fi
+  log_info "模式：多 token（UPSTREAM_BASE + SUB_TOKENS）"
+elif [[ -n "$UPSTREAM_SUB" ]]; then
+  if [[ -z "$SUB_TOKEN" ]]; then
+    SUB_TOKEN=$(openssl rand -hex 12)
+    log_warn "未设 SUB_TOKEN，自动生成：$SUB_TOKEN"
+  fi
+  log_info "模式：单 token（UPSTREAM_SUB + SUB_TOKEN）"
+else
+  log_error "必须设置 UPSTREAM_BASE+SUB_TOKENS（推荐）或 UPSTREAM_SUB+SUB_TOKEN"
   exit 1
-fi
-
-if [[ -z "$SUB_TOKEN" ]]; then
-  SUB_TOKEN=$(openssl rand -hex 12)
-  log_warn "未设 SUB_TOKEN，自动生成：$SUB_TOKEN"
 fi
 
 log_step "安装依赖 python3-yaml"
@@ -52,8 +68,10 @@ After=network-online.target
 [Service]
 Type=simple
 Environment=UPSTREAM_SUB=$UPSTREAM_SUB
-Environment=LISTEN_PORT=$LISTEN_PORT
+Environment=UPSTREAM_BASE=$UPSTREAM_BASE
 Environment=SUB_TOKEN=$SUB_TOKEN
+Environment=SUB_TOKENS=$SUB_TOKENS
+Environment=LISTEN_PORT=$LISTEN_PORT
 Environment=COMPANY_CIDRS=$COMPANY_CIDRS
 Environment=COMPANY_SFX=$COMPANY_SFX
 Environment=SERVER_OVERRIDE=$SERVER_OVERRIDE
@@ -68,7 +86,9 @@ EOF
 
 chmod 644 /etc/systemd/system/ace-vpn-sub.service
 systemctl daemon-reload
-systemctl enable --now ace-vpn-sub.service
+systemctl enable ace-vpn-sub.service
+# 强制重启（而不是 --now），确保环境变量 / 代码变更都生效
+systemctl restart ace-vpn-sub.service
 sleep 2
 
 log_step "放行端口 $LISTEN_PORT/tcp"
@@ -83,16 +103,42 @@ systemctl is-active ace-vpn-sub.service || {
   exit 1
 }
 
+log_step "自检每条 token 的节点数"
+if [[ -n "$UPSTREAM_BASE" ]]; then
+  IFS=',' read -r -a _check_tokens <<< "$SUB_TOKENS"
+  _any_fail=0
+  for _t in "${_check_tokens[@]}"; do
+    _t=$(echo "$_t" | xargs)
+    _cnt=$(curl -s "http://127.0.0.1:${LISTEN_PORT}/clash/${_t}" | grep -c '^- name:' || true)
+    if [[ "$_cnt" -gt 0 ]]; then
+      log_ok "  ${_t}: ${_cnt} 个节点"
+    else
+      log_warn "  ${_t}: 0 个节点（检查 3x-ui 里是否存在该 SubId 且已 Enable）"
+      _any_fail=1
+    fi
+  done
+  [[ "$_any_fail" -eq 1 ]] && log_warn "部分 token 节点数为 0，请登录面板核对"
+fi
+
 PUBLIC_IP=$(curl -s -4 ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
 
 echo
 log_ok "安装完成 ✓"
 echo
-echo "  Clash 订阅 URL（Mac/Win/Android 用这个）："
-echo "  http://${PUBLIC_IP}:${LISTEN_PORT}/clash/${SUB_TOKEN}"
-echo
-echo "  iPhone Shadowrocket 仍用 3x-ui 原订阅："
-echo "  $UPSTREAM_SUB"
+if [[ -n "$UPSTREAM_BASE" ]]; then
+  echo "  Clash 订阅 URL（每个 token 一条）："
+  IFS=',' read -r -a _tokens <<< "$SUB_TOKENS"
+  for _t in "${_tokens[@]}"; do
+    _t=$(echo "$_t" | xargs)
+    echo "    http://${PUBLIC_IP}:${LISTEN_PORT}/clash/${_t}"
+  done
+else
+  echo "  Clash 订阅 URL："
+  echo "  http://${PUBLIC_IP}:${LISTEN_PORT}/clash/${SUB_TOKEN}"
+  echo
+  echo "  iPhone Shadowrocket 用 3x-ui 原订阅："
+  echo "  $UPSTREAM_SUB"
+fi
 echo
 echo "  日志查看： journalctl -u ace-vpn-sub -f"
 echo "  修改配置： systemctl edit ace-vpn-sub"

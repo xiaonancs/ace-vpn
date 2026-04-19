@@ -1,12 +1,25 @@
 #!/usr/bin/env python3
 """ace-vpn 订阅转换器：3x-ui base64 (vless://) → Clash Meta YAML
 
-用法（环境变量）：
-  UPSTREAM_SUB    3x-ui 订阅 URL（支持 http/https，自动跳过证书校验）
-  LISTEN_PORT    监听端口，默认 25500
-  SUB_TOKEN      访问 token，访问路径 /clash/$SUB_TOKEN，默认随机
-  COMPANY_CIDRS  公司内网 CIDR，逗号分隔，例："10.0.0.0/8,172.16.0.0/12"
-  COMPANY_SFX    公司域名后缀，逗号分隔，例："corp.example.com,internal.example.com"
+支持两种模式（环境变量）：
+
+[A] 单 token 模式（兼容旧部署）：
+    UPSTREAM_SUB    完整的 3x-ui 订阅 URL
+    SUB_TOKEN       访问 token，客户端 URL：/clash/$SUB_TOKEN
+
+[B] 多 token 模式（推荐，一个实例服务全家）：
+    UPSTREAM_BASE   3x-ui 订阅 URL 前缀（不含 SubId 那一段）
+                    例：https://127.0.0.1:2096/sub_xxxxxxxx
+    SUB_TOKENS      白名单，逗号分隔，每个 token = 3x-ui 里的一个 SubId
+                    例：sub-hxn,sub-hxn01,dad-home
+    客户端 URL：/clash/<任意白名单里的 token>
+    实际从 $UPSTREAM_BASE/<token> 拉上游
+
+通用环境变量：
+    LISTEN_PORT    监听端口，默认 25500
+    SERVER_OVERRIDE 强制覆盖节点 server 字段（防 3x-ui 返回 127.0.0.1）
+    COMPANY_CIDRS  公司内网 CIDR，逗号分隔
+    COMPANY_SFX    公司域名后缀，逗号分隔
 
 固定路由策略：
   - 公司内网（CIDR / 域名后缀）→ DIRECT
@@ -29,13 +42,32 @@ import yaml
 from typing import List, Dict, Any, Optional
 
 
+# 模式 A：单 token
 UPSTREAM_SUB = os.environ.get("UPSTREAM_SUB", "").strip()
-LISTEN_PORT = int(os.environ.get("LISTEN_PORT", "25500"))
 SUB_TOKEN = os.environ.get("SUB_TOKEN", "").strip() or secrets.token_urlsafe(12)
+
+# 模式 B：多 token（推荐）
+UPSTREAM_BASE = os.environ.get("UPSTREAM_BASE", "").strip().rstrip("/")
+SUB_TOKENS = [t.strip() for t in os.environ.get("SUB_TOKENS", "").split(",") if t.strip()]
+
+LISTEN_PORT = int(os.environ.get("LISTEN_PORT", "25500"))
 COMPANY_CIDRS = [c.strip() for c in os.environ.get("COMPANY_CIDRS", "").split(",") if c.strip()]
 COMPANY_SFX = [c.strip() for c in os.environ.get("COMPANY_SFX", "").split(",") if c.strip()]
 # 保险丝：强制覆盖节点 server 字段（3x-ui 会根据 Host 头返回 127.0.0.1 等内网 IP，这里统一改成公网 IP）
 SERVER_OVERRIDE = os.environ.get("SERVER_OVERRIDE", "").strip()
+
+
+def resolve_upstream(token: str) -> Optional[str]:
+    """按 token 解析上游 3x-ui 订阅 URL。None 表示 token 不在白名单。"""
+    if UPSTREAM_BASE and SUB_TOKENS:
+        if token in SUB_TOKENS:
+            return f"{UPSTREAM_BASE}/{token}"
+        return None
+    if UPSTREAM_SUB:
+        if token == SUB_TOKEN:
+            return UPSTREAM_SUB
+        return None
+    return None
 
 
 def fetch_sub(url: str) -> str:
@@ -305,12 +337,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
     server_version = "ace-vpn/1.0"
 
     def do_GET(self):  # noqa: N802
-        expected_prefix = f"/clash/{SUB_TOKEN}"
-        if self.path.rstrip("/") != expected_prefix:
+        # 期望 /clash/<token>，不接受多级 path
+        parts = self.path.rstrip("/").split("/")
+        if len(parts) != 3 or parts[1] != "clash" or not parts[2]:
+            self._reply(404, b"Not Found\n", "text/plain")
+            return
+        token = parts[2]
+        upstream = resolve_upstream(token)
+        if not upstream:
             self._reply(404, b"Not Found\n", "text/plain")
             return
         try:
-            raw = fetch_sub(UPSTREAM_SUB)
+            raw = fetch_sub(upstream)
             text = b64decode(raw) if "vless://" not in raw else raw
             proxies = []
             for line in text.splitlines():
@@ -341,13 +379,26 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 
 def main() -> int:
-    if not UPSTREAM_SUB:
-        print("ERROR: Set UPSTREAM_SUB env var to your 3x-ui subscription URL", file=sys.stderr)
+    if not UPSTREAM_BASE and not UPSTREAM_SUB:
+        print("ERROR: Set either UPSTREAM_BASE+SUB_TOKENS (multi) or UPSTREAM_SUB+SUB_TOKEN (single)",
+              file=sys.stderr)
         return 1
+    if UPSTREAM_BASE and not SUB_TOKENS:
+        print("ERROR: UPSTREAM_BASE set but SUB_TOKENS is empty; no tokens will be valid.",
+              file=sys.stderr)
+        return 1
+
     print(f"ace-vpn sub-converter listening on 0.0.0.0:{LISTEN_PORT}", flush=True)
-    print(f"  Upstream: {UPSTREAM_SUB}", flush=True)
-    print(f"  Clash URL: http://<VPS-IP>:{LISTEN_PORT}/clash/{SUB_TOKEN}", flush=True)
-    print(f"  SUB_TOKEN: {SUB_TOKEN}", flush=True)
+    if UPSTREAM_BASE:
+        print(f"  [Multi-token mode]", flush=True)
+        print(f"  Upstream base: {UPSTREAM_BASE}/<token>", flush=True)
+        for t in SUB_TOKENS:
+            print(f"    - http://<VPS-IP>:{LISTEN_PORT}/clash/{t}  (-> {UPSTREAM_BASE}/{t})", flush=True)
+    else:
+        print(f"  [Single-token mode]", flush=True)
+        print(f"  Upstream: {UPSTREAM_SUB}", flush=True)
+        print(f"  Clash URL: http://<VPS-IP>:{LISTEN_PORT}/clash/{SUB_TOKEN}", flush=True)
+
     with socketserver.ThreadingTCPServer(("0.0.0.0", LISTEN_PORT), Handler) as httpd:
         httpd.allow_reuse_address = True
         try:
