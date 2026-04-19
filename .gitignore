@@ -29,6 +29,15 @@ clients/*/personal/
 *.vmess
 subscription.*
 
+# 🔐 Real credentials / personal state (NEVER commit)
+# NOTE: use `private/*` (not `private/`) so that !private/README.md works.
+private/*
+!private/README.md
+!private/env.sh.example
+!private/credentials.txt.example
+*.creds
+ace-vpn-credentials.txt
+
 # Logs
 *.log
 logs/

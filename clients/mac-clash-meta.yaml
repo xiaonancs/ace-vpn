@@ -1,0 +1,218 @@
+# ============================================================
+# ace-vpn 客户端配置模板 - Clash Meta (Mihomo)
+# ============================================================
+# 适用：Mac / Windows / Android 的 Clash Meta 系客户端
+# 说明：
+#   - 本文件是【模板】，不包含订阅、UUID、真实公司域名
+#   - 真实使用时，通过 Clash Verge Rev / Mihomo Party 的
+#     "订阅 + 合并 profile" 把本地私有配置合进去
+#   - 或直接用 3x-ui 生成的订阅 URL（它会自动生成 proxies 部分）
+# ============================================================
+
+# ---------- 基础设置 ----------
+mixed-port: 7890
+allow-lan: false
+bind-address: "*"
+mode: rule
+log-level: info
+ipv6: false
+external-controller: 127.0.0.1:9090
+
+# 统一 DNS（公司域名交给公司 DNS，避免内网解析失败）
+dns:
+  enable: true
+  listen: 0.0.0.0:1053
+  ipv6: false
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  fake-ip-filter:
+    - '+.lan'
+    - '+.local'
+    # 公司域名禁用 fake-ip（让公司 DNS 真实解析）
+    - '+.corp.example.com'    # TODO: 改成你司域名
+    - '+.internal.example'    # TODO: 改成你司域名
+  nameserver-policy:
+    # 公司域名走公司 DNS
+    '+.corp.example.com': 10.1.1.1       # TODO: 改成你司 DNS
+    '+.internal.example': 10.1.1.1       # TODO: 改成你司 DNS
+    # 国内域名走国内 DNS
+    'geosite:cn': [223.5.5.5, 119.29.29.29]
+  default-nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+  nameserver:
+    - https://dns.cloudflare.com/dns-query
+    - https://dns.google/dns-query
+  fallback:
+    - https://1.1.1.1/dns-query
+    - tls://8.8.4.4:853
+  fallback-filter:
+    geoip: true
+    geoip-code: CN
+
+# ---------- TUN 模式（接管系统流量，终端 / Electron 自动走代理）----------
+tun:
+  enable: true
+  stack: mixed               # mixed 兼容性最好
+  auto-route: true
+  auto-detect-interface: true
+  dns-hijack:
+    - any:53
+  # 排除公司 VPN 的虚拟网卡（避免抢路由）
+  # macOS 上常见：utun0/utun1/utun2（公司 VPN 连上后 ifconfig 看一下）
+  # Windows：公司 VPN 适配器名
+  # 具体接口名按实际填：
+  # exclude-interface:
+  #   - utun5
+
+# ---------- 代理节点（由订阅注入，此处留空）----------
+proxies: []
+# 示例（真实由 3x-ui 订阅生成）：
+# - name: "VPS-Reality"
+#   type: vless
+#   server: YOUR.VPS.IP.HERE
+#   port: 443
+#   uuid: YOUR-UUID-HERE
+#   network: tcp
+#   tls: true
+#   flow: xtls-rprx-vision
+#   reality-opts:
+#     public-key: YOUR-PUBKEY-HERE
+#     short-id: YOUR-SHORTID-HERE
+#   servername: www.cloudflare.com
+#   client-fingerprint: chrome
+#
+# - name: "VPS-Hy2"
+#   type: hysteria2
+#   server: YOUR.VPS.IP.HERE
+#   port: 443
+#   password: YOUR-HY2-PASSWORD
+#   sni: www.cloudflare.com
+#   skip-cert-verify: false
+
+# ---------- 出口组 ----------
+proxy-groups:
+  - name: "🤖 AI 出口"
+    type: select
+    proxies:
+      - "🚀 主力海外"
+      - "⚡ 故障自动"
+      - DIRECT
+
+  - name: "🚀 主力海外"
+    type: select
+    use:
+      - subscription   # 订阅注入的所有节点
+    proxies:
+      - "⚡ 故障自动"
+
+  - name: "⚡ 故障自动"
+    type: fallback
+    use:
+      - subscription
+    url: "http://www.gstatic.com/generate_204"
+    interval: 300
+
+  - name: "🌍 海外兜底"
+    type: select
+    proxies:
+      - "🚀 主力海外"
+      - "⚡ 故障自动"
+      - DIRECT
+
+# ---------- 规则集提供者 ----------
+rule-providers:
+  chinamax:
+    type: http
+    behavior: classical
+    format: yaml
+    interval: 86400
+    url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/ChinaMax/ChinaMax_Classical.yaml"
+    path: ./ruleset/chinamax.yaml
+
+  global:
+    type: http
+    behavior: classical
+    format: yaml
+    interval: 86400
+    url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Global/Global_Classical.yaml"
+    path: ./ruleset/global.yaml
+
+  openai:
+    type: http
+    behavior: classical
+    format: yaml
+    interval: 86400
+    url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/OpenAI/OpenAI.yaml"
+    path: ./ruleset/openai.yaml
+
+  claude:
+    type: http
+    behavior: classical
+    format: yaml
+    interval: 86400
+    url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Claude/Claude.yaml"
+    path: ./ruleset/claude.yaml
+
+  gemini:
+    type: http
+    behavior: classical
+    format: yaml
+    interval: 86400
+    url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Gemini/Gemini.yaml"
+    path: ./ruleset/gemini.yaml
+
+  copilot:
+    type: http
+    behavior: classical
+    format: yaml
+    interval: 86400
+    url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Copilot/Copilot.yaml"
+    path: ./ruleset/copilot.yaml
+
+  discord:
+    type: http
+    behavior: classical
+    format: yaml
+    interval: 86400
+    url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Discord/Discord.yaml"
+    path: ./ruleset/discord.yaml
+
+# ---------- 规则（顺序即优先级）----------
+rules:
+  # ========== 1. 公司网段 / 公司域名 -> DIRECT ==========
+  # TODO: 按你司实际情况补全
+  - IP-CIDR,10.0.0.0/8,DIRECT,no-resolve
+  - IP-CIDR,172.16.0.0/12,DIRECT,no-resolve
+  - IP-CIDR,192.168.0.0/16,DIRECT,no-resolve
+  - DOMAIN-SUFFIX,corp.example.com,DIRECT
+  - DOMAIN-SUFFIX,internal.example,DIRECT
+
+  # ========== 2. AI 类 -> 专用 AI 出口 ==========
+  - RULE-SET,claude,🤖 AI 出口
+  - RULE-SET,openai,🤖 AI 出口
+  - RULE-SET,gemini,🤖 AI 出口
+  - RULE-SET,copilot,🤖 AI 出口
+  # Cursor 相关（Cursor 自身不在规则集，显式加）
+  - DOMAIN-SUFFIX,cursor.sh,🤖 AI 出口
+  - DOMAIN-SUFFIX,cursor.com,🤖 AI 出口
+  - DOMAIN-KEYWORD,cursor,🤖 AI 出口
+  # Anthropic Claude Code 上报
+  - DOMAIN-SUFFIX,anthropic.com,🤖 AI 出口
+  - DOMAIN-SUFFIX,statsig.anthropic.com,🤖 AI 出口
+
+  # ========== 3. Discord 等需要明确代理的海外服务 ==========
+  - RULE-SET,discord,🌍 海外兜底
+
+  # ========== 4. 国内规则 -> DIRECT ==========
+  - RULE-SET,chinamax,DIRECT
+
+  # ========== 5. 海外规则 -> 主力海外 ==========
+  - RULE-SET,global,🌍 海外兜底
+
+  # ========== 6. GEOIP 兜底 ==========
+  - GEOIP,CN,DIRECT,no-resolve
+  - GEOIP,LAN,DIRECT,no-resolve
+
+  # ========== 7. MATCH 兜底（保守直连） ==========
+  - MATCH,DIRECT
