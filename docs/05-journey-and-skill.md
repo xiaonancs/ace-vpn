@@ -21,12 +21,20 @@
 
 | 档位 | 选择 | 理由 |
 |------|------|------|
-| 🥇 长线（白嫖）| **Oracle Cloud Always Free ARM（Osaka）** | 4 核 24G 内存 200G 盘全免费；需要过注册风控（见 §5.2） |
-| 🥈 短线（验证用）| **Vultr Tokyo $6/月** | 按月付、东京到北京延迟 ~80ms、开通立用 |
-| 🥉 降级（年付）| HostDare CSSD0 CN2 GIA ¥259/年 | 不白嫖时性价比最高，三网 CN2 GIA 直连 |
-| 🆘 应急 | RackNerd 2G LA ¥132/年 | 备线，任何一家挂了切这台 |
+| 🥇 长线（白嫖，**已放弃**）| ~~Oracle Cloud Always Free ARM（Osaka）~~ | 两次注册均被风控，放弃（见 §5.2、`07-oracle-registration.md`）|
+| 🥈 短线（验证用）| **Vultr Tokyo $6/月** | 按月付、东京到北京 ~80ms；2026-04 跑通后转冷备，1 个月后 destroy |
+| 🥇 长线（**当前生产**）| **HostHatch Tokyo NVMe 2GB $4/月** | AMD EPYC + NVMe、东京节点、¥345/年；低延时对 AI 工具友好 |
+| 🥉 年付备选 | HostDare CKVM HK CN2 GIA ¥250/年 | CN2 GIA 晚高峰稳；但 HK IP 被 AI 厂商封，不推荐首选 |
+| 🆘 应急 | BandwagonHost CN2 GIA LA $49.99/年 | 晚高峰 4K 最稳；延时略高（~180ms），日常 AI 打字偏卡 |
 
-**决定因素**：Oracle 不用花钱 + 日本/新加坡节点延迟可接受；Vultr **先上为敬**、技术栈验证不受 Oracle 风控影响。
+**决定因素**：
+- 需求排序：**低延时（AI / 日常）> 晚高峰稳定（家人 4K）> 价格**；
+- RackNerd 无 Tokyo 节点、只有美西，放弃；
+- Bandwagon CN2 GIA 稳但延时高、日常 AI 打字体验差；
+- HostHatch Tokyo AMD EPYC NVMe，延时 ~50ms，单人 4K 够用，**略超预算但对** AI / Cursor **体验最好**。
+
+**迁移已完成（2026-04-21）**：Vultr → HostHatch，数据库整库迁移，pbk/sid/UUID 全保留，家人端订阅 URL 仅 IP 变化。
+**完整操作手册**：[08-vps-migration-playbook.md](08-vps-migration-playbook.md)。
 
 ### 1.2 协议 & 软件栈
 
@@ -42,7 +50,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  VPS（当前：Vultr Tokyo，未来：Oracle Osaka）             │
+│  VPS（生产：HostHatch Tokyo，冷备：Vultr Tokyo 1 月）      │
 │                                                          │
 │   TCP 443 ─── Xray VLESS+Reality  (主干)                 │
 │   UDP 8443 ── Hysteria2           (备用，可选)            │
@@ -350,6 +358,9 @@ systemctl restart x-ui
 - [04-requirements-summary.md](04-requirements-summary.md) — 需求与方案总结
 - **[05-journey-and-skill.md](05-journey-and-skill.md)** — 本文，skill 总结
 - [06-client-setup.md](06-client-setup.md) — 四端客户端详细配置
+- [07-oracle-registration.md](07-oracle-registration.md) — Oracle Cloud 注册全流程 + Fallback（失败归档）
+- [08-vps-migration-playbook.md](08-vps-migration-playbook.md) — 通用 VPS 迁移 playbook（含 Vultr → HostHatch 实战案例）
+- [09-new-mac-quickstart.md](09-new-mac-quickstart.md) — 新 Mac 30 分钟快速配置
 
 ---
 

@@ -4,7 +4,7 @@
 
 ## 📍 项目状态
 
-**阶段**：Vultr 跑通 ✅ 家人接入进行中 / Oracle 冷却重试
+**当前阶段**：**HostHatch Tokyo 生产中 ✅**（Vultr 冷备 1 个月）
 
 - ✅ VPS 选型（[docs/01-vps-decision.md](docs/01-vps-decision.md)）
 - ✅ 需求 & 方案（[docs/04-requirements-summary.md](docs/04-requirements-summary.md)）
@@ -12,9 +12,13 @@
 - ✅ 一键部署脚本（`scripts/install.sh` + `configure-3xui.sh` + `install-sub-converter.sh`）
 - ✅ **经验沉淀 / Skill 文档**（[docs/05-journey-and-skill.md](docs/05-journey-and-skill.md)）
 - ✅ **四端客户端手册**（[docs/06-client-setup.md](docs/06-client-setup.md)）
-- ✅ Vultr Tokyo 主 VPS 跑通，Mac + iPhone + Android 完成接入
+- ✅ **VPS 迁移通用 Playbook**（[docs/08-vps-migration-playbook.md](docs/08-vps-migration-playbook.md)）
+- ✅ **新 Mac 快速配置**（[docs/09-new-mac-quickstart.md](docs/09-new-mac-quickstart.md)）
+- ✅ Vultr Tokyo 跑通 → **HostHatch Tokyo 迁移完成**（pbk/sid/UUID 全保留，家人无感）
+- ✅ Mac + iPhone + iPad + Android 全接入
 - 🟡 家人 Windows × 2 待发送订阅
-- 🔴 Oracle Free 注册：冷却中，24–72h 后换邮箱重试
+- 🟡 Vultr 冷备观察 1 个月（2026-05-20 左右 destroy）
+- 🔴 Oracle Free 注册：两次失败放弃，转年付 HostHatch
 
 ## 🎯 目标
 
@@ -29,13 +33,13 @@
 
 | 层级 | 当前选择 | 备注 |
 |------|---------|------|
-| 主力 VPS（验证）| Vultr Tokyo $6/月 | 月付、立用 |
-| 主力 VPS（长线）| Oracle Cloud Always Free ARM（Osaka）| 4C/24G 免费 |
-| 降级 / 备线 | HostDare CSSD0 CN2 GIA ¥259/年 / RackNerd 2G ¥132/年 | |
+| 主力 VPS（生产）| **HostHatch Tokyo NVMe 2GB $4/月** | 低延时 Tokyo + AMD EPYC + NVMe，¥345/年 |
+| 冷备 VPS | Vultr Tokyo $6/月 | 1 个月过渡期，稳定后 destroy |
+| 曾考虑（未采用）| Oracle Free / RackNerd / HostDare / BandwagonHost | 详见 [01-vps-decision.md](docs/01-vps-decision.md) |
 | 服务端面板 | 3x-ui | [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) |
 | 主协议 | **VLESS + Reality**（Xray-core）| 抗封锁主力 |
 | 备用协议 | Hysteria2（UDP）| **当前禁用**（Xray 26.x 不兼容，[05 §5.3](docs/05-journey-and-skill.md)） |
-| 订阅转换 | 自研 Python `sub-converter.py` | 原生支持 Reality + 规则集 |
+| 订阅转换 | 自研 Python `sub-converter.py` | 原生支持 Reality + 规则集 + 多 token 单实例 |
 | Mac/Win/Android 客户端 | Mihomo Party / Clash Verge Rev | Clash Meta 全兼容 |
 | iOS/iPad 客户端 | Stash（首选）或 Shadowrocket | |
 
@@ -52,8 +56,11 @@ ace-vpn/
 │   ├── 02-oracle-setup.md       Oracle 开通手册
 │   ├── 03-server-setup.md       服务端部署手册
 │   ├── 04-requirements-summary.md  需求 & 方案总结
-│   ├── 05-journey-and-skill.md  🆕 经验沉淀 / Skill（整个项目的教科书）
-│   └── 06-client-setup.md       🆕 四端客户端详细配置
+│   ├── 05-journey-and-skill.md  经验沉淀 / Skill（整个项目的教科书）
+│   ├── 06-client-setup.md       四端客户端详细配置
+│   ├── 07-oracle-registration.md Oracle Free 注册尝试手册（失败归档）
+│   ├── 08-vps-migration-playbook.md 通用 VPS 迁移手册（已执行 Vultr→HostHatch）
+│   └── 09-new-mac-quickstart.md 🆕 新 Mac 30 分钟快速配置
 │
 ├── scripts/                     🛠️ VPS 端部署脚本（公开模板）
 │   ├── install.sh               入口：系统 → 防火墙 → 3x-ui → 自动配置
@@ -134,19 +141,25 @@ chmod 600 private/env.sh
 source private/env.sh       # 之后 $VPS_IP / $URL_CLASH_HOME 都可用
 ```
 
-## 🔄 迁移到 Oracle（15 分钟无感）
+## 🔄 VPS 迁移（数据库整库搬，15 分钟无感）
+
+**完整流程（含观察期和冷备策略）见 [docs/08-vps-migration-playbook.md](docs/08-vps-migration-playbook.md)**，下面是精简版：
 
 ```bash
 # 旧机
 systemctl stop x-ui
 scp /etc/x-ui/x-ui.db you@home-mac:~/backup/x-ui-$(date +%F).db
+systemctl start x-ui
 
-# 新机（Oracle）
+# 新机
 git clone <this-repo> && cd ace-vpn
 sudo bash scripts/install.sh             # 不带 AUTO_CONFIGURE，只装基础
 scp you@home-mac:~/backup/x-ui-*.db /etc/x-ui/x-ui.db
 systemctl restart x-ui
-# sub-converter 用原 SUB_TOKENS 白名单重装
+sudo UPSTREAM_BASE='https://127.0.0.1:2096/<sub_path>' \
+     SUB_TOKENS='sub-hxn,sub-hxn01' \
+     SERVER_OVERRIDE='<NEW_VPS_IP>' \
+     bash scripts/install-sub-converter.sh
 # 家人客户端仅需改订阅 URL 的 IP（或用域名就不用改）
 ```
 
@@ -164,7 +177,9 @@ systemctl restart x-ui
 
 - **2026-04-17** 项目启动；VPS 选型对比；Oracle 注册尝试（WAF 风控挂）
 - **2026-04-18** 改买 Vultr Tokyo；3x-ui 部署脚本 / 客户端模板 / Cursor/Claude Code 代理
-- **2026-04-19** `configure-3xui.sh` + `sub-converter.py` 打通整个链路；Mac/iPhone/Android 跑通 4K YouTube / Discord / Cursor；沉淀 `05-journey-and-skill.md` / `06-client-setup.md`；首次提交私有 Git 仓库
+- **2026-04-19** `configure-3xui.sh` + `sub-converter.py` 打通整个链路；Mac/iPhone/Android 跑通 4K YouTube / Discord / Cursor；沉淀 `05-journey-and-skill.md` / `06-client-setup.md`；首次提交私有 Git 仓库；`sub-converter` 重构为多 token 单实例模式
+- **2026-04-20** Oracle Free 第二次注册仍失败 → 放弃白嫖，改年付；选型 RackNerd Tokyo 2C/3G ¥180/年；沉淀 `08-vps-migration-playbook.md` 迁移手册（含数据库整库迁移 + Vultr 1 月冷备策略）
+- **2026-04-21** RackNerd 无 Tokyo 节点，改选 **HostHatch Tokyo NVMe 2GB $4/月**（¥345/年，略超预算但低延时）；下单被风控 → 关代理用真实中国 IP 重下通过；**Vultr → HostHatch 数据库整库迁移完成**，pbk/sid/UUID 全部保留，家人端订阅 URL 仅 IP 变化；新增 `09-new-mac-quickstart.md` 办公 Mac 快速配置手册，08 改名为通用 playbook
 
 ## 📄 许可
 
