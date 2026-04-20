@@ -5,10 +5,10 @@
 #   bash scripts/test-route.sh <URL 或 host>
 #
 # 例：
-#   bash scripts/test-route.sh https://live.ai.xiaomi.com/#/scene
-#   bash scripts/test-route.sh claude.ai
-#   bash scripts/test-route.sh youtube.com
-#   bash scripts/test-route.sh 10.108.1.1
+#   bash scripts/test-route.sh https://portal.corp-a.example/       # 公司内网
+#   bash scripts/test-route.sh claude.ai                            # 海外 AI
+#   bash scripts/test-route.sh youtube.com                          # 海外视频
+#   bash scripts/test-route.sh 10.0.0.53                            # 内网 IP
 #
 # 前置：
 #   source private/env.sh       # 需要 $VPS_IP（或显式设 VPS_IP 环境变量）

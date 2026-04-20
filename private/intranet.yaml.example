@@ -11,9 +11,10 @@
 # 设计说明：
 #
 #  · 每个 profile 相互独立，enabled: true 才会生效
-#  · 同时开多个 profile = 多家公司内网**并存**（比如外包同时接 A/B 公司）
-#  · domains 用 DOMAIN-SUFFIX 匹配（"ai.xiaomi.com" 会覆盖 live.ai.xiaomi.com 等全部子域）
-#    但**不会**反向匹配父域（"xiaomi.com" 不匹配，不怕误伤公开站）
+#  · 同时开多个 profile = 多家公司内网**并存**（外包同时接 A/B 公司场景）
+#  · domains 用 DOMAIN-SUFFIX 匹配（"app.corp-a.example" 覆盖
+#    "portal.app.corp-a.example" 等全部子域），但**不会**反向匹配父域
+#    ("corp-a.example" 不匹配，不怕误伤父域公开站)
 #  · cidrs 是 IP 段（你通过公司 VPN 拿到的 10.x / 172.x 等内网段）
 #  · dns_servers（推荐）是该 profile 下所有 domain 专用的 DNS，Mihomo 会绕开
 #    系统 DNS 直接问这几个 server。留空 → 回落 "system"。
@@ -21,59 +22,60 @@
 #    （例如 223.5.5.5），公共 DNS 不知道 10.x 内网 IP，domain 解析必挂。
 #    在办公网跑 `scutil --dns | grep nameserver | head -4` 或 `cat /etc/resolv.conf`
 #    看系统 DNS 实际值，填到这里即可。
+#
+# ⚠️ 真实隐私数据（公司名、内网 IP、域名、DNS）请**不要**写在这个 .example 里；
+#    拷贝成 private/intranet.yaml 再填，后者已在 .gitignore。
+#    或者在独立的 private 仓库维护，细节见 private/README.md。
 
 profiles:
 
-  # ────────── 当前公司：小米 ──────────
-  xiaomi:
+  # ────────── 当前公司：A 公司（示例，请自行替换） ──────────
+  corp-a:
     enabled: true
-    desc: "小米（北京）"
+    desc: "公司 A（占位示例）"
     dns_servers:             # 公司内网 DNS，强烈建议填
-      - 10.234.253.8
-      - 10.234.254.8
+      - 10.x.x.1
+      - 10.x.x.2
     domains:
-      - ai.xiaomi.com        # 覆盖 live.ai.xiaomi.com 等全部子域
-      - mioffice.cn
-      - xiaomi.srv
-      - miui.com             # 如果需要内网 miui 后台就留着
-      # - xiaomi.com         # 慎用：会把小米所有公开站也 DIRECT
+      - app.corp-a.example          # 覆盖 *.app.corp-a.example 全部子域
+      - office.corp-a.example       # 公司内部办公平台（示例）
+      - corp-a.srv                  # 公司内部服务统一 TLD（示例）
+      # - corp-a.example            # 慎用：会把所有公司公开站也 DIRECT
     cidrs:
       # 公司 VPN 下发的内网段；不确定就从 ifconfig / route -n 里抄
-      - 10.108.0.0/16
-      # - 10.136.0.0/12
+      - 10.0.0.0/8
+      # - 172.16.0.0/12
 
-  # ────────── 示例：切到字节跳动时改 enabled: true ──────────
-  bytedance:
+  # ────────── 示例：切到另一家公司时改 enabled: true ──────────
+  corp-b:
     enabled: false
-    desc: "字节跳动（示例）"
+    desc: "公司 B（占位示例）"
     dns_servers:
-      - 10.248.1.1           # 举例；填当时公司 VPN 给的 DNS
+      - 10.y.y.1               # 举例；填当时公司 VPN 给的 DNS
     domains:
-      - bytedance.feishu.cn
-      - bytedance.net
-      - zjurl.cn
-      - toutiao.feishu.cn
-    cidrs:
-      - 10.255.0.0/16
-
-  # ────────── 示例：外包时两家并存 ──────────
-  client-acme:
-    enabled: false
-    desc: "ACME 客户（示例）"
-    # dns_servers:            # 没有内网 DNS 就不填，domain 会用 "system"
-    domains:
-      - portal.acme-corp.com
-      - intranet.acme.local
+      - portal.corp-b.example
+      - corp-b.net
     cidrs:
       - 172.20.0.0/16
+
+  # ────────── 示例：外包 / 咨询时两家并存 ──────────
+  client-x:
+    enabled: false
+    desc: "客户 X（示例）"
+    # dns_servers:             # 没有内网 DNS 就不填，domain 会用 "system"
+    domains:
+      - portal.client-x.example
+      - intranet.client-x.local
+    cidrs:
+      - 172.30.0.0/16
 
   # ────────── 家里 NAS / 智能家居 ──────────
   home-lan:
     enabled: false
     desc: "家里 NAS / 路由器后台"
     domains:
-      - synology.me
-      - local.lan
+      - nas.home.lan
+      - router.home.lan
     cidrs:
       - 192.168.50.0/24
 
@@ -81,9 +83,9 @@ profiles:
 # 替代写法（扁平格式，不支持 profile 切换，仅兼容保留）：
 #
 # domains:
-#   - ai.xiaomi.com
-#   - mioffice.cn
+#   - app.corp-a.example
+#   - office.corp-a.example
 # cidrs:
-#   - 10.108.0.0/16
+#   - 10.0.0.0/8
 #
 # 两种格式二选一。profiles: 为空 dict 时 fallback 读扁平字段。

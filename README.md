@@ -29,7 +29,8 @@
 | 文档 | 给谁看 |
 |------|--------|
 | **[docs/oracle-register.md](docs/oracle-register.md)** | **想白嫖 0 元方案的人** — 甲骨文云 Always Free 申请全教程（含踩坑） |
-| **[docs/skill.md](docs/skill.md)** | **开发者 / 维护者** — 架构、部署、迁移 playbook、踩坑 |
+| **[docs/traffic-routing-architecture.md](docs/traffic-routing-architecture.md)** | **想学技术方案的人** — 三网段（海外 / 大陆 / 公司内网）分流架构详解，含架构图 / 流程图 / DNS 设计 / 踩坑录 |
+| **[docs/skill.md](docs/skill.md)** | **开发者 / 维护者** — 从零到一部署、迁移 playbook、运维 cheatsheet |
 | **[docs/user-guide.md](docs/user-guide.md)** | **普通用户 / 家人** — 四端客户端安装和使用 |
 
 ## 🎯 目标
@@ -75,7 +76,7 @@ source private/env.sh       # $VPS_IP / $URL_CLASH_SELF 等变量即可用
 
 ### 🏢 内网 / 公司专线分流（Mac 编辑 → VPS 热加载 → 全家同步）
 
-访问 `live.ai.xiaomi.com`、字节飞书、家里 NAS 等需要**走本地 / 公司 VPN 而不是代理**？一步到位：
+访问 `portal.corp-a.example`（公司内网应用）、公司协作平台、家里 NAS 等需要**走本地 / 公司 VPN 而不是代理**？一步到位：
 
 ```bash
 cp private/intranet.yaml.example private/intranet.yaml
@@ -100,12 +101,12 @@ bash scripts/sync-intranet.sh      # scp 到 VPS 的 /etc/ace-vpn/intranet.yaml
 >   ~/Library/Application\ Support/mihomo-party/config.yaml
 > # 重开 Clash Party，之后订阅里任何 DNS 配置都会生效
 > ```
-> 详见 [docs/skill.md §8.12](docs/skill.md)。
+> 详见 [docs/traffic-routing-architecture.md §9.1](docs/traffic-routing-architecture.md#91-客户端-gui-偷偷吞掉订阅的-dns-段) 或 [docs/skill.md §8.12](docs/skill.md)。
 
 ### 🔍 分流链路诊断（给一个 URL，告诉你走哪儿）
 
 ```bash
-bash scripts/test-route.sh https://live.ai.xiaomi.com/#/scene
+bash scripts/test-route.sh https://portal.corp-a.example/
 ```
 
 输出：
@@ -124,6 +125,8 @@ ace-vpn/
 ├── .gitignore                   🔐 排除 private/ 和所有凭据文件
 │
 ├── docs/                        📚 文档（公开）
+│   ├── oracle-register.md       甲骨文云 Always Free 申请教程
+│   ├── traffic-routing-architecture.md  三网段分流架构详解（对外技术方案）
 │   ├── skill.md                 开发者技术文档（架构/部署/迁移/踩坑）
 │   └── user-guide.md            普通用户手册（四端客户端配置）
 │

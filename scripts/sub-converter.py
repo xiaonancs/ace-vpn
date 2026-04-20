@@ -76,13 +76,13 @@ def load_intranet_config() -> Dict[str, Any]:
 
     返回：
       {
-        "domains": ["ai.xiaomi.com", ...],
-        "cidrs":   ["10.108.0.0/16", ...],
+        "domains": ["app.corp-a.example", ...],
+        "cidrs":   ["10.0.0.0/8", ...],
         "domain_dns": {                       # 域名 → 专属 DNS 服务器列表
-            "ai.xiaomi.com": ["10.234.253.8", "10.234.254.8"],
+            "app.corp-a.example": ["10.x.x.1", "10.x.x.2"],
             ...
         },
-        "active_profiles": ["xiaomi", ...],   # 仅用于日志
+        "active_profiles": ["corp-a", ...],   # 仅用于日志
       }
 
     关于 domain_dns：
@@ -401,9 +401,9 @@ def build_clash_yaml(proxies: List[Dict[str, Any]], intranet: Dict[str, Any]) ->
                 "+.msftncsi.com",
                 *[f"+.{sfx}" for sfx in intranet["domains"]],
             ],
-            # 关键：内网域名用 profile 里配的 dns_servers（例如 10.234.253.8），
-            # 回落到 "system"。用具体 DNS 能绕过 Mihomo / Clash Party GUI
-            # 强改系统 DNS 后内网域名解不出的问题。
+            # 关键：内网域名用 profile 里配的 dns_servers（例如公司 VPN 下发的
+            # 10.x.x.x 内网 DNS），回落到 "system"。用具体 DNS 能绕过 Mihomo /
+            # Clash Party GUI 强改系统 DNS 后内网域名解不出的问题。
             # 用 list(...) 给每个 domain 独立副本，避免 PyYAML dump 出 &id001
             # 锚点语法（Mihomo 支持，但某些简易客户端/可读性不友好）
             "nameserver-policy": {
