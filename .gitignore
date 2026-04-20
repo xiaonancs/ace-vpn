@@ -35,6 +35,7 @@ private/*
 !private/README.md
 !private/env.sh.example
 !private/credentials.txt.example
+!private/intranet.yaml.example
 *.creds
 ace-vpn-credentials.txt
 

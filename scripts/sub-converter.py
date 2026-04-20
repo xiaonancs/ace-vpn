@@ -18,11 +18,17 @@
 通用环境变量：
     LISTEN_PORT    监听端口，默认 25500
     SERVER_OVERRIDE 强制覆盖节点 server 字段（防 3x-ui 返回 127.0.0.1）
-    COMPANY_CIDRS  公司内网 CIDR，逗号分隔
-    COMPANY_SFX    公司域名后缀，逗号分隔
+    COMPANY_CIDRS  公司内网 CIDR，逗号分隔（兼容旧部署，不推荐）
+    COMPANY_SFX    公司域名后缀，逗号分隔（兼容旧部署，不推荐）
+
+动态内网配置（推荐，每次 HTTP 请求热加载，改完无需重启服务）：
+    INTRANET_FILE  内网规则 YAML 路径，默认 /etc/ace-vpn/intranet.yaml
+
+    intranet.yaml 结构见 private/intranet.yaml.example；支持多 profile，
+    每个 profile 带 enabled 开关，互相独立。本地编辑后 scp 到 VPS 即可。
 
 固定路由策略：
-  - 公司内网（CIDR / 域名后缀）→ DIRECT
+  - 公司内网（CIDR / 域名后缀）→ DIRECT，DNS 走系统解析（走公司内网 DNS 拿内网 IP）
   - AI（OpenAI/Claude/Gemini/Cursor/GitHub Copilot）→ 🤖 AI（默认走代理）
   - 境外社交（Discord/X/Telegram/Facebook/Instagram/YouTube）→ 🚀 PROXY
   - 境内常用（抖音/淘宝/B 站/微博/QQ/百度）→ DIRECT
@@ -53,8 +59,73 @@ SUB_TOKENS = [t.strip() for t in os.environ.get("SUB_TOKENS", "").split(",") if 
 LISTEN_PORT = int(os.environ.get("LISTEN_PORT", "25500"))
 COMPANY_CIDRS = [c.strip() for c in os.environ.get("COMPANY_CIDRS", "").split(",") if c.strip()]
 COMPANY_SFX = [c.strip() for c in os.environ.get("COMPANY_SFX", "").split(",") if c.strip()]
+INTRANET_FILE = os.environ.get("INTRANET_FILE", "/etc/ace-vpn/intranet.yaml").strip()
 # 保险丝：强制覆盖节点 server 字段（3x-ui 会根据 Host 头返回 127.0.0.1 等内网 IP，这里统一改成公网 IP）
 SERVER_OVERRIDE = os.environ.get("SERVER_OVERRIDE", "").strip()
+
+
+def load_intranet_config() -> Dict[str, Any]:
+    """热加载内网规则。每次 HTTP 请求调用一次，改 YAML 无需重启服务。
+
+    合并来源（按顺序，去重保留顺序）：
+      1. 环境变量 COMPANY_SFX / COMPANY_CIDRS（兼容旧部署）
+      2. INTRANET_FILE 里 enabled=true 的各 profile
+
+    返回：
+      {
+        "domains": ["ai.xiaomi.com", ...],
+        "cidrs":   ["10.108.0.0/16", ...],
+        "active_profiles": ["xiaomi", ...],   # 仅用于日志
+      }
+    """
+    domains: List[str] = list(COMPANY_SFX)
+    cidrs: List[str] = list(COMPANY_CIDRS)
+    active: List[str] = []
+
+    if INTRANET_FILE and os.path.isfile(INTRANET_FILE):
+        try:
+            with open(INTRANET_FILE, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+            # 支持两种格式：
+            # (a) 扁平：{domains: [...], cidrs: [...]}
+            # (b) 多 profile：{profiles: {name: {enabled: bool, domains: [...], cidrs: [...]}}}
+            if isinstance(data.get("profiles"), dict):
+                for name, prof in (data["profiles"] or {}).items():
+                    if not isinstance(prof, dict):
+                        continue
+                    if not prof.get("enabled", False):
+                        continue
+                    active.append(name)
+                    for d in (prof.get("domains") or []):
+                        if isinstance(d, str) and d.strip():
+                            domains.append(d.strip())
+                    for c in (prof.get("cidrs") or []):
+                        if isinstance(c, str) and c.strip():
+                            cidrs.append(c.strip())
+            else:
+                for d in (data.get("domains") or []):
+                    if isinstance(d, str) and d.strip():
+                        domains.append(d.strip())
+                for c in (data.get("cidrs") or []):
+                    if isinstance(c, str) and c.strip():
+                        cidrs.append(c.strip())
+        except Exception as e:  # noqa: BLE001
+            sys.stderr.write(f"[intranet] failed to parse {INTRANET_FILE}: {e}\n")
+
+    def _dedup(xs: List[str]) -> List[str]:
+        seen = set()
+        out = []
+        for x in xs:
+            if x not in seen:
+                seen.add(x)
+                out.append(x)
+        return out
+
+    return {
+        "domains": _dedup(domains),
+        "cidrs": _dedup(cidrs),
+        "active_profiles": active,
+    }
 
 
 def resolve_upstream(token: str) -> Optional[str]:
@@ -221,13 +292,13 @@ CHINA_DIRECT = [
 ]
 
 
-def build_rules(proxy_names: List[str]) -> List[str]:
+def build_rules(proxy_names: List[str], intranet: Dict[str, Any]) -> List[str]:
     rules: List[str] = []
 
     # 1. 公司内网最优先（CIDR + 域名）
-    for cidr in COMPANY_CIDRS:
+    for cidr in intranet["cidrs"]:
         rules.append(f"IP-CIDR,{cidr},DIRECT,no-resolve")
-    for sfx in COMPANY_SFX:
+    for sfx in intranet["domains"]:
         rules.append(f"DOMAIN-SUFFIX,{sfx},DIRECT")
 
     # 2. 私有网段兜底
@@ -267,7 +338,7 @@ def build_rules(proxy_names: List[str]) -> List[str]:
     return rules
 
 
-def build_clash_yaml(proxies: List[Dict[str, Any]]) -> str:
+def build_clash_yaml(proxies: List[Dict[str, Any]], intranet: Dict[str, Any]) -> str:
     if not proxies:
         return "# ERROR: No nodes parsed from upstream subscription.\n"
 
@@ -292,7 +363,7 @@ def build_clash_yaml(proxies: List[Dict[str, Any]]) -> str:
             "listen": "0.0.0.0:1053",
             "enhanced-mode": "fake-ip",
             "fake-ip-range": "198.18.0.1/16",
-            "nameserver-policy": {sfx: "system" for sfx in COMPANY_SFX},
+            "nameserver-policy": {sfx: "system" for sfx in intranet["domains"]},
             "nameserver": [
                 "https://doh.pub/dns-query",
                 "https://dns.alidns.com/dns-query",
@@ -325,7 +396,7 @@ def build_clash_yaml(proxies: List[Dict[str, Any]]) -> str:
             {"name": "📺 MEDIA", "type": "select", "proxies": ["🚀 PROXY", "⚡ AUTO", *names]},
             {"name": "🐟 FINAL", "type": "select", "proxies": ["🚀 PROXY", "DIRECT"]},
         ],
-        "rules": build_rules(names),
+        "rules": build_rules(names, intranet),
     }
 
     return yaml.safe_dump(
@@ -337,7 +408,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
     server_version = "ace-vpn/1.0"
 
     def do_GET(self):  # noqa: N802
-        # 期望 /clash/<token>，不接受多级 path
+        # 期望 /clash/<token>，不接受多级 path；/healthz 是简单自检
+        if self.path.rstrip("/") == "/healthz":
+            intranet = load_intranet_config()
+            body = (
+                f"ok\n"
+                f"active_profiles={','.join(intranet['active_profiles']) or '(none)'}\n"
+                f"domains={len(intranet['domains'])}\n"
+                f"cidrs={len(intranet['cidrs'])}\n"
+            ).encode()
+            self._reply(200, body, "text/plain; charset=utf-8")
+            return
+
         parts = self.path.rstrip("/").split("/")
         if len(parts) != 3 or parts[1] != "clash" or not parts[2]:
             self._reply(404, b"Not Found\n", "text/plain")
@@ -348,6 +430,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._reply(404, b"Not Found\n", "text/plain")
             return
         try:
+            intranet = load_intranet_config()  # 每次请求热加载 → 改 YAML 立即生效
             raw = fetch_sub(upstream)
             text = b64decode(raw) if "vless://" not in raw else raw
             proxies = []
@@ -355,7 +438,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 p = parse_vless(line.strip())
                 if p:
                     proxies.append(p)
-            body = build_clash_yaml(proxies).encode("utf-8")
+            body = build_clash_yaml(proxies, intranet).encode("utf-8")
             self._reply(
                 200,
                 body,
@@ -398,6 +481,14 @@ def main() -> int:
         print(f"  [Single-token mode]", flush=True)
         print(f"  Upstream: {UPSTREAM_SUB}", flush=True)
         print(f"  Clash URL: http://<VPS-IP>:{LISTEN_PORT}/clash/{SUB_TOKEN}", flush=True)
+
+    _init = load_intranet_config()
+    print(
+        f"  Intranet file: {INTRANET_FILE} "
+        f"(active: {','.join(_init['active_profiles']) or '(none)'}, "
+        f"domains: {len(_init['domains'])}, cidrs: {len(_init['cidrs'])})",
+        flush=True,
+    )
 
     with socketserver.ThreadingTCPServer(("0.0.0.0", LISTEN_PORT), Handler) as httpd:
         httpd.allow_reuse_address = True

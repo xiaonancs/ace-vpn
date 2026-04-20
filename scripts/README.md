@@ -62,6 +62,9 @@ sudo cat /root/ace-vpn-credentials.txt
 | [`setup-firewall.sh`](setup-firewall.sh) | UFW 默认策略 + 放行必要端口 |
 | [`install-3xui.sh`](install-3xui.sh) | 安装 3x-ui Web 面板 |
 | [`configure-3xui.sh`](configure-3xui.sh) | **自动化** 登录 3x-ui + 生成 Reality 密钥/UUID + 建入站 + 输出分享链接 |
+| [`install-sub-converter.sh`](install-sub-converter.sh) | 部署 Clash 订阅转换器 + 初始化内网规则文件 `/etc/ace-vpn/intranet.yaml` |
+| [`sub-converter.py`](sub-converter.py) | 转换器本体；每次 HTTP 请求热加载 intranet.yaml，改完无需重启 |
+| [`sync-intranet.sh`](sync-intranet.sh) | **Mac 本地工具**：把 `private/intranet.yaml` 同步到 VPS，客户端刷新订阅即生效 |
 | [`lib/common.sh`](lib/common.sh) | 共享工具函数（日志、apt 锁等待、root 检查） |
 
 ---

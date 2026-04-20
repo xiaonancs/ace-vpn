@@ -73,6 +73,22 @@ chmod 600 private/env.sh
 source private/env.sh       # $VPS_IP / $URL_CLASH_SELF 等变量即可用
 ```
 
+### 🏢 内网 / 公司专线分流（Mac 编辑 → VPS 热加载 → 全家同步）
+
+访问 `live.ai.xiaomi.com`、字节飞书、家里 NAS 等需要**走本地 / 公司 VPN 而不是代理**？一步到位：
+
+```bash
+cp private/intranet.yaml.example private/intranet.yaml
+$EDITOR private/intranet.yaml      # 按公司分 profile，用 enabled: true/false 切换
+source private/env.sh
+bash scripts/sync-intranet.sh      # scp 到 VPS 的 /etc/ace-vpn/intranet.yaml
+```
+
+- 换公司：把旧 profile `enabled: false`，新 profile `enabled: true`，再 sync 一次
+- 多公司并存：同时开多个 profile（外包 / 咨询场景）
+- VPS 端**每次 HTTP 订阅请求热加载**，不用重启 systemd
+- 客户端刷新订阅即生效（Mac / iPhone / Windows / Android）
+
 ## 📂 目录结构
 
 ```
@@ -90,8 +106,9 @@ ace-vpn/
 │   ├── setup-firewall.sh        UFW 防火墙
 │   ├── install-3xui.sh          3x-ui 安装
 │   ├── configure-3xui.sh        通过 API 自动建 Reality 入站
-│   ├── install-sub-converter.sh Clash YAML 转换器 systemd 部署
-│   ├── sub-converter.py         Python 转换器（原生支持 Reality + 多 token）
+│   ├── install-sub-converter.sh Clash YAML 转换器 systemd 部署 + 初始化 intranet.yaml
+│   ├── sub-converter.py         Python 转换器（Reality + 多 token + 内网规则热加载）
+│   ├── sync-intranet.sh         🔥 Mac 工具：把 private/intranet.yaml 同步到 VPS（无需重启）
 │   ├── lib/common.sh            共享工具
 │   └── README.md                脚本总览
 │
@@ -106,7 +123,9 @@ ace-vpn/
     ├── README.md                ⚠️ 目录使用说明（会提交）
     ├── env.sh.example           模板（会提交）
     ├── credentials.txt.example  模板（会提交）
+    ├── intranet.yaml.example    🆕 内网分流模板（会提交，含多 profile 示例）
     ├── env.sh                   真实 IP/Token/账号（不提交）
+    ├── intranet.yaml            真实公司内网域名/IP 段（不提交）
     └── ace-vpn-credentials.txt  面板凭据 + UUID（不提交）
 ```
 
@@ -127,6 +146,7 @@ ace-vpn/
 - **2026-04-19** `configure-3xui.sh` + `sub-converter.py` 打通整个链路；Mac/iPhone/Android 跑通 4K YouTube / Discord / Cursor；首次提交私有 Git 仓库；`sub-converter` 重构为多 token 单实例模式
 - **2026-04-21** 正式付费方案 HostHatch Tokyo $4/月；下单被风控 → 关代理用真实中国 IP 重下通过；**Vultr → HostHatch 数据库整库迁移完成**，pbk/sid/UUID 全保留，家人端仅改 IP
 - **2026-04-22** 文档瘦身：把 00-09 多份 doc 合并为 `docs/skill.md`（开发者）+ `docs/user-guide.md`（用户）两份
+- **2026-04-27** 内网分流重构：`private/intranet.yaml` 多 profile + `enabled` 开关，`scripts/sync-intranet.sh` 一键 scp，VPS 端热加载无需重启。支持「换公司」/「多公司并存」零配置切换
 
 ## 📄 许可
 

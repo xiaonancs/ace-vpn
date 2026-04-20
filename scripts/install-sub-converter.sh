@@ -32,6 +32,7 @@ LISTEN_PORT=${LISTEN_PORT:-25500}
 COMPANY_CIDRS=${COMPANY_CIDRS:-}
 COMPANY_SFX=${COMPANY_SFX:-}
 SERVER_OVERRIDE=${SERVER_OVERRIDE:-}
+INTRANET_FILE=${INTRANET_FILE:-/etc/ace-vpn/intranet.yaml}
 
 if [[ -n "$UPSTREAM_BASE" ]]; then
   if [[ -z "$SUB_TOKENS" ]]; then
@@ -59,6 +60,21 @@ INSTALL_DIR=/opt/ace-vpn-sub
 mkdir -p "$INSTALL_DIR"
 install -m 0755 "$SCRIPT_DIR/sub-converter.py" "$INSTALL_DIR/sub-converter.py"
 
+log_step "初始化内网规则文件 $INTRANET_FILE（热加载，改完无需重启）"
+install -d -m 0755 "$(dirname "$INTRANET_FILE")"
+if [[ ! -f "$INTRANET_FILE" ]]; then
+  cat >"$INTRANET_FILE" <<'EOF'
+# ace-vpn 内网直连规则（sub-converter 每次 HTTP 请求时热加载）
+# 本地编辑 private/intranet.yaml 后用 scripts/sync-intranet.sh 上传
+# 格式详见 private/intranet.yaml.example
+profiles: {}
+EOF
+  chmod 0644 "$INTRANET_FILE"
+  log_info "  已生成空配置；之后用 scripts/sync-intranet.sh 覆盖"
+else
+  log_info "  已存在，保留不动"
+fi
+
 log_step "写入 systemd 服务"
 cat >/etc/systemd/system/ace-vpn-sub.service <<EOF
 [Unit]
@@ -75,6 +91,7 @@ Environment=LISTEN_PORT=$LISTEN_PORT
 Environment=COMPANY_CIDRS=$COMPANY_CIDRS
 Environment=COMPANY_SFX=$COMPANY_SFX
 Environment=SERVER_OVERRIDE=$SERVER_OVERRIDE
+Environment=INTRANET_FILE=$INTRANET_FILE
 ExecStart=/usr/bin/python3 $INSTALL_DIR/sub-converter.py
 Restart=on-failure
 RestartSec=3

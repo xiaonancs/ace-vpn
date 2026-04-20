@@ -1,0 +1,79 @@
+# ace-vpn 内网 DIRECT 规则（本地编辑，一键同步到 VPS 热加载）
+#
+# ┌──── 工作流 ────────────────────────────────────────────┐
+# │ 1. cp private/intranet.yaml.example private/intranet.yaml │
+# │ 2. $EDITOR private/intranet.yaml        # 改下面的 profiles │
+# │ 3. source private/env.sh                                │
+# │ 4. bash scripts/sync-intranet.sh        # scp 到 VPS     │
+# │ 5. Mac/手机 客户端刷新订阅 → 立即生效                   │
+# └──────────────────────────────────────────────────────────┘
+#
+# 设计说明：
+#
+#  · 每个 profile 相互独立，enabled: true 才会生效
+#  · 同时开多个 profile = 多家公司内网**并存**（比如外包同时接 A/B 公司）
+#  · domains 用 DOMAIN-SUFFIX 匹配（"ai.xiaomi.com" 会覆盖 live.ai.xiaomi.com 等全部子域）
+#    但**不会**反向匹配父域（"xiaomi.com" 不匹配，不怕误伤公开站）
+#  · cidrs 是 IP 段（你通过公司 VPN 拿到的 10.x / 172.x 等内网段）
+#  · 这些 domains 的 DNS 会自动走"系统 DNS"（公司 VPN 下发的 DNS），而不是公共 DoH
+#    这样才能拿到内网 IP；这是 domains 放这里比"本地手写 DIRECT"更稳的核心原因
+
+profiles:
+
+  # ────────── 当前公司：小米 ──────────
+  xiaomi:
+    enabled: true
+    desc: "小米（北京）"
+    domains:
+      - ai.xiaomi.com        # 覆盖 live.ai.xiaomi.com 等全部子域
+      - mioffice.cn
+      - xiaomi.srv
+      - miui.com             # 如果需要内网 miui 后台就留着
+      # - xiaomi.com         # 慎用：会把小米所有公开站也 DIRECT
+    cidrs:
+      # 公司 VPN 下发的内网段；不确定就从 ifconfig / route -n 里抄
+      - 10.108.0.0/16
+      # - 10.136.0.0/12
+
+  # ────────── 示例：切到字节跳动时改 enabled: true ──────────
+  bytedance:
+    enabled: false
+    desc: "字节跳动（示例）"
+    domains:
+      - bytedance.feishu.cn
+      - bytedance.net
+      - zjurl.cn
+      - toutiao.feishu.cn
+    cidrs:
+      - 10.255.0.0/16
+
+  # ────────── 示例：外包时两家并存 ──────────
+  client-acme:
+    enabled: false
+    desc: "ACME 客户（示例）"
+    domains:
+      - portal.acme-corp.com
+      - intranet.acme.local
+    cidrs:
+      - 172.20.0.0/16
+
+  # ────────── 家里 NAS / 智能家居 ──────────
+  home-lan:
+    enabled: false
+    desc: "家里 NAS / 路由器后台"
+    domains:
+      - synology.me
+      - local.lan
+    cidrs:
+      - 192.168.50.0/24
+
+# ─────────────────────────────────────────────────────────────
+# 替代写法（扁平格式，不支持 profile 切换，仅兼容保留）：
+#
+# domains:
+#   - ai.xiaomi.com
+#   - mioffice.cn
+# cidrs:
+#   - 10.108.0.0/16
+#
+# 两种格式二选一。profiles: 为空 dict 时 fallback 读扁平字段。

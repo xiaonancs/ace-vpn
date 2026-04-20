@@ -307,15 +307,85 @@ ssh root@$VPS_IP "systemctl restart ace-vpn-sub"
 # 3. 家人客户端「更新订阅」，10 秒全家生效
 ```
 
-### 6.3 添加公司内网分流
+### 6.3 公司内网分流（多 profile 热加载，2026-04-27 重构）
+
+**旧做法**（依然兼容但不推荐）：`systemctl edit` 改 `COMPANY_CIDRS` / `COMPANY_SFX` 环境变量 → `systemctl restart`。缺点：每次改都要 ssh、换公司得改环境变量、无法多公司并存。
+
+**新做法**：一份 YAML + Mac 本地编辑 + 一键 scp 热加载。
+
+#### 设计
+
+| 组件 | 位置 | 作用 |
+|------|------|------|
+| `private/intranet.yaml.example` | 仓库内（公开）| 模板，含多 profile 示例 |
+| `private/intranet.yaml` | Mac 本地（gitignored）| **真实源**，你改这个 |
+| `/etc/ace-vpn/intranet.yaml` | VPS 上 | 服务读的副本；`scripts/sync-intranet.sh` 覆盖它 |
+| `scripts/sync-intranet.sh` | Mac 本地工具 | 校验 YAML → scp → curl `/healthz` 自检 |
+| `sub-converter.py::load_intranet_config()` | VPS 服务 | **每次 HTTP 请求都 re-parse YAML**，零重启 |
+
+#### YAML 格式（两种）
+
+**推荐：profiles 格式**（支持切公司 / 多公司并存）：
+
+```yaml
+profiles:
+  xiaomi:
+    enabled: true
+    desc: "小米"
+    domains: [ai.xiaomi.com, mioffice.cn, xiaomi.srv]
+    cidrs:   [10.108.0.0/16]
+
+  bytedance:
+    enabled: false
+    desc: "字节"
+    domains: [bytedance.feishu.cn, bytedance.net]
+    cidrs:   [10.255.0.0/16]
+```
+
+**fallback：扁平格式**（单公司，不支持切换）：
+
+```yaml
+domains: [ai.xiaomi.com]
+cidrs:   [10.108.0.0/16]
+```
+
+#### 工作流
 
 ```bash
-ssh root@$VPS_IP "systemctl edit ace-vpn-sub"
-# 在 [Service] 段加：
-#   Environment=COMPANY_CIDRS=10.128.0.0/16
-#   Environment=COMPANY_SFX=corp.example.com
-ssh root@$VPS_IP "systemctl restart ace-vpn-sub"
+# 首次
+cp private/intranet.yaml.example private/intranet.yaml
+$EDITOR private/intranet.yaml
+
+# 改 / 换公司 / 加新公司
+$EDITOR private/intranet.yaml
+source private/env.sh && bash scripts/sync-intranet.sh
+
+# 家人端刷新订阅即生效（不需要 ssh，不需要 systemctl restart）
 ```
+
+#### 合并顺序（多来源时）
+
+1. 环境变量 `COMPANY_SFX` / `COMPANY_CIDRS`（向后兼容旧部署）
+2. `intranet.yaml` 里 `enabled: true` 的各 profile 依次合并
+3. 结果去重（保留首次出现顺序）
+
+#### /healthz 自检
+
+```bash
+curl -s http://$VPS_IP:25500/healthz
+# 输出：
+# ok
+# active_profiles=xiaomi,bytedance
+# domains=7
+# cidrs=2
+```
+
+#### 为什么是热加载而不是 SIGHUP
+
+每次 HTTP 请求调一次 `load_intranet_config()`，开销 < 1ms（小 YAML），换来：
+- **零操作成本**：scp 完就生效，没有「忘了 restart」的问题
+- **订阅请求天然低频**（每家人客户端一天几次到几十次），性能可忽略
+- 客户端 `Profile-Update-Interval: 24` 头会告诉它一天拉一次 YAML，被动 pull 模型
 
 ### 6.4 进阶：混用社区 ruleset
 
