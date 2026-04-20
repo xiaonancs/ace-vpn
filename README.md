@@ -1,6 +1,6 @@
 # ACE-VPN
 
-> **终身免费的私人专用 VPN，全球 AI 无障碍使用。**
+> **Aways Free 终身免费的私人专用 VPN，全球 AI 无障碍使用。**
 >
 > 基于 **Xray + Reality 协议** 自建家庭 VPN，2–5 人共享、**YouTube 4K 流畅**、**Claude / ChatGPT / Cursor 永不掉线**、抗 GFW、全设备自动分流（公司内网 / 国内 / 海外三网段）。
 >
@@ -10,7 +10,7 @@
 ## 💸 为什么终身免费？
 
 - **方案本身完全开源**（MIT），代码和部署脚本永久免费
-- **甲骨文云 Always Free ARM**：4 vCPU / 24 GB RAM / 200 GB 存储 / 10 TB 流量 — **永久 0 元**
+- **甲骨文云 Always Free ARM**：4 vCPU / 24 GB RAM / 200 GB 存储 / 10 TB 流量 — **永久 0 元（个别地区除外）**
 - 搞不定白嫖？HostHatch **¥345/年** 兜底，仍远低于商业 VPN 订阅（Surfshark ~¥200/年 仅够 1 人，本项目够全家）
 - **15 分钟无感迁移**：任意 VPS 挂了，新机 5 行命令重建，家人端仅改个 IP
 
