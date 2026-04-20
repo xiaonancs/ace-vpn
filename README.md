@@ -89,6 +89,19 @@ bash scripts/sync-intranet.sh      # scp 到 VPS 的 /etc/ace-vpn/intranet.yaml
 - VPS 端**每次 HTTP 订阅请求热加载**，不用重启 systemd
 - 客户端刷新订阅即生效（Mac / iPhone / Windows / Android）
 
+> ⚠️ **Clash Party / Mihomo Party 用户必做一次性配置**：默认 `controlDns: true`
+> 会把订阅的 DNS 段整块替换，导致订阅里的 `fake-ip-filter` / `nameserver-policy`
+> 全部失效，内网域名永远拿假 IP。一次性修复：
+>
+> ```bash
+> sed -i '' 's/^controlDns: true$/controlDns: false/' \
+>   ~/Library/Application\ Support/mihomo-party/config.yaml
+> sed -i '' 's/^useNameserverPolicy: false$/useNameserverPolicy: true/' \
+>   ~/Library/Application\ Support/mihomo-party/config.yaml
+> # 重开 Clash Party，之后订阅里任何 DNS 配置都会生效
+> ```
+> 详见 [docs/skill.md §8.12](docs/skill.md)。
+
 ### 🔍 分流链路诊断（给一个 URL，告诉你走哪儿）
 
 ```bash
