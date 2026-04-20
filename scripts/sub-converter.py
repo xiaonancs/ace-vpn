@@ -366,7 +366,19 @@ def build_clash_yaml(proxies: List[Dict[str, Any]], intranet: Dict[str, Any]) ->
             "listen": "0.0.0.0:1053",
             "enhanced-mode": "fake-ip",
             "fake-ip-range": "198.18.0.1/16",
-            "nameserver-policy": {sfx: "system" for sfx in intranet["domains"]},
+            # 关键：内网域名必须跳过 fake-ip，否则 Clash 会给它们发 198.18.x.x 假 IP，
+            # 导致 DIRECT 规则命中后拿不到真实 IP，连接被 RST。
+            # *.lan / *.local 是默认黑名单，+ 开头表示匹配该域名及其所有子域
+            "fake-ip-filter": [
+                "*.lan",
+                "*.local",
+                "+.msftconnecttest.com",
+                "+.msftncsi.com",
+                *[f"+.{sfx}" for sfx in intranet["domains"]],
+            ],
+            "nameserver-policy": {
+                **{f"+.{sfx}": "system" for sfx in intranet["domains"]},
+            },
             "nameserver": [
                 "https://doh.pub/dns-query",
                 "https://dns.alidns.com/dns-query",
