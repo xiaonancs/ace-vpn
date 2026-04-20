@@ -1,4 +1,4 @@
-# ace-vpn
+# ACE-VPN
 
 > **终身免费的私人专用 VPN，全球 AI 无障碍使用。**
 >
@@ -122,12 +122,11 @@ ace-vpn/
 ## 📝 开发日志
 
 - **2026-04-17** 项目启动；VPS 选型对比；Oracle 注册尝试（WAF 风控挂）
-- **2026-04-18** 改买 Vultr Tokyo；3x-ui 部署脚本 / 客户端模板 / Cursor/Claude Code 代理
+- **2026-04-18** 甲骨文云 Always Free 申请教程（`docs/oracle-register.md`），提供永久 0 元方案
+- **2026-04-18** 测试方案 Vultr Tokyo；3x-ui 部署脚本 / 客户端模板 / Cursor/Claude Code 代理
 - **2026-04-19** `configure-3xui.sh` + `sub-converter.py` 打通整个链路；Mac/iPhone/Android 跑通 4K YouTube / Discord / Cursor；首次提交私有 Git 仓库；`sub-converter` 重构为多 token 单实例模式
-- **2026-04-20** Oracle Free 第二次注册仍失败 → 放弃白嫖，改年付
-- **2026-04-21** 选定 HostHatch Tokyo $4/月；下单被风控 → 关代理用真实中国 IP 重下通过；**Vultr → HostHatch 数据库整库迁移完成**，pbk/sid/UUID 全保留，家人端仅改 IP
+- **2026-04-21** 正式付费方案 HostHatch Tokyo $4/月；下单被风控 → 关代理用真实中国 IP 重下通过；**Vultr → HostHatch 数据库整库迁移完成**，pbk/sid/UUID 全保留，家人端仅改 IP
 - **2026-04-22** 文档瘦身：把 00-09 多份 doc 合并为 `docs/skill.md`（开发者）+ `docs/user-guide.md`（用户）两份
-- **2026-04-26** 补全甲骨文云 Always Free 申请教程（`docs/oracle-register.md`），提供永久 0 元方案给想需要的朋友
 
 ## 📄 许可
 
