@@ -1,6 +1,20 @@
 # ace-vpn
 
-> 基于自有 VPS 的家庭 VPN：2–5 人共享、YouTube 4K 流畅、抗 GFW、全设备自动分流（公司内网 / 国内 / 海外）。
+> **终身免费的私人专用 VPN，全球 AI 无障碍使用。**
+>
+> 基于 **Xray + Reality 协议** 自建家庭 VPN，2–5 人共享、**YouTube 4K 流畅**、**Claude / ChatGPT / Cursor 永不掉线**、抗 GFW、全设备自动分流（公司内网 / 国内 / 海外三网段）。
+>
+> **0 元方案**：白嫖 [甲骨文云 Always Free ARM](docs/oracle-register.md)（4 核 24G）**永久免费运行**。
+> **付费方案**：HostHatch Tokyo **¥345/年**（~$4/月），15 分钟一键部署，可一键迁移。
+
+## 💸 为什么终身免费？
+
+- **方案本身完全开源**（MIT），代码和部署脚本永久免费
+- **甲骨文云 Always Free ARM**：4 vCPU / 24 GB RAM / 200 GB 存储 / 10 TB 流量 — **永久 0 元**
+- 搞不定白嫖？HostHatch **¥345/年** 兜底，仍远低于商业 VPN 订阅（Surfshark ~¥200/年 仅够 1 人，本项目够全家）
+- **15 分钟无感迁移**：任意 VPS 挂了，新机 5 行命令重建，家人端仅改个 IP
+
+👉 **开始白嫖**：[甲骨文云 Always Free 申请教程（含踩坑实录）](docs/oracle-register.md)
 
 ## 📍 当前状态
 
@@ -10,10 +24,11 @@
 - 协议栈：VLESS + Reality (Xray) + 3x-ui + 自研 Python sub-converter
 - 已接入：Mac ×2 / iPhone / iPad / Android；家人 Windows ×2 待发送
 
-## 📚 文档（只有两份）
+## 📚 文档
 
 | 文档 | 给谁看 |
 |------|--------|
+| **[docs/oracle-register.md](docs/oracle-register.md)** | **想白嫖 0 元方案的人** — 甲骨文云 Always Free 申请全教程（含踩坑） |
 | **[docs/skill.md](docs/skill.md)** | **开发者 / 维护者** — 架构、部署、迁移 playbook、踩坑 |
 | **[docs/user-guide.md](docs/user-guide.md)** | **普通用户 / 家人** — 四端客户端安装和使用 |
 
@@ -112,6 +127,7 @@ ace-vpn/
 - **2026-04-20** Oracle Free 第二次注册仍失败 → 放弃白嫖，改年付
 - **2026-04-21** 选定 HostHatch Tokyo $4/月；下单被风控 → 关代理用真实中国 IP 重下通过；**Vultr → HostHatch 数据库整库迁移完成**，pbk/sid/UUID 全保留，家人端仅改 IP
 - **2026-04-22** 文档瘦身：把 00-09 多份 doc 合并为 `docs/skill.md`（开发者）+ `docs/user-guide.md`（用户）两份
+- **2026-04-26** 补全甲骨文云 Always Free 申请教程（`docs/oracle-register.md`），提供永久 0 元方案给想需要的朋友
 
 ## 📄 许可
 
