@@ -1,0 +1,78 @@
+#!/bin/sh
+# ace-vpn pre-commit hook
+#
+# 作用：
+#   1. 拦截公司邮箱 / 本地主机名邮箱 提交（保证 public 仓库只出现个人 gmail）
+#   2. 扫描 staged diff 里的硬编码敏感词（公司域名、内网主机名等）
+#
+# 安装：在 repo 根目录跑 `bash scripts/git-hooks/install.sh`
+#
+# 绕过（紧急时用）：git commit --no-verify
+
+set -e
+
+EXPECTED_EMAIL="xiaonan.cs@gmail.com"
+EXPECTED_NAME="hexiaonan"
+
+# ---------- 1. 检查 author email ----------
+actual_email=$(git config user.email 2>/dev/null || echo "")
+actual_name=$(git config user.name 2>/dev/null || echo "")
+
+if [ "$actual_email" != "$EXPECTED_EMAIL" ]; then
+  cat <<EOF >&2
+================================================================
+[pre-commit] 拒绝提交：邮箱不对
+
+  当前 user.email: "${actual_email:-<unset>}"
+  期望 user.email: "$EXPECTED_EMAIL"
+
+这是为了防止公司邮箱 / 本地主机名邮箱被串到 public 仓库历史里。
+
+修复：在本仓库目录下执行
+  git config user.email "$EXPECTED_EMAIL"
+  git config user.name  "$EXPECTED_NAME"
+然后重新 git commit。
+
+紧急绕过：git commit --no-verify （不推荐）
+================================================================
+EOF
+  exit 1
+fi
+
+if [ "$actual_name" != "$EXPECTED_NAME" ]; then
+  echo "[pre-commit] 警告：user.name 是 '$actual_name'，建议统一成 '$EXPECTED_NAME'" >&2
+fi
+
+# ---------- 2. 扫描 staged diff 的敏感词 ----------
+# 只扫新增/修改行（+ 开头），忽略被删除的内容
+# 排除 scripts/git-hooks/ 自身（它定义了黑名单 pattern，会自咬）
+FORBIDDEN='xiaomi\.com|@xiaomi|ihome\.local|emailhxn'
+
+staged_files=$(git diff --cached --name-only \
+  | grep -Ev '^scripts/git-hooks/' \
+  || true)
+
+if [ -n "$staged_files" ]; then
+  # shellcheck disable=SC2086
+  if printf '%s\n' $staged_files \
+     | xargs -I{} git diff --cached -U0 --no-color -- "{}" 2>/dev/null \
+     | grep -E '^\+' \
+     | grep -Ev '^\+\+\+ ' \
+     | grep -Ei "$FORBIDDEN" >/dev/null; then
+    cat <<EOF >&2
+================================================================
+[pre-commit] 拒绝提交：staged diff 里检测到敏感词
+
+匹配模式：$FORBIDDEN
+
+请检查 staged 内容：
+  git diff --cached | grep -Ei "$FORBIDDEN"
+
+紧急绕过：git commit --no-verify （不推荐）
+================================================================
+EOF
+    exit 1
+  fi
+fi
+
+exit 0
