@@ -37,8 +37,11 @@
 """
 import base64
 import http.server
+import ipaddress
+import json
 import os
 import secrets
+import socket
 import socketserver
 import ssl
 import sys
@@ -404,6 +407,108 @@ def build_clash_yaml(proxies: List[Dict[str, Any]], intranet: Dict[str, Any]) ->
     )
 
 
+def _parse_host(url_or_host: str) -> str:
+    """接受 'https://x.com/path' 或 'x.com' 或 'x.com:8080/foo'，返回纯 host。"""
+    s = url_or_host.strip()
+    if "://" in s:
+        p = urllib.parse.urlparse(s)
+        return p.hostname or ""
+    return s.split("/")[0].split(":")[0]
+
+
+def _try_resolve(host: str) -> Optional[str]:
+    """尽量解析一个 IP；失败或解析到 Clash fake-ip (198.18.0.0/16) 时返回 None。
+
+    sub-converter 跑在 VPS 上时返回的是真实公网 DNS 结果；但开发/诊断时如果
+    在本地 Mac（开启 Clash TUN）调用会返回 198.18.x.x 的假 IP，那是 Clash
+    自己的 fake-ip 机制，不能当作真实解析结果用（会误命中 GEOIP,PRIVATE）。
+    """
+    try:
+        ip = socket.gethostbyname(host)
+    except Exception:  # noqa: BLE001
+        return None
+    try:
+        if ipaddress.ip_address(ip) in ipaddress.ip_network("198.18.0.0/16"):
+            return None
+    except ValueError:
+        return None
+    return ip
+
+
+def _suffix_match(host: str, sfx: str) -> bool:
+    host = host.lower().rstrip(".")
+    sfx = sfx.lower().rstrip(".")
+    return host == sfx or host.endswith("." + sfx)
+
+
+def match_rule(url_or_host: str, intranet: Dict[str, Any]) -> Dict[str, Any]:
+    """把 build_rules 的规则按顺序跑一遍，返回第一条命中。
+
+    GEOIP 规则当前不做在线查询（要第三方库或外部服务），视为"未检查"，
+    如果前面规则都没命中就 fall through 到 MATCH。
+    """
+    host = _parse_host(url_or_host)
+    resolved_ip = _try_resolve(host) if host else None
+    rules = build_rules([], intranet)
+
+    geoip_notes: List[str] = []
+
+    for idx, rule in enumerate(rules, start=1):
+        parts = [p.strip() for p in rule.split(",")]
+        rtype = parts[0]
+        hit = False
+
+        if rtype == "MATCH":
+            return _match_result(url_or_host, host, resolved_ip, idx, rule, parts[1], geoip_notes)
+
+        if rtype == "DOMAIN-SUFFIX" and host and _suffix_match(host, parts[1]):
+            hit = True
+        elif rtype == "DOMAIN" and host and host.lower() == parts[1].lower():
+            hit = True
+        elif rtype == "DOMAIN-KEYWORD" and host and parts[1].lower() in host.lower():
+            hit = True
+        elif rtype in ("IP-CIDR", "IP-CIDR6"):
+            # 忽略 no-resolve 标志——我们总是已经尝试过解析
+            if resolved_ip:
+                try:
+                    if ipaddress.ip_address(resolved_ip) in ipaddress.ip_network(parts[1], strict=False):
+                        hit = True
+                except ValueError:
+                    pass
+        elif rtype == "GEOIP":
+            code = parts[1].upper()
+            if code == "PRIVATE" and resolved_ip:
+                try:
+                    if ipaddress.ip_address(resolved_ip).is_private:
+                        hit = True
+                except ValueError:
+                    pass
+            else:
+                # 没有内置 GEOIP 数据，标记一下让调用方知道
+                geoip_notes.append(f"GEOIP,{code} (skipped: no local db)")
+                continue
+
+        if hit:
+            target = parts[2] if len(parts) >= 3 else parts[-1]
+            return _match_result(url_or_host, host, resolved_ip, idx, rule, target, geoip_notes)
+
+    return _match_result(url_or_host, host, resolved_ip, 0, "no match", "UNKNOWN", geoip_notes)
+
+
+def _match_result(
+    input_: str, host: str, ip: Optional[str], idx: int, rule: str, target: str, notes: List[str]
+) -> Dict[str, Any]:
+    return {
+        "input": input_,
+        "host": host,
+        "resolved_ip": ip,
+        "rule_index": idx,
+        "rule": rule,
+        "target": target,
+        "notes": notes,
+    }
+
+
 class Handler(http.server.BaseHTTPRequestHandler):
     server_version = "ace-vpn/1.0"
 
@@ -418,6 +523,27 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 f"cidrs={len(intranet['cidrs'])}\n"
             ).encode()
             self._reply(200, body, "text/plain; charset=utf-8")
+            return
+
+        # 诊断接口：GET /match?url=<...>  或  /match?host=<...>
+        # 返回 JSON：命中哪条规则、目标组、解析到的 IP 等
+        if self.path.split("?")[0].rstrip("/") == "/match":
+            try:
+                qs = urllib.parse.urlparse(self.path).query
+                params = dict(urllib.parse.parse_qsl(qs))
+                target = params.get("url") or params.get("host")
+                if not target:
+                    self._reply(400,
+                                b'{"error":"provide ?url=<URL> or ?host=<HOST>"}\n',
+                                "application/json; charset=utf-8")
+                    return
+                intranet = load_intranet_config()
+                result = match_rule(target, intranet)
+                result["active_profiles"] = intranet["active_profiles"]
+                body = json.dumps(result, ensure_ascii=False, indent=2).encode("utf-8")
+                self._reply(200, body, "application/json; charset=utf-8")
+            except Exception as e:  # noqa: BLE001
+                self._reply(500, f'{{"error":"{e}"}}\n'.encode(), "application/json; charset=utf-8")
             return
 
         parts = self.path.rstrip("/").split("/")

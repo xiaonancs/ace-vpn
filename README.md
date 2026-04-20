@@ -89,6 +89,20 @@ bash scripts/sync-intranet.sh      # scp 到 VPS 的 /etc/ace-vpn/intranet.yaml
 - VPS 端**每次 HTTP 订阅请求热加载**，不用重启 systemd
 - 客户端刷新订阅即生效（Mac / iPhone / Windows / Android）
 
+### 🔍 分流链路诊断（给一个 URL，告诉你走哪儿）
+
+```bash
+bash scripts/test-route.sh https://live.ai.xiaomi.com/#/scene
+```
+
+输出：
+- 服务端权威命中的**规则 #N** 和 **目标代理组**（DIRECT / 🤖 AI / 🚀 PROXY / ...）
+- 本机 DNS 解析结果（是公网 IP 还是 Clash fake-ip）
+- 通过本机 Clash 的实测延时（DNS / TCP / TLS / TTFB / 总耗时）
+- 客户端出口 IP（日本节点 vs 本地直连）
+
+服务端鉴权走新增的 `/match?url=...` 接口（JSON），规则匹配和 sub-converter 生成订阅用的是同一套代码，所以**决策永远一致**。
+
 ## 📂 目录结构
 
 ```
@@ -109,6 +123,7 @@ ace-vpn/
 │   ├── install-sub-converter.sh Clash YAML 转换器 systemd 部署 + 初始化 intranet.yaml
 │   ├── sub-converter.py         Python 转换器（Reality + 多 token + 内网规则热加载）
 │   ├── sync-intranet.sh         🔥 Mac 工具：把 private/intranet.yaml 同步到 VPS（无需重启）
+│   ├── test-route.sh            🔥 Mac 工具：URL 走哪条规则、哪组、延时多少
 │   ├── lib/common.sh            共享工具
 │   └── README.md                脚本总览
 │
@@ -147,6 +162,7 @@ ace-vpn/
 - **2026-04-21** 正式付费方案 HostHatch Tokyo $4/月；下单被风控 → 关代理用真实中国 IP 重下通过；**Vultr → HostHatch 数据库整库迁移完成**，pbk/sid/UUID 全保留，家人端仅改 IP
 - **2026-04-22** 文档瘦身：把 00-09 多份 doc 合并为 `docs/skill.md`（开发者）+ `docs/user-guide.md`（用户）两份
 - **2026-04-27** 内网分流重构：`private/intranet.yaml` 多 profile + `enabled` 开关，`scripts/sync-intranet.sh` 一键 scp，VPS 端热加载无需重启。支持「换公司」/「多公司并存」零配置切换
+- **2026-04-27** sub-converter 新增 `/match` 权威匹配接口 + `scripts/test-route.sh` 诊断工具，一行命令输出 URL 走哪条规则、经哪个代理组、各阶段延时
 
 ## 📄 许可
 

@@ -387,7 +387,34 @@ curl -s http://$VPS_IP:25500/healthz
 - **订阅请求天然低频**（每家人客户端一天几次到几十次），性能可忽略
 - 客户端 `Profile-Update-Interval: 24` 头会告诉它一天拉一次 YAML，被动 pull 模型
 
-### 6.4 进阶：混用社区 ruleset
+### 6.4 诊断：URL 走哪条规则？
+
+`sub-converter` 暴露两个调试接口：
+
+| Endpoint | 用途 | 返回 |
+|----------|------|------|
+| `GET /healthz` | 探活 + 当前激活 profile 数量 | `ok\nactive_profiles=xiaomi\ndomains=4\ncidrs=1\n` |
+| `GET /match?url=<URL>` 或 `?host=<HOST>` | **权威规则匹配**（JSON） | `{rule_index, rule, target, host, resolved_ip, active_profiles}` |
+
+`/match` 用 `build_rules()` 本身跑一遍，和生成订阅走同一条代码路径，所以返回的规则就是客户端会命中的规则（除非客户端订阅缓存过期）。
+
+Mac 端直接用 `scripts/test-route.sh`：
+
+```bash
+bash scripts/test-route.sh https://live.ai.xiaomi.com/#/scene
+```
+
+脚本做三件事：
+1. curl VPS 的 `/match?url=...` 拿服务端权威决策
+2. 本机 `dig` 看系统 DNS 结果（如果是 `198.18.x.x` 说明 Clash TUN 的 fake-ip 拦下了）
+3. 走 `http://127.0.0.1:7890` 发 HTTPS，打印 `time_namelookup` / `time_connect` / `time_appconnect` / `time_starttransfer` / `time_total` + 出口 IP
+
+**典型排查场景**：
+- 用户说 "某某网站打不开" → `bash scripts/test-route.sh <URL>` 看规则命中，确认是 DIRECT/PROXY 哪一边问题
+- 加了新 intranet profile 后 → `sync-intranet.sh` 完立刻 `test-route.sh` 验证规则生效
+- 订阅缓存漂移 → `/match` 返回的 rule 和客户端 Connections 面板显示的 rule 不一致 → 刷订阅
+
+### 6.5 进阶：混用社区 ruleset
 
 sub-converter.py 输出的 YAML 里可以加 `rule-providers`，引用社区维护的 ruleset（Loyalsoldier、BlackMatrix7）。当前硬编码规则已够用，不急。
 

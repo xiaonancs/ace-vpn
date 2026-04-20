@@ -65,6 +65,7 @@ sudo cat /root/ace-vpn-credentials.txt
 | [`install-sub-converter.sh`](install-sub-converter.sh) | 部署 Clash 订阅转换器 + 初始化内网规则文件 `/etc/ace-vpn/intranet.yaml` |
 | [`sub-converter.py`](sub-converter.py) | 转换器本体；每次 HTTP 请求热加载 intranet.yaml，改完无需重启 |
 | [`sync-intranet.sh`](sync-intranet.sh) | **Mac 本地工具**：把 `private/intranet.yaml` 同步到 VPS，客户端刷新订阅即生效 |
+| [`test-route.sh`](test-route.sh) | **Mac 本地工具**：给一个 URL，输出命中规则 + 目标组 + 实测延时 + 出口 IP |
 | [`lib/common.sh`](lib/common.sh) | 共享工具函数（日志、apt 锁等待、root 检查） |
 
 ---
