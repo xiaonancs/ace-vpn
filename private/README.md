@@ -71,20 +71,33 @@ public 仓库的 hook 直接读：
 ```bash
 cat > ~/workspace/publish/ace-vpn/.git/hooks/pre-commit <<'EOF'
 #!/usr/bin/env bash
+# 扫 staged diff，命中 private 仓库黑名单就拒绝
+#
+# 关键：必须先过滤掉黑名单里的 # 注释和空行，
+# 否则 grep -iEf 会把空行当作空 pattern，匹配一切，误报 100%（血泪教训）
+
 BLACKLIST=~/workspace/publish/ace-vpn-private/sensitive-words.txt
 [ -f "$BLACKLIST" ] || exit 0
-if git diff --cached | grep -iEf "$BLACKLIST"; then
-    echo "⚠️  命中 private 仓库维护的黑名单，复查后再提交（--no-verify 可强过）"
-    exit 1
-fi
-if git diff --cached --unified=0 | grep -E "^\+" | \
-   grep -E "[^0-9.](10|172\.(1[6-9]|2[0-9]|3[01])|192\.168)\.[0-9]+\.[0-9]+[^0-9]"; then
-    echo "⚠️  新增行出现内网 IP，确认是否为示例占位 (10.x.x.x / 10.0.0.0/8)"
+
+PATTERNS=$(grep -vE '^\s*(#|$)' "$BLACKLIST")
+[ -z "$PATTERNS" ] && exit 0
+JOINED=$(echo "$PATTERNS" | paste -sd '|' -)
+
+STAGED=$(git diff --cached --unified=0 | grep -E '^\+' | grep -vE '^\+\+\+')
+
+if echo "$STAGED" | grep -iE "$JOINED" >/dev/null; then
+    echo "⚠️  diff 命中 private 仓库维护的黑名单："
+    echo "$STAGED" | grep -inE --color=always "$JOINED"
+    echo ""
+    echo "    复查后再提交；确为示例占位可 git commit --no-verify"
     exit 1
 fi
 EOF
 chmod +x ~/workspace/publish/ace-vpn/.git/hooks/pre-commit
 ```
+
+> 黑名单里允许写注释行（`#` 开头）和空行，方便分组。
+> hook 自己会过滤，不会误报。
 
 ## 安全守则
 

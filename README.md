@@ -1,56 +1,39 @@
 # ACE-VPN
 
-> **Aways Free 终身免费的私人专用 VPN，全球 AI 无障碍使用。**
->
-> 基于 **Xray + Reality 协议** 自建家庭 VPN，2–5 人共享、**YouTube 4K 流畅**、**Claude / ChatGPT / Cursor 永不掉线**、抗 GFW、全设备自动分流（公司内网 / 国内 / 海外三网段）。
->
-> **0 元方案**：白嫖 [甲骨文云 Always Free ARM](docs/oracle-register.md)（4 核 24G）**永久免费运行**。
-> **付费方案**：HostHatch Tokyo **¥345/年**（~$4/月），15 分钟一键部署，可一键迁移。
+> **Always Free 私人 VPN 解决方案 · 白嫖 Oracle · 打通公司内网 / 大陆 / 海外三段网络 · 全球 AI 无障碍**
 
-## 💸 为什么终身免费？
+Xray + Reality 自建，2–5 人家庭共享。**公司内网 DIRECT · 大陆公网直连 · 海外走代理**，客户端一次订阅全自动。
 
-- **方案本身完全开源**（MIT），代码和部署脚本永久免费
-- **甲骨文云 Always Free ARM**：4 vCPU / 24 GB RAM / 200 GB 存储 / 10 TB 流量 — **永久 0 元（个别地区除外）**
-- 搞不定白嫖？HostHatch **¥345/年** 兜底，仍远低于商业 VPN 订阅（Surfshark ~¥200/年 仅够 1 人，本项目够全家）
-- **15 分钟无感迁移**：任意 VPS 挂了，新机 5 行命令重建，家人端仅改个 IP
+| 方案 | 费用 | 说明 |
+|------|------|------|
+| **白嫖** | 永久 0 元 | [甲骨文 Always Free ARM](docs/oracle-register.md) · 4C / 24G / 10TB 流量 |
+| **付费** | ¥345/年（$4/月） | HostHatch Tokyo · 稳定 · 15 分钟一键迁移 |
+| **源码** | 免费 | MIT · 整套部署脚本 + 四端客户端模板 |
 
-👉 **开始白嫖**：[甲骨文云 Always Free 申请教程（含踩坑实录）](docs/oracle-register.md)
+👉 想 0 元起步：[Oracle Always Free 申请教程（含风控踩坑）](docs/oracle-register.md)
 
-## 📍 当前状态
+## 📍 当前状态（2026-04-17）
 
-**生产：HostHatch Tokyo ✅**（Vultr 冷备 1 个月，2026-05 destroy）
-
-- VPS：HostHatch NVMe 2GB, AMD EPYC Milan, Tokyo, $4/月 ≈ ¥345/年
-- 协议栈：VLESS + Reality (Xray) + 3x-ui + 自研 Python sub-converter
-- 已接入：Mac ×2 / iPhone / iPad / Android；家人 Windows ×2 待发送
+生产 **HostHatch Tokyo ✅** · 协议栈 **VLESS + Reality + 3x-ui + 自研 Python sub-converter** · 已接入 Mac×2 / iPhone / iPad / Android，Windows×2 待发送
 
 ## 📚 文档
 
 | 文档 | 给谁看 |
 |------|--------|
-| **[docs/oracle-register.md](docs/oracle-register.md)** | **想白嫖 0 元方案的人** — 甲骨文云 Always Free 申请全教程（含踩坑） |
-| **[docs/traffic-routing-architecture.md](docs/traffic-routing-architecture.md)** | **想学技术方案的人** — 三网段（海外 / 大陆 / 公司内网）分流架构详解，含架构图 / 流程图 / DNS 设计 / 踩坑录 |
-| **[docs/skill.md](docs/skill.md)** | **开发者 / 维护者** — 从零到一部署、迁移 playbook、运维 cheatsheet |
-| **[docs/user-guide.md](docs/user-guide.md)** | **普通用户 / 家人** — 四端客户端安装和使用 |
-
-## 🎯 目标
-
-- 2–5 人家庭共享；**公司内网 / 国内 / 海外三网段自动分流**
-- 4K YouTube 流畅（北京使用）
-- Claude / Cursor / ChatGPT 等 AI 工具**永远海外 IP**
-- Discord 走代理、抖音/淘宝直连，**iOS / Android / Mac / Win 都不用手动切换**
-- 预算 ≤ ¥400/年
-- **15 分钟无感迁移**到新 VPS（已实战：Vultr → HostHatch）
+| **[docs/oracle-register.md](docs/oracle-register.md)** | 想 0 元白嫖的人 — 甲骨文 Always Free 申请全教程 |
+| **[docs/traffic-routing-architecture.md](docs/traffic-routing-architecture.md)** | 想学技术方案的人 — 三网段分流架构，含架构图 / 流程图 / DNS 设计 / 踩坑录 |
+| **[docs/skill.md](docs/skill.md)** | 开发者 / 维护者 — 部署、迁移 playbook、运维 cheatsheet |
+| **[docs/user-guide.md](docs/user-guide.md)** | 普通用户 / 家人 — 四端客户端安装 |
 
 ## 🚀 快速开始
 
-### 新 VPS 到手（5 行命令，详见 [skill.md §4](docs/skill.md#4-一键部署新-vps-到手-5-分钟)）
+### 新 VPS 部署（5 行命令，详见 [skill.md §4](docs/skill.md#4-一键部署新-vps-到手-5-分钟)）
 
 ```bash
 ssh root@<VPS_IP>
 git clone https://github.com/<you>/ace-vpn.git && cd ace-vpn
 sudo AUTO_CONFIGURE=1 bash scripts/install.sh
-# → 浏览器改 3x-ui 面板密码/端口/path
+# 浏览器改 3x-ui 面板密码/端口/path
 sudo UPSTREAM_BASE='https://<VPS_IP>:2096/<sub_path>' \
      SUB_TOKENS='sub-hxn,sub-hxn01' \
      SERVER_OVERRIDE='<VPS_IP>' \
@@ -62,123 +45,67 @@ sudo UPSTREAM_BASE='https://<VPS_IP>:2096/<sub_path>' \
 | 设备 | 软件 | 订阅 URL |
 |------|------|---------|
 | Mac / Android | Mihomo Party | `http://<VPS_IP>:25500/clash/<SubId>` |
-| iPhone / iPad | Stash（推荐）/ Shadowrocket | 同上 / 或 3x-ui 原生 base64 URL |
-| Windows（家人）| Clash Verge Rev | `http://<VPS_IP>:25500/clash/<SubId>` |
+| iOS | Stash（推荐）/ Shadowrocket | 同上 |
+| Windows | Clash Verge Rev | 同上 |
 
-### 本地环境变量
+### 🏢 三网段分流（Mac 改 → VPS 热加载 → 全家同步）
 
-```bash
-cp private/env.sh.example private/env.sh
-$EDITOR private/env.sh      # 填真实值
-chmod 600 private/env.sh
-source private/env.sh       # $VPS_IP / $URL_CLASH_SELF 等变量即可用
-```
-
-### 🏢 内网 / 公司专线分流（Mac 编辑 → VPS 热加载 → 全家同步）
-
-访问 `portal.corp-a.example`（公司内网应用）、公司协作平台、家里 NAS 等需要**走本地 / 公司 VPN 而不是代理**？一步到位：
+详细技术方案：[traffic-routing-architecture.md](docs/traffic-routing-architecture.md)（含架构图、流程图、DNS 设计、5 大踩坑）。日常使用：
 
 ```bash
 cp private/intranet.yaml.example private/intranet.yaml
-$EDITOR private/intranet.yaml      # 按公司分 profile，用 enabled: true/false 切换
-source private/env.sh
+$EDITOR private/intranet.yaml      # 按公司分 profile，enabled: true/false 切换
 bash scripts/sync-intranet.sh      # scp 到 VPS 的 /etc/ace-vpn/intranet.yaml
+
+# 诊断：某个 URL 走哪条规则、哪组、延时多少
+bash scripts/test-route.sh https://portal.corp-a.example/
 ```
 
-- 换公司：把旧 profile `enabled: false`，新 profile `enabled: true`，再 sync 一次
-- 多公司并存：同时开多个 profile（外包 / 咨询场景）
-- VPS 端**每次 HTTP 订阅请求热加载**，不用重启 systemd
+- **换公司**：旧 profile `enabled: false`，新 profile `enabled: true`，再 sync 一次
+- **多公司并存**：同时开多个 profile（外包 / 咨询场景）
+- **VPS 热加载**：每次 HTTP 订阅请求自动重读 YAML，不用重启 systemd
 - 客户端刷新订阅即生效（Mac / iPhone / Windows / Android）
 
-> ⚠️ **Clash Party / Mihomo Party 用户必做一次性配置**：默认 `controlDns: true`
-> 会把订阅的 DNS 段整块替换，导致订阅里的 `fake-ip-filter` / `nameserver-policy`
-> 全部失效，内网域名永远拿假 IP。一次性修复：
+> ⚠️ **Clash Party / Mihomo Party 用户必做一次性 DNS 配置修复**：默认
+> `controlDns: true` 会把订阅的 DNS 段整块替换，导致 `fake-ip-filter` /
+> `nameserver-policy` 失效，内网域名永远拿假 IP。一次性命令：
 >
 > ```bash
 > sed -i '' 's/^controlDns: true$/controlDns: false/' \
 >   ~/Library/Application\ Support/mihomo-party/config.yaml
 > sed -i '' 's/^useNameserverPolicy: false$/useNameserverPolicy: true/' \
 >   ~/Library/Application\ Support/mihomo-party/config.yaml
-> # 重开 Clash Party，之后订阅里任何 DNS 配置都会生效
+> # 重开 Clash Party
 > ```
-> 详见 [docs/traffic-routing-architecture.md §9.1](docs/traffic-routing-architecture.md#91-客户端-gui-偷偷吞掉订阅的-dns-段) 或 [docs/skill.md §8.12](docs/skill.md)。
+>
+> 深度解析：[traffic-routing-architecture.md §9.1](docs/traffic-routing-architecture.md#91-客户端-gui-偷偷吞掉订阅的-dns-段)
 
-### 🔍 分流链路诊断（给一个 URL，告诉你走哪儿）
+## 🔐 隐私分离
 
-```bash
-bash scripts/test-route.sh https://portal.corp-a.example/
-```
-
-输出：
-- 服务端权威命中的**规则 #N** 和 **目标代理组**（DIRECT / 🤖 AI / 🚀 PROXY / ...）
-- 本机 DNS 解析结果（是公网 IP 还是 Clash fake-ip）
-- 通过本机 Clash 的实测延时（DNS / TCP / TLS / TTFB / 总耗时）
-- 客户端出口 IP（日本节点 vs 本地直连）
-
-服务端鉴权走新增的 `/match?url=...` 接口（JSON），规则匹配和 sub-converter 生成订阅用的是同一套代码，所以**决策永远一致**。
-
-## 📂 目录结构
-
-```
-ace-vpn/
-├── README.md                    本文件
-├── .gitignore                   🔐 排除 private/ 和所有凭据文件
-│
-├── docs/                        📚 文档（公开）
-│   ├── oracle-register.md       甲骨文云 Always Free 申请教程
-│   ├── traffic-routing-architecture.md  三网段分流架构详解（对外技术方案）
-│   ├── skill.md                 开发者技术文档（架构/部署/迁移/踩坑）
-│   └── user-guide.md            普通用户手册（四端客户端配置）
-│
-├── scripts/                     🛠️ VPS 端部署脚本（公开模板）
-│   ├── install.sh               入口：系统 → 防火墙 → 3x-ui → 自动配置
-│   ├── setup-system.sh          系统初始化 + BBR
-│   ├── setup-firewall.sh        UFW 防火墙
-│   ├── install-3xui.sh          3x-ui 安装
-│   ├── configure-3xui.sh        通过 API 自动建 Reality 入站
-│   ├── install-sub-converter.sh Clash YAML 转换器 systemd 部署 + 初始化 intranet.yaml
-│   ├── sub-converter.py         Python 转换器（Reality + 多 token + 内网规则热加载）
-│   ├── sync-intranet.sh         🔥 Mac 工具：把 private/intranet.yaml 同步到 VPS（无需重启）
-│   ├── test-route.sh            🔥 Mac 工具：URL 走哪条规则、哪组、延时多少
-│   ├── lib/common.sh            共享工具
-│   └── README.md                脚本总览
-│
-├── clients/                     💻 本地客户端配置模板（公开）
-│   ├── README.md                客户端总览
-│   ├── mac-clash-meta.yaml      Mac/Win/Android 参考 YAML
-│   ├── iphone-shadowrocket.md   iOS 手动配置指南
-│   ├── shell-proxy.sh           Mac 终端代理开关（.zshrc）
-│   └── cursor-proxy.md          Cursor / VS Code 专用
-│
-└── private/                     🔐 真实凭据（.gitignore 排除）
-    ├── README.md                ⚠️ 目录使用说明（会提交）
-    ├── env.sh.example           模板（会提交）
-    ├── credentials.txt.example  模板（会提交）
-    ├── intranet.yaml.example    🆕 内网分流模板（会提交，含多 profile 示例）
-    ├── env.sh                   真实 IP/Token/账号（不提交）
-    ├── intranet.yaml            真实公司内网域名/IP 段（不提交）
-    └── ace-vpn-credentials.txt  面板凭据 + UUID（不提交）
-```
+真实配置（`private/intranet.yaml` / `env.sh` / `credentials.txt`）在独立私有仓库
+`ace-vpn-private` 维护，public 仓库通过 symlink 接入。**任何公司名 / 内网 IP /
+DNS / 凭据都不会进本仓库 git 历史**。详见 [private/README.md](private/README.md)。
 
 ## ⚠️ 安全红线
 
-- **`private/` 下所有实际值都不会提交**（`.gitignore` 强制排除）
-- **`docs/`、`scripts/`、`clients/` 里不得出现真实 IP / UUID / pbk / token / 订阅 URL**
-  - 修改时用占位符：`<VPS_IP>`、`<SUB_TOKENS>`、`<sub_path>`
-- **面板**端口、路径、账号**不得使用默认值**（2053 / admin / admin = 裸奔）
-- 每 3–6 个月**轮换** `SUB_TOKENS`（3x-ui 里改 SubId + 白名单同步 + `systemctl restart ace-vpn-sub`）
-- 迁移后**卸载旧 VPS 的 3x-ui 并销毁磁盘**
+- `private/` 下所有真实值强制 gitignore
+- `docs/` `scripts/` `clients/` 不得出现真实 IP / UUID / pbk / token / 订阅 URL（用 `<VPS_IP>` / `<SUB_TOKENS>` 等占位）
+- 面板端口 / 路径 / 账号**不得使用默认值**（2053 / admin / admin = 裸奔）
+- 每 3–6 个月轮换 `SUB_TOKENS`
+- 迁移后销毁旧 VPS 磁盘
 
 ## 📝 开发日志
 
-- **2026-04-17** 项目启动；VPS 选型对比；Oracle 注册尝试（WAF 风控挂）
-- **2026-04-18** 甲骨文云 Always Free 申请教程（`docs/oracle-register.md`），提供永久 0 元方案
-- **2026-04-18** 测试方案 Vultr Tokyo；3x-ui 部署脚本 / 客户端模板 / Cursor/Claude Code 代理
-- **2026-04-19** `configure-3xui.sh` + `sub-converter.py` 打通整个链路；Mac/iPhone/Android 跑通 4K YouTube / Discord / Cursor；首次提交私有 Git 仓库；`sub-converter` 重构为多 token 单实例模式
-- **2026-04-21** 正式付费方案 HostHatch Tokyo $4/月；下单被风控 → 关代理用真实中国 IP 重下通过；**Vultr → HostHatch 数据库整库迁移完成**，pbk/sid/UUID 全保留，家人端仅改 IP
-- **2026-04-22** 文档瘦身：把 00-09 多份 doc 合并为 `docs/skill.md`（开发者）+ `docs/user-guide.md`（用户）两份
-- **2026-04-27** 内网分流重构：`private/intranet.yaml` 多 profile + `enabled` 开关，`scripts/sync-intranet.sh` 一键 scp，VPS 端热加载无需重启。支持「换公司」/「多公司并存」零配置切换
-- **2026-04-27** sub-converter 新增 `/match` 权威匹配接口 + `scripts/test-route.sh` 诊断工具，一行命令输出 URL 走哪条规则、经哪个代理组、各阶段延时
+- **2026-04-11** 项目启动；VPS 选型对比；Oracle 注册尝试（WAF 风控挂）
+- **2026-04-12** 甲骨文 Always Free 申请教程上线（`docs/oracle-register.md`），0 元方案就位
+- **2026-04-13** Vultr Tokyo 验证部署；3x-ui + 客户端模板 + Cursor / Claude Code 代理打通
+- **2026-04-14** `configure-3xui.sh` + `sub-converter.py` 完整链路打通；Mac / iPhone / Android 跑通 4K YouTube / Discord / Cursor；`sub-converter` 重构为多 token 单实例
+- **2026-04-15** HostHatch Tokyo 付费方案（$4/月）上线；**Vultr → HostHatch 整库迁移**，pbk / sid / UUID 全保留，家人端仅改 IP
+- **2026-04-16** 文档瘦身：多份 00-09 doc 合并为 `docs/skill.md` + `docs/user-guide.md` 两份
+- **2026-04-16** 内网分流重构：`private/intranet.yaml` 多 profile + `enabled` 开关，`sync-intranet.sh` 一键 scp，VPS 端热加载无需重启。支持「换公司」/「多公司并存」零配置切换
+- **2026-04-17** sub-converter 新增 `/match` 权威匹配接口 + `scripts/test-route.sh` 诊断工具，一行命令输出 URL 走哪条规则、经哪个代理组、各阶段延时
+- **2026-04-17** per-profile `dns_servers` 定向解析；修复 Clash Party GUI 吞订阅 DNS 的深坑（详见 traffic-routing-architecture.md §9.1）
+- **2026-04-17** 公私仓库分离：新增 `docs/traffic-routing-architecture.md`（对外技术方案，含架构 / 流程 / 时序图）；真实配置迁入私有仓库 `ace-vpn-private`，public 仓库通过 symlink 接入
 
 ## 📄 许可
 
