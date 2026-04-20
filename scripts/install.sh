@@ -69,7 +69,7 @@ if [[ "${AUTO_CONFIGURE:-0}" == "1" ]]; then
   PANEL_PORT="${PANEL_PORT}" \
   bash "${SCRIPT_DIR}/configure-3xui.sh" || {
     log_warn "自动配置失败，请手动在面板里添加入站"
-    log_warn "详见 docs/03-server-setup.md §4"
+    log_warn "详见 docs/dev-skill.md（3x-ui 入站与订阅）"
   }
 else
   log_info "跳过自动化配置（可单独运行 bash scripts/configure-3xui.sh）"
@@ -100,12 +100,12 @@ ${COLOR_YELLOW}下一步（手动）${COLOR_RESET}
        - 密码（≥ 16 位）
        - 面板路径（改成 /随机路径/）
 
-  3. 添加入站（按 docs/03-server-setup.md §4）：
+  3. 添加入站（按 docs/dev-skill.md 中 3x-ui / Reality 说明）：
        - VLESS + Reality（TCP ${TCP_PORT}）
        - Hysteria2        （UDP ${UDP_PORT}）
 
   4. 开启订阅（§4.3），把生成的 URL 导入客户端
 
-  详细步骤见：docs/03-server-setup.md
+  详细步骤见：docs/dev-skill.md
 
 EOF

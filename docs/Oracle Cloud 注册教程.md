@@ -1,6 +1,6 @@
-# 甲骨文云 Always Free 申请教程
+# Oracle Cloud Always Free 申请教程
 
-> **目标**：白嫖一台 Oracle Cloud ARM 免费机（4 核 / 24 GB / 200 GB）**永久免费**运行 ace-vpn，**每年 0 元**。
+> **目标**：白嫖一台 **Oracle Cloud**（业界常称「甲骨文云」）ARM 免费机（4 核 / 24 GB / 200 GB）**永久免费**运行 ace-vpn，**每年 0 元**。
 >
 > **难度**：⭐⭐⭐⭐（全网最难白嫖的免费云，本项目作者两次注册被风控，经验都写在这）
 >
@@ -402,7 +402,7 @@ sudo cat /etc/x-ui/x-ui.db | base64 > /tmp/x-ui-db.b64
 # 重新 Create Instance，新 IP 段概率高
 
 # 按 ace-vpn README 快速重新部署（5 分钟）
-# 或者用 skill.md §6 迁移 playbook 恢复整库
+# 或者用 dev-skill.md §6 迁移 playbook 恢复整库
 ```
 
 ---
@@ -488,8 +488,8 @@ AUTO_CONFIGURE=1 bash scripts/install.sh
 
 - 甲骨文抢机脚本：[Cyberbolt/oci-help](https://github.com/Cyberbolt/oci-help)
 - Oracle Always Free 官方：https://www.oracle.com/cloud/free/
-- 本项目技术文档：[skill.md](skill.md)
-- 用户使用手册：[user-guide.md](user-guide.md)
+- 本项目技术文档：[dev-skill.md](dev-skill.md)
+- 用户使用手册：[用户手册 user-guide.md](用户手册%20user-guide.md)
 
 ---
 

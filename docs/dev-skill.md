@@ -56,7 +56,8 @@
 | 服务端面板 | **3x-ui** | Web 管理 + Client + 订阅 + 统计都在一张 sqlite（`/etc/x-ui/x-ui.db`），**整表迁移就是整站迁移** |
 | 订阅转换 | 自研 Python **sub-converter.py** | 原生支持 Reality（社区 fork 的 subconverter 都不认 pbk/sid）；输出带规则的 Clash YAML |
 | 桌面客户端 | Mihomo Party / Clash Verge Rev | 原生 Clash Meta；支持 TUN 模式（让 Cursor / 终端 / Claude Code 全自动走代理）|
-| iOS 客户端 | Stash（首选）/ Shadowrocket | Stash 原生吃 Clash YAML，和 Mac 同一份规则；小火箭原生吃 v2ray 订阅，规则需自己堆 |
+| Android 客户端 | FlClash / Clash Meta for Android | **均有官方 GitHub APK**；吃 Clash YAML，与订阅规则一致（Mihomo Party 为桌面 Electron，无安卓版）|
+| iOS / iPadOS 客户端 | Stash（首选）/ Shadowrocket | Stash 原生吃 Clash YAML，和 Mac 同一份规则；小火箭原生吃 v2ray 订阅，规则需自己堆 |
 
 ### 2.2 架构图
 
@@ -74,7 +75,7 @@
         ┌────────────┴────────────┐
         │                         │
   [订阅 URL: base64]      [订阅 URL: Clash YAML]
-  Shadowrocket（iOS）      Mihomo Party / Stash / Clash Verge
+  Shadowrocket（iOS）      Mihomo Party / Stash / Clash Verge / FlClash / CMFA
   - 节点列表              - 节点 + 代理组 + 分流规则
   - 规则自己写            - 规则已在 VPS 端统一生成
 ```
@@ -945,4 +946,4 @@ ssh root@$VPS_IP x-ui
 | `scripts/lib/common.sh` | 共享工具（log / apt / root check）|
 | `private/env.sh` | 本地真实凭据（⚠️ 不入 git）|
 | `private/ace-vpn-credentials.txt` | 凭据备份（⚠️ 不入 git）|
-| `docs/user-guide.md` | 给普通用户（家人）的四端客户端手册 |
+| `docs/用户手册 user-guide.md` | 给普通用户（家人）的手机 / 平板 / 电脑客户端手册 |
