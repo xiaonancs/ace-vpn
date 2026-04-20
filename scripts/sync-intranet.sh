@@ -61,6 +61,10 @@ else:
     print(f"  扁平格式: domains={len(data.get('domains') or [])}, cidrs={len(data.get('cidrs') or [])}")
 PY
 
+info "确保远端目录存在：$(dirname "$REMOTE_FILE")"
+ssh "${SSH_OPTS[@]}" "$VPS_SSH_USER@$VPS_IP" \
+  "mkdir -p '$(dirname "$REMOTE_FILE")' && chmod 0755 '$(dirname "$REMOTE_FILE")'"
+
 info "上传到 $VPS_SSH_USER@$VPS_IP:$REMOTE_FILE"
 scp "${SSH_OPTS[@]}" "$LOCAL_FILE" "$VPS_SSH_USER@$VPS_IP:$REMOTE_FILE"
 

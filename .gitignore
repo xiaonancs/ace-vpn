@@ -34,6 +34,7 @@ subscription.*
 private/*
 !private/README.md
 !private/env.sh.example
+!private/env.sh.minimal.example
 !private/credentials.txt.example
 !private/intranet.yaml.example
 *.creds
