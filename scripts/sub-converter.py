@@ -404,8 +404,14 @@ def build_clash_yaml(proxies: List[Dict[str, Any]], intranet: Dict[str, Any]) ->
             # 关键：内网域名用 profile 里配的 dns_servers（例如 10.234.253.8），
             # 回落到 "system"。用具体 DNS 能绕过 Mihomo / Clash Party GUI
             # 强改系统 DNS 后内网域名解不出的问题。
+            # 用 list(...) 给每个 domain 独立副本，避免 PyYAML dump 出 &id001
+            # 锚点语法（Mihomo 支持，但某些简易客户端/可读性不友好）
             "nameserver-policy": {
-                f"+.{sfx}": intranet["domain_dns"].get(sfx, "system")
+                f"+.{sfx}": (
+                    list(intranet["domain_dns"][sfx])
+                    if sfx in intranet["domain_dns"]
+                    else "system"
+                )
                 for sfx in intranet["domains"]
             },
             "nameserver": [
