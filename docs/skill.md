@@ -360,7 +360,7 @@ $EDITOR private/intranet.yaml
 
 # 改 / 换公司 / 加新公司
 $EDITOR private/intranet.yaml
-source private/env.sh && bash scripts/sync-intranet.sh
+bash scripts/sync-intranet.sh      # 脚本内部会自动 source private/env.sh
 
 # 家人端刷新订阅即生效（不需要 ssh，不需要 systemctl restart）
 ```
