@@ -78,20 +78,30 @@ def load_intranet_config() -> Dict[str, Any]:
       {
         "domains": ["ai.xiaomi.com", ...],
         "cidrs":   ["10.108.0.0/16", ...],
+        "domain_dns": {                       # 域名 → 专属 DNS 服务器列表
+            "ai.xiaomi.com": ["10.234.253.8", "10.234.254.8"],
+            ...
+        },
         "active_profiles": ["xiaomi", ...],   # 仅用于日志
       }
+
+    关于 domain_dns：
+      若 profile 配了 dns_servers（例如公司内网 DNS），该 profile 下所有 domain
+      都会用这些 server 做解析，绕开系统 DNS（防 Mihomo / Clash Party GUI 强改
+      系统 DNS 后拿不到内网 IP）。未配则回落到 "system"。
     """
     domains: List[str] = list(COMPANY_SFX)
     cidrs: List[str] = list(COMPANY_CIDRS)
     active: List[str] = []
+    domain_dns: Dict[str, List[str]] = {}
 
     if INTRANET_FILE and os.path.isfile(INTRANET_FILE):
         try:
             with open(INTRANET_FILE, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
             # 支持两种格式：
-            # (a) 扁平：{domains: [...], cidrs: [...]}
-            # (b) 多 profile：{profiles: {name: {enabled: bool, domains: [...], cidrs: [...]}}}
+            # (a) 扁平：{domains: [...], cidrs: [...], dns_servers: [...]}
+            # (b) 多 profile：{profiles: {name: {enabled, domains, cidrs, dns_servers}}}
             if isinstance(data.get("profiles"), dict):
                 for name, prof in (data["profiles"] or {}).items():
                     if not isinstance(prof, dict):
@@ -99,16 +109,30 @@ def load_intranet_config() -> Dict[str, Any]:
                     if not prof.get("enabled", False):
                         continue
                     active.append(name)
+                    prof_dns = [
+                        s.strip() for s in (prof.get("dns_servers") or [])
+                        if isinstance(s, str) and s.strip()
+                    ]
                     for d in (prof.get("domains") or []):
                         if isinstance(d, str) and d.strip():
-                            domains.append(d.strip())
+                            d = d.strip()
+                            domains.append(d)
+                            if prof_dns:
+                                domain_dns[d] = prof_dns
                     for c in (prof.get("cidrs") or []):
                         if isinstance(c, str) and c.strip():
                             cidrs.append(c.strip())
             else:
+                flat_dns = [
+                    s.strip() for s in (data.get("dns_servers") or [])
+                    if isinstance(s, str) and s.strip()
+                ]
                 for d in (data.get("domains") or []):
                     if isinstance(d, str) and d.strip():
-                        domains.append(d.strip())
+                        d = d.strip()
+                        domains.append(d)
+                        if flat_dns:
+                            domain_dns[d] = flat_dns
                 for c in (data.get("cidrs") or []):
                     if isinstance(c, str) and c.strip():
                         cidrs.append(c.strip())
@@ -127,6 +151,7 @@ def load_intranet_config() -> Dict[str, Any]:
     return {
         "domains": _dedup(domains),
         "cidrs": _dedup(cidrs),
+        "domain_dns": domain_dns,
         "active_profiles": active,
     }
 
@@ -376,8 +401,12 @@ def build_clash_yaml(proxies: List[Dict[str, Any]], intranet: Dict[str, Any]) ->
                 "+.msftncsi.com",
                 *[f"+.{sfx}" for sfx in intranet["domains"]],
             ],
+            # 关键：内网域名用 profile 里配的 dns_servers（例如 10.234.253.8），
+            # 回落到 "system"。用具体 DNS 能绕过 Mihomo / Clash Party GUI
+            # 强改系统 DNS 后内网域名解不出的问题。
             "nameserver-policy": {
-                **{f"+.{sfx}": "system" for sfx in intranet["domains"]},
+                f"+.{sfx}": intranet["domain_dns"].get(sfx, "system")
+                for sfx in intranet["domains"]
             },
             "nameserver": [
                 "https://doh.pub/dns-query",

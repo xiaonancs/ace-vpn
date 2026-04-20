@@ -15,8 +15,12 @@
 #  · domains 用 DOMAIN-SUFFIX 匹配（"ai.xiaomi.com" 会覆盖 live.ai.xiaomi.com 等全部子域）
 #    但**不会**反向匹配父域（"xiaomi.com" 不匹配，不怕误伤公开站）
 #  · cidrs 是 IP 段（你通过公司 VPN 拿到的 10.x / 172.x 等内网段）
-#  · 这些 domains 的 DNS 会自动走"系统 DNS"（公司 VPN 下发的 DNS），而不是公共 DoH
-#    这样才能拿到内网 IP；这是 domains 放这里比"本地手写 DIRECT"更稳的核心原因
+#  · dns_servers（推荐）是该 profile 下所有 domain 专用的 DNS，Mihomo 会绕开
+#    系统 DNS 直接问这几个 server。留空 → 回落 "system"。
+#    **强烈建议填**：Clash Party / Mihomo 开 TUN 后常把系统 DNS 改成公共 DNS
+#    （例如 223.5.5.5），公共 DNS 不知道 10.x 内网 IP，domain 解析必挂。
+#    在办公网跑 `scutil --dns | grep nameserver | head -4` 或 `cat /etc/resolv.conf`
+#    看系统 DNS 实际值，填到这里即可。
 
 profiles:
 
@@ -24,6 +28,9 @@ profiles:
   xiaomi:
     enabled: true
     desc: "小米（北京）"
+    dns_servers:             # 公司内网 DNS，强烈建议填
+      - 10.234.253.8
+      - 10.234.254.8
     domains:
       - ai.xiaomi.com        # 覆盖 live.ai.xiaomi.com 等全部子域
       - mioffice.cn
@@ -39,6 +46,8 @@ profiles:
   bytedance:
     enabled: false
     desc: "字节跳动（示例）"
+    dns_servers:
+      - 10.248.1.1           # 举例；填当时公司 VPN 给的 DNS
     domains:
       - bytedance.feishu.cn
       - bytedance.net
@@ -51,6 +60,7 @@ profiles:
   client-acme:
     enabled: false
     desc: "ACME 客户（示例）"
+    # dns_servers:            # 没有内网 DNS 就不填，domain 会用 "system"
     domains:
       - portal.acme-corp.com
       - intranet.acme.local
