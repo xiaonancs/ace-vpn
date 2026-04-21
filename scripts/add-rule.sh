@@ -5,14 +5,14 @@
 #   bash scripts/add-rule.sh <URL_OR_HOST> <TARGET> [NOTE]
 #
 # 示例：
-#   bash scripts/add-rule.sh https://gitlab.corp-a.example/  intranet  "内网 GitLab"
-#   bash scripts/add-rule.sh some-cn-tool.com           cn        "国内站被误判"
-#   bash scripts/add-rule.sh https://claude-foo.example overseas  "新 AI"
+#   bash scripts/add-rule.sh https://gitlab.corp-a.example/  IN      "内网 GitLab"
+#   bash scripts/add-rule.sh some-cn-tool.com               DIRECT  "国内站被误判走代理"
+#   bash scripts/add-rule.sh https://claude-foo.example     VPS     "新 AI（走 VPS 出去）"
 #
-# TARGET：
-#   intranet  → DIRECT + 走内网 DNS（fake-ip-filter + nameserver-policy）
-#   cn        → DIRECT（走系统/公网 DNS）
-#   overseas  → 🚀 节点选择
+# TARGET（大小写无关；老名 intranet/cn/overseas 也兼容）：
+#   IN      → 公司内网 DIRECT + 走内网 DNS（fake-ip-filter + nameserver-policy）
+#   DIRECT  → 普通直连（走系统/公网 DNS；用于修正国内站被误判）
+#   VPS     → 走 VPS 代理出去（🚀 节点选择；用于新 AI / 新海外站）
 #
 # 行为：
 #   1. 解析 URL 拿 host（去 protocol / port / path / 通配前缀）
@@ -28,17 +28,15 @@ die()  { echo "${color_red}ERROR${color_off} $*" >&2; exit 1; }
 info() { echo "${color_grn}→${color_off} $*"; }
 
 if [[ $# -lt 2 ]]; then
-  die "用法: $0 <URL_OR_HOST> <intranet|cn|overseas> [NOTE]"
+  die "用法: $0 <URL_OR_HOST> <IN|DIRECT|VPS> [NOTE]"
 fi
 
 INPUT=$1
 TARGET=$2
 NOTE=${3:-}
 
-case "$TARGET" in
-  intranet|cn|overseas) ;;
-  *) die "TARGET 必须是 intranet / cn / overseas，给的是 '$TARGET'" ;;
-esac
+# 这里只做大小写归一；老名 intranet/cn/overseas 由 Python 层 normalize 接住
+TARGET_UC=$(echo "$TARGET" | tr '[:lower:]' '[:upper:]')
 
 PYTHONPATH="$SCRIPT_DIR" python3 - "$INPUT" "$TARGET" "$NOTE" <<'PY' || die "加规则失败"
 import sys

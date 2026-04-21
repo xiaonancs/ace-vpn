@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # 把本地规则池推到 VPS：
 #   1. 按 target 合并到 private/intranet.yaml：
-#       intranet  → profiles[active].domains
-#       overseas  → 顶层 extra.overseas
-#       cn        → 顶层 extra.cn
+#       IN     → profiles[active].domains
+#       VPS    → 顶层 extra.overseas
+#       DIRECT → 顶层 extra.cn
 #   2. 调 sync-intranet.sh 推 VPS（sub-converter 热加载，全设备订阅刷新即生效）
 #   3. 已 promote 的规则从本地池删除
 #   4. 重新渲染 Mihomo override（本地池清空了那部分，规则下沉到订阅）
@@ -57,22 +57,19 @@ ERR=$(echo "$PLAN" | python3 -c 'import json,sys;d=json.load(sys.stdin);print(d.
 py_get() { echo "$PLAN" | python3 -c "import json,sys;d=json.load(sys.stdin);v=d['$1'];print('\n'.join(v) if isinstance(v,list) else v)"; }
 
 ACTIVE=$(py_get active_profile)
-INTRA_ADD=$(py_get intranet_to_add)
-INTRA_DUP=$(py_get intranet_skipped_dup)
-OS_ADD=$(py_get overseas_to_add)
-OS_DUP=$(py_get overseas_skipped_dup)
-CN_ADD=$(py_get cn_to_add)
-CN_DUP=$(py_get cn_skipped_dup)
+IN_ADD=$(py_get in_to_add)
+IN_DUP=$(py_get in_skipped_dup)
+VPS_ADD=$(py_get vps_to_add)
+VPS_DUP=$(py_get vps_skipped_dup)
+DIR_ADD=$(py_get direct_to_add)
+DIR_DUP=$(py_get direct_skipped_dup)
 
 count() { echo -n "${1:-}" | grep -c . || true; }
-INTRA_ADD_N=$(count "$INTRA_ADD")
-INTRA_DUP_N=$(count "$INTRA_DUP")
-OS_ADD_N=$(count "$OS_ADD")
-OS_DUP_N=$(count "$OS_DUP")
-CN_ADD_N=$(count "$CN_ADD")
-CN_DUP_N=$(count "$CN_DUP")
+IN_ADD_N=$(count "$IN_ADD");   IN_DUP_N=$(count "$IN_DUP")
+VPS_ADD_N=$(count "$VPS_ADD"); VPS_DUP_N=$(count "$VPS_DUP")
+DIR_ADD_N=$(count "$DIR_ADD"); DIR_DUP_N=$(count "$DIR_DUP")
 
-TOTAL_ADD=$((INTRA_ADD_N + OS_ADD_N + CN_ADD_N))
+TOTAL_ADD=$((IN_ADD_N + VPS_ADD_N + DIR_ADD_N))
 
 echo
 echo "📋 计划"
@@ -90,14 +87,14 @@ print_section() {
   fi
 }
 
-print_section "🏢" "intranet"  "$INTRA_ADD" "$INTRA_ADD_N" "$INTRA_DUP" "$INTRA_DUP_N" "profiles.$ACTIVE.domains"
-print_section "🌍" "overseas"  "$OS_ADD"    "$OS_ADD_N"    "$OS_DUP"    "$OS_DUP_N"    "extra.overseas"
-print_section "🇨🇳" "cn"        "$CN_ADD"    "$CN_ADD_N"    "$CN_DUP"    "$CN_DUP_N"    "extra.cn"
+print_section "🏢" "IN"      "$IN_ADD"  "$IN_ADD_N"  "$IN_DUP"  "$IN_DUP_N"  "profiles.$ACTIVE.domains"
+print_section "🌍" "VPS"     "$VPS_ADD" "$VPS_ADD_N" "$VPS_DUP" "$VPS_DUP_N" "extra.overseas"
+print_section "🇨🇳" "DIRECT"  "$DIR_ADD" "$DIR_ADD_N" "$DIR_DUP" "$DIR_DUP_N" "extra.cn"
 
 if [[ $TOTAL_ADD -eq 0 ]]; then
-  if [[ $((INTRA_DUP_N + OS_DUP_N + CN_DUP_N)) -gt 0 ]]; then
+  if [[ $((IN_DUP_N + VPS_DUP_N + DIR_DUP_N)) -gt 0 ]]; then
     info "本地池里全是 intranet.yaml 已有的规则，没有需要 promote 的。"
-    info "可以手工清掉本地池：rm掉对应行 + 跑 apply-local-overrides.sh"
+    info "可以手工清掉本地池：编辑 private/local-rules.yaml 删行 + 跑 apply-local-overrides.sh"
   else
     info "本地池为空，没什么可 promote 的。"
   fi
@@ -115,7 +112,7 @@ PYTHONPATH="$SCRIPT_DIR" python3 - <<'PY' || die "intranet.yaml 修改失败"
 from lib import local_rules as lr
 plan = lr.promote_to_intranet()
 lr.apply_promote(plan)
-total = len(plan['intranet_to_add']) + len(plan['overseas_to_add']) + len(plan['cn_to_add'])
+total = len(plan['in_to_add']) + len(plan['vps_to_add']) + len(plan['direct_to_add'])
 print(f"  ✅ {total} 条已写入 {lr.INTRANET_PATH}")
 PY
 
@@ -130,10 +127,7 @@ if [[ $KEEP -eq 0 ]]; then
   info "从本地池移除已 promote 的规则..."
   PYTHONPATH="$SCRIPT_DIR" python3 - <<PY
 from lib import local_rules as lr
-plan = lr.promote_to_intranet()  # 重新算（intranet.yaml 改完，本来 _to_add 应该全 dup）
-# 但 plan 此时的 _to_add 已为 0；要用刚才被合并的 host 集合
-import json
-hosts = """$(printf '%s\n' "$INTRA_ADD" "$OS_ADD" "$CN_ADD" | grep -v '^$' || true)""".strip().splitlines()
+hosts = """$(printf '%s\n' "$IN_ADD" "$VPS_ADD" "$DIR_ADD" | grep -v '^$' || true)""".strip().splitlines()
 removed = lr.remove_from_pool(hosts)
 print(f"  ✅ 本地池删除 {removed} 条")
 PY

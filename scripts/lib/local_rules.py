@@ -6,9 +6,16 @@
 local-rules.yaml schema:
     rules:
       - host: foo.com
-        target: intranet | cn | overseas
+        target: IN | DIRECT | VPS         # IN=内网, DIRECT=普通直连, VPS=走 VPS 代理出去
         note: "..."
         added: "2026-04-21 16:00"
+
+target 语义：
+    IN      → 公司内网 DOMAIN-SUFFIX,host,DIRECT + nameserver-policy 走内网 DNS
+    DIRECT  → DOMAIN-SUFFIX,host,DIRECT（普通直连，国内站误判修正用）
+    VPS     → DOMAIN-SUFFIX,host,🚀 节点选择（走 VPS 代理出去；新 AI / 新海外站）
+
+为兼容老数据，加载时会把 intranet→IN / cn→DIRECT / overseas→VPS 自动 normalize。
 
 Mihomo Party override 渲染目标：
     ~/Library/Application Support/mihomo-party/override.yaml         # 注册表
@@ -42,9 +49,29 @@ OVERRIDE_NAME = "ace-vpn local rules (auto-generated)"
 OVERRIDE_FILE = OVERRIDE_DIR / f"{OVERRIDE_ID}.yaml"
 
 # 三种 target 对应的 proxy group 名（与 sub-converter.py 输出保持一致）
-PROXY_GROUP_OVERSEAS = "🚀 节点选择"
+PROXY_GROUP_VPS = "🚀 节点选择"
 
-VALID_TARGETS = {"intranet", "cn", "overseas"}
+# 用户面向的 target 名（命令行 / yaml 字段值 / UI 输出 一律这三个）
+TARGET_IN = "IN"          # 公司内网
+TARGET_DIRECT = "DIRECT"  # 普通直连
+TARGET_VPS = "VPS"        # 走 VPS 代理出去
+
+VALID_TARGETS = {TARGET_IN, TARGET_DIRECT, TARGET_VPS}
+
+# 兼容老数据 + 大小写无关。用户输入 / 老 yaml 文件全部归一化到大写
+_TARGET_ALIASES = {
+    "in": TARGET_IN, "intranet": TARGET_IN, "internal": TARGET_IN,
+    "direct": TARGET_DIRECT, "cn": TARGET_DIRECT, "china": TARGET_DIRECT,
+    "vps": TARGET_VPS, "overseas": TARGET_VPS, "proxy": TARGET_VPS, "oversea": TARGET_VPS,
+}
+
+
+def normalize_target(raw: str | None) -> str | None:
+    """把用户输入 / 老 yaml 的 target 字符串归一到 IN/DIRECT/VPS。
+    无法识别返回 None。"""
+    if not raw:
+        return None
+    return _TARGET_ALIASES.get(str(raw).strip().lower())
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -74,9 +101,18 @@ def _atomic_write(path: Path, content: str) -> None:
 # ─────────────────────────────────────────────────────────────────
 
 def load_pool() -> list[dict]:
+    """读取本地池。同时把老的 target 字符串（intranet/cn/overseas）归一到 IN/DIRECT/VPS。"""
     data = _load_yaml(LOCAL_RULES_PATH, default={}) or {}
     rules = data.get("rules") or []
-    return [r for r in rules if isinstance(r, dict) and r.get("host")]
+    out = []
+    for r in rules:
+        if not (isinstance(r, dict) and r.get("host")):
+            continue
+        norm = normalize_target(r.get("target"))
+        if norm:
+            r["target"] = norm
+        out.append(r)
+    return out
 
 
 def save_pool(rules: list[dict]) -> None:
@@ -104,7 +140,8 @@ def save_pool(rules: list[dict]) -> None:
 
 
 def add_rule(host: str, target: str, note: str = "") -> tuple[bool, str]:
-    """加一条规则到本地池。
+    """加一条规则到本地池。target 接受 IN/DIRECT/VPS（大小写无关，
+    也接受老名 intranet/cn/overseas）。
 
     返回 (added, message)：
       - added=True 表示新增；False 表示已存在/被跳过
@@ -112,8 +149,11 @@ def add_rule(host: str, target: str, note: str = "") -> tuple[bool, str]:
     host = host.strip().lower().lstrip(".")
     if not host:
         return False, "host 为空"
-    if target not in VALID_TARGETS:
-        return False, f"target 必须是 {VALID_TARGETS}，给的是 {target}"
+
+    norm = normalize_target(target)
+    if norm is None:
+        return False, f"target 必须是 IN / DIRECT / VPS，给的是 '{target}'"
+    target = norm
 
     pool = load_pool()
 
@@ -172,7 +212,7 @@ def render_override_yaml(pool: list[dict]) -> str:
       +rules:
         - DOMAIN-SUFFIX,foo.com,DIRECT
 
-    intranet target 额外加：
+    target=IN 额外加：
       dns:
         +fake-ip-filter:           ← 跳过 fake-ip
           - "+.foo.com"
@@ -180,22 +220,22 @@ def render_override_yaml(pool: list[dict]) -> str:
           <+.foo.com>:             ← 强制走内网 DNS
             - 10.x.x.x
     """
-    intranet_hosts = []
+    in_hosts = []
     other_rules = []
 
     for r in pool:
         host = r["host"]
-        target = r.get("target")
+        target = normalize_target(r.get("target"))
         note = r.get("note", "")
         comment = f"  # {note}" if note else ""
 
-        if target == "intranet":
+        if target == TARGET_IN:
             other_rules.append(f"DOMAIN-SUFFIX,{host},DIRECT{comment}")
-            intranet_hosts.append(host)
-        elif target == "cn":
+            in_hosts.append(host)
+        elif target == TARGET_DIRECT:
             other_rules.append(f"DOMAIN-SUFFIX,{host},DIRECT{comment}")
-        elif target == "overseas":
-            other_rules.append(f"DOMAIN-SUFFIX,{host},{PROXY_GROUP_OVERSEAS}{comment}")
+        elif target == TARGET_VPS:
+            other_rules.append(f"DOMAIN-SUFFIX,{host},{PROXY_GROUP_VPS}{comment}")
         # 未知 target 静默跳过
 
     lines: list[str] = [
@@ -223,24 +263,24 @@ def render_override_yaml(pool: list[dict]) -> str:
     for r in other_rules:
         lines.append(f"  - {r}")
 
-    if intranet_hosts:
+    if in_hosts:
         dns_servers = get_active_intranet_dns()
         lines.append("")
         lines.append("dns:")
         lines.append("  +fake-ip-filter:")
-        for h in intranet_hosts:
+        for h in in_hosts:
             lines.append(f'    - "+.{h}"')
 
         if dns_servers:
             lines.append("  nameserver-policy:")
-            for h in intranet_hosts:
+            for h in in_hosts:
                 # key 含 + 号，必须用 <> 包裹（Mihomo Party 语法）
                 lines.append(f'    "<+.{h}>":')
                 for s in dns_servers:
                     lines.append(f"      - {s}")
         else:
             lines.append("  # ⚠ intranet.yaml 当前 enabled profile 没配 dns_servers")
-            lines.append("  # intranet 类规则只 prepend 了 fake-ip-filter，DNS 仍走系统")
+            lines.append("  # IN 类规则只 prepend 了 fake-ip-filter，DNS 仍走系统")
 
     return "\n".join(lines) + "\n"
 
@@ -368,9 +408,14 @@ def trigger_mihomo_reload() -> tuple[bool, str]:
 def promote_to_intranet() -> dict:
     """把本地池里的规则按 target 合并到 intranet.yaml。
 
-    - intranet target → 加到当前第一个 enabled profile 的 domains
-    - overseas target → 加到顶层 extra.overseas（跨 profile 共享）
-    - cn target       → 加到顶层 extra.cn（跨 profile 共享）
+    映射（用户 target → intranet.yaml 字段）：
+      IN     → profiles[active].domains            （随当前 enabled profile）
+      VPS    → 顶层 extra.overseas                  （跨 profile 共享）
+      DIRECT → 顶层 extra.cn                        （跨 profile 共享）
+
+    注：intranet.yaml 顶层 extra 字段名（overseas/cn）保持不变，
+       因为 sub-converter 已经按这套 schema 部署在 VPS 上。
+       用户层面只看到 IN/DIRECT/VPS，schema 命名是内部细节。
 
     返回 plan dict（不真改文件），由 apply_promote() 落地。
     """
@@ -390,88 +435,76 @@ def promote_to_intranet() -> dict:
         raise ValueError(f"{INTRANET_PATH} 没有任何 enabled profile")
 
     active = profs[active_name]
-    existing_domains = set((d or "").lower() for d in (active.get("domains") or []))
+    existing_in = set((d or "").lower() for d in (active.get("domains") or []))
 
     extra = intra.get("extra") or {}
-    existing_overseas = set((d or "").lower() for d in (extra.get("overseas") or []))
-    existing_cn = set((d or "").lower() for d in (extra.get("cn") or []))
+    existing_vps = set((d or "").lower() for d in (extra.get("overseas") or []))
+    existing_direct = set((d or "").lower() for d in (extra.get("cn") or []))
 
     plan = {
         "active_profile": active_name,
-        "intranet_to_add": [],
-        "intranet_skipped_dup": [],
-        "overseas_to_add": [],
-        "overseas_skipped_dup": [],
-        "cn_to_add": [],
-        "cn_skipped_dup": [],
+        "in_to_add": [], "in_skipped_dup": [],
+        "vps_to_add": [], "vps_skipped_dup": [],
+        "direct_to_add": [], "direct_skipped_dup": [],
         "unknown": [],
     }
 
     for r in pool:
         host = (r.get("host") or "").lower()
-        target = r.get("target")
+        target = normalize_target(r.get("target"))
         if not host:
             continue
-        if target == "intranet":
-            if host in existing_domains:
-                plan["intranet_skipped_dup"].append(host)
-            else:
-                plan["intranet_to_add"].append(host)
-        elif target == "overseas":
-            if host in existing_overseas:
-                plan["overseas_skipped_dup"].append(host)
-            else:
-                plan["overseas_to_add"].append(host)
-        elif target == "cn":
-            if host in existing_cn:
-                plan["cn_skipped_dup"].append(host)
-            else:
-                plan["cn_to_add"].append(host)
+        if target == TARGET_IN:
+            (plan["in_skipped_dup"] if host in existing_in else plan["in_to_add"]).append(host)
+        elif target == TARGET_VPS:
+            (plan["vps_skipped_dup"] if host in existing_vps else plan["vps_to_add"]).append(host)
+        elif target == TARGET_DIRECT:
+            (plan["direct_skipped_dup"] if host in existing_direct else plan["direct_to_add"]).append(host)
         else:
-            plan["unknown"].append((host, target))
+            plan["unknown"].append((host, r.get("target")))
 
     return plan
 
 
 def apply_promote(plan: dict) -> None:
     """根据 plan 实际改 intranet.yaml：
-       - intranet → profiles[active].domains 追加
-       - overseas → 顶层 extra.overseas 追加
-       - cn       → 顶层 extra.cn 追加
+       - IN     → profiles[active].domains 追加
+       - VPS    → 顶层 extra.overseas 追加
+       - DIRECT → 顶层 extra.cn 追加
     """
-    if not (plan["intranet_to_add"] or plan["overseas_to_add"] or plan["cn_to_add"]):
+    if not (plan["in_to_add"] or plan["vps_to_add"] or plan["direct_to_add"]):
         return
 
     raw = INTRANET_PATH.read_text(encoding="utf-8")
     intra = yaml.safe_load(raw) or {}
 
-    # intranet → profile.domains
-    if plan["intranet_to_add"]:
+    # IN → profile.domains
+    if plan["in_to_add"]:
         active_name = plan["active_profile"]
         active = intra["profiles"][active_name]
         domains = list(active.get("domains") or [])
-        for h in plan["intranet_to_add"]:
+        for h in plan["in_to_add"]:
             if h not in domains:
                 domains.append(h)
         active["domains"] = domains
 
-    # overseas / cn → 顶层 extra（不存在则建）
-    if plan["overseas_to_add"] or plan["cn_to_add"]:
+    # VPS / DIRECT → 顶层 extra（不存在则建）
+    if plan["vps_to_add"] or plan["direct_to_add"]:
         extra = intra.get("extra")
         if not isinstance(extra, dict):
             extra = {}
             intra["extra"] = extra
 
-        if plan["overseas_to_add"]:
+        if plan["vps_to_add"]:
             cur = list(extra.get("overseas") or [])
-            for h in plan["overseas_to_add"]:
+            for h in plan["vps_to_add"]:
                 if h not in cur:
                     cur.append(h)
             extra["overseas"] = cur
 
-        if plan["cn_to_add"]:
+        if plan["direct_to_add"]:
             cur = list(extra.get("cn") or [])
-            for h in plan["cn_to_add"]:
+            for h in plan["direct_to_add"]:
                 if h not in cur:
                     cur.append(h)
             extra["cn"] = cur
@@ -484,9 +517,9 @@ def all_promoted_hosts(plan: dict) -> list[str]:
 
     跳过的（已存在 / unknown）不算——它们留在本地池让用户决定。
     """
-    return list(plan["intranet_to_add"]) \
-         + list(plan["overseas_to_add"]) \
-         + list(plan["cn_to_add"])
+    return list(plan["in_to_add"]) \
+         + list(plan["vps_to_add"]) \
+         + list(plan["direct_to_add"])
 
 
 def remove_from_pool(hosts: list[str]) -> int:

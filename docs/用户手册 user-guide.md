@@ -6,6 +6,26 @@
 
 ---
 
+## ✨ 亮点功能 / 索引
+
+ace-vpn 不是普通 VPN，是一套"自己当运营商"的家庭网络分流系统。核心能力速览：
+
+| 能力 | 一句话 | 详细 |
+|------|--------|------|
+| 🌐 **三网段智能分流** | 公司内网（IN）/ 国内（DIRECT）/ 海外（VPS）三种链路自动选 | 规则在 [§7.9 §sub-converter 优先级](#sub-converter-规则优先级) |
+| 📱 **跨四端零差异** | Mac / Windows / iPhone / iPad / Android 同一份订阅 URL，规则全自动同步 | [§3](#3-mac-配置) / [§4](#4-iphone-与-ipad) / [§5](#5-windows-配置家人版) / [§6](#6-android-手机与平板) |
+| ⚡ **一条命令加规则** | `bash scripts/add-rule.sh <URL> <IN\|DIRECT\|VPS> "备注"` 秒级生效 | [§7.9 cheatsheet](#4-个脚本cheatsheet) |
+| 🔄 **本地优先 + 全设备同步** | Mac 本地池立即生效，攒一周一键 promote 到 VPS，全家人订阅自动刷新 | [§7.9 设计原则](#设计原则) |
+| 🏢 **换公司一行命令** | profile 系统：换公司只需 `enabled: true/false`，旧公司规则保留不丢 | [§7.8 换公司](#78仅管理员换公司新内网) |
+| 💻 **多 Mac git 同步本地池** | 公司 Mac / 家里 Mac 通过 private git 仓库自动同步未 promote 的规则 | [§7.9 多 Mac 同步](#多-mac-同步本地池) |
+| 🔍 **一键诊断** | `bash scripts/test-route.sh <URL>` 输出规则命中 / DNS / TCP / TLS / TTFB 全链路 | [§7.7 诊断速查](#77仅管理员诊断速查) |
+| 🛡️ **公私分离 + pre-commit hook** | 真实公司域名 / VPS 凭据全在私有仓库，public 仓库 hook 拦截泄漏 | [`private/README.md`](../private/README.md) |
+
+> 家人只需要看 §3-§6 装 App 粘订阅 URL，剩下全自动。  
+> 管理员（你自己）看 §7 的 7.7/7.8/7.9 三段管理员速查。
+
+---
+
 ## 目录
 
 1. [这是什么？](#1-这是什么)
@@ -536,38 +556,45 @@ bash scripts/test-route.sh https://git.corp-b.example/
 
 #### 三个 target 怎么选
 
-| TARGET | 落到什么规则 | 何时用 |
-|--------|--------------|-------|
-| `intranet` | DOMAIN-SUFFIX,host,**DIRECT** + 走当前 enabled profile 的内网 DNS（fake-ip-filter + nameserver-policy） | 公司内网新发现的域名 |
-| `cn` | DOMAIN-SUFFIX,host,**DIRECT** | 国内站被 sub-converter 误判走代理（少见） |
-| `overseas` | DOMAIN-SUFFIX,host,**🚀 节点选择** | 新 AI 服务 / 新海外站点没被 sub-converter 默认覆盖 |
+只要记住三个字母：**IN** / **DIRECT** / **VPS**。
 
-三种 target promote 后的去向：
+| TARGET | 含义 | 落到什么规则 | 何时用 |
+|--------|------|--------------|-------|
+| `IN` | 公司内网 | `DOMAIN-SUFFIX,host,DIRECT` + 走当前 enabled profile 的内网 DNS（fake-ip-filter + nameserver-policy） | 公司内网新发现的域名（GitLab / Jira / Confluence / OA…） |
+| `DIRECT` | 普通直连 | `DOMAIN-SUFFIX,host,DIRECT`（走系统/公网 DNS） | 国内站被 sub-converter 误判走代理（少见，多数已被 GEOIP CN 兜底） |
+| `VPS` | 走 VPS 代理出去 | `DOMAIN-SUFFIX,host,🚀 节点选择` | 新 AI 服务 / 新海外站点没被 sub-converter 默认覆盖 |
 
-| target | promote 写入 `intranet.yaml` 的位置 | 是否随 profile 切换 |
-|--------|--------------------------------------|---------------------|
-| `intranet` | `profiles[当前 enabled].domains` | ✅ 跟着公司走 |
-| `overseas` | 顶层 `extra.overseas` | ❌ 跨公司共享 |
-| `cn` | 顶层 `extra.cn` | ❌ 跨公司共享 |
+> 大小写无关：`in` / `In` / `IN` 都接受。也兼容老名 `intranet` / `cn` / `overseas`，自动转换。
+
+三种 target promote 到 VPS 后的去向：
+
+| TARGET | 写入 `intranet.yaml` 的位置 | 是否随 profile 切换 |
+|--------|------------------------------|---------------------|
+| `IN` | `profiles[当前 enabled].domains` | ✅ 跟着公司走 |
+| `VPS` | 顶层 `extra.overseas` | ❌ 跨公司共享 |
+| `DIRECT` | 顶层 `extra.cn` | ❌ 跨公司共享 |
+
+> intranet.yaml 顶层 `extra.overseas` / `extra.cn` 的字段名是历史 schema（sub-converter 在 VPS 上读它）。用户层只看 IN/DIRECT/VPS 即可，schema 命名是内部细节。
 
 #### 4 个脚本（cheatsheet）
 
 ```bash
-# 加规则（最常用）
-bash scripts/add-rule.sh https://gitlab.corp-a.example/  intranet  "内网 GitLab"
-bash scripts/add-rule.sh https://claude-foo.example overseas  "新 AI 服务"
-bash scripts/add-rule.sh https://www.some-cn.com    cn        "国内站被误判"
+# 加规则（最常用）—— 三个字母选一个
+bash scripts/add-rule.sh https://gitlab.corp-a.example/  IN      "内网 GitLab"
+bash scripts/add-rule.sh https://claude-foo.example      VPS     "新 AI（走 VPS 出去）"
+bash scripts/add-rule.sh https://www.some-cn-tool.com    DIRECT  "国内站被误判"
 
 # 看积累了什么
-bash scripts/list-rules.sh
-bash scripts/list-rules.sh intranet     # 只看 intranet 类
+bash scripts/list-rules.sh                # 全部
+bash scripts/list-rules.sh IN             # 只看 IN 类
+bash scripts/list-rules.sh VPS            # 只看 VPS 类
 
 # 手动重新渲染（一般不用，add-rule 自动调）
 bash scripts/apply-local-overrides.sh
 
 # 攒了一周，批量推 VPS（推完自动清空本地池）
-bash scripts/promote-to-vps.sh --dry-run    # 先看计划
-bash scripts/promote-to-vps.sh              # 真推
+bash scripts/promote-to-vps.sh --dry-run  # 先看计划
+bash scripts/promote-to-vps.sh            # 真推
 ```
 
 #### add-rule 之后发生了什么
@@ -583,9 +610,9 @@ bash scripts/promote-to-vps.sh              # 真推
 #### promote 之后发生了什么
 
 1. 扫描本地池，按 target 分组合并到 `intranet.yaml`：
-   - `intranet` → 当前 enabled profile 的 `domains`（跟着公司走，换公司会一起 enable/disable）
-   - `overseas` → 顶层 `extra.overseas`（跨 profile 共享，换公司不影响）
-   - `cn`       → 顶层 `extra.cn`（跨 profile 共享）
+   - `IN` → 当前 enabled profile 的 `domains`（跟着公司走，换公司会一起 enable/disable）
+   - `VPS` → 顶层 `extra.overseas`（跨 profile 共享，换公司不影响）
+   - `DIRECT` → 顶层 `extra.cn`（跨 profile 共享）
 2. 调 `sync-intranet.sh` scp 到 VPS，sub-converter 热加载（无需 systemctl restart）
 3. 已 promote 的规则全部从本地池删除（避免重复）
 4. 重新渲染本地 override（本地池空了那部分，规则 100% 来自 VPS 订阅）
@@ -594,20 +621,20 @@ bash scripts/promote-to-vps.sh              # 真推
 #### sub-converter 规则优先级
 
 ```
-1. profile.cidrs                    → DIRECT
-2. profile.domains                  → DIRECT  + 走 profile.dns_servers
-3. 私有网段（127/8、10/8、192.168/16…）→ DIRECT
-4. extra.overseas（你 promote 上来的）→ 🚀 PROXY      ← 用户加的赢内置
-5. extra.cn      （你 promote 上来的）→ DIRECT        ← 用户加的赢内置
-6. AI 内置（OpenAI/Claude/Cursor…）→ 🤖 AI
-7. 海外社交内置（Discord/X/Telegram…）→ 🚀 PROXY
-8. 流媒体内置（YouTube/Netflix…）   → 📺 MEDIA
-9. 国内常用内置（淘宝/B 站/抖音…）   → DIRECT
-10. GEOIP CN                        → DIRECT
-11. MATCH                           → 🐟 FINAL
+1. profile.cidrs                              → DIRECT
+2. profile.domains（IN 类落这里）              → DIRECT  + 走 profile.dns_servers
+3. 私有网段（127/8、10/8、192.168/16…）        → DIRECT
+4. extra.overseas（VPS 类落这里）              → 🚀 PROXY      ← 用户加的赢内置
+5. extra.cn（DIRECT 类落这里）                 → DIRECT        ← 用户加的赢内置
+6. AI 内置（OpenAI/Claude/Cursor…）            → 🤖 AI
+7. 海外社交内置（Discord/X/Telegram…）         → 🚀 PROXY
+8. 流媒体内置（YouTube/Netflix…）              → 📺 MEDIA
+9. 国内常用内置（淘宝/B 站/抖音…）              → DIRECT
+10. GEOIP CN                                  → DIRECT
+11. MATCH                                     → 🐟 FINAL
 ```
 
-`extra.*` 在内置 AI / SOCIAL_PROXY / CHINA_DIRECT 之前，所以你手加的规则**永远赢内置默认**——比如某个本来被 GEOIP CN 误判的国内站，加到 `cn` 后立刻直连。
+`extra.*` 在内置 AI / SOCIAL_PROXY / CHINA_DIRECT 之前，所以你 promote 的规则**永远赢内置默认**——比如某个本来被 GEOIP CN 误判的国内站，加 `DIRECT` 后立刻直连；某个新 AI 服务加 `VPS` 后立刻代理。
 
 #### 多 Mac 同步本地池
 
@@ -621,9 +648,11 @@ cd ~/workspace/publish/ace-vpn        && bash scripts/apply-local-overrides.sh
 
 #### 常见疑问
 
+- **Q：IN/DIRECT/VPS 这三个名字怎么记？** `IN`=内网（**In**tranet）、`DIRECT`=普通直连、`VPS`=经过 VPS 出去（=代理）。从用户视角讲，VPS 就是"那台中转服务器"。
+- **Q：用老名 `intranet`/`cn`/`overseas` 还能用吗？** 能。脚本和 yaml 都自动归一到 IN/DIRECT/VPS，旧文档/旧池不会坏。新加的统一用大写三字母。
 - **Q：本地池能放多久？** 没有上限。但建议每 1-2 周 promote 一次，避免家人那边规则缺失太多。
 - **Q：promote 后我的 Mac 还有那条规则吗？** 有，只是从"本地池 prepend"变成"VPS 订阅里的 extra/profile.domains"，优先级降一档但效果不变。
-- **Q：换公司后 `extra` 里的规则会丢吗？** 不会。`extra` 是顶层字段，独立于 profiles，不受 enabled/disabled 影响。换公司只切 profile，extra 里的 AI / 海外站点继续生效。
+- **Q：换公司后 VPS 类规则会丢吗？** 不会。VPS / DIRECT 类落在顶层 `extra`（`extra.overseas` / `extra.cn`），独立于 profiles，不受 enabled/disabled 影响。换公司只切 profile，新 AI / 海外站点继续生效。
 - **Q：手编辑 `local-rules.yaml` 行不行？** 行。改完跑 `bash scripts/apply-local-overrides.sh` 渲染一下。
 - **Q：怎么删一条本地规则？** 直接编辑 `local-rules.yaml` 删行 → `apply-local-overrides.sh`。
 - **Q：怎么删一条已经 promote 到 VPS 的规则？** 编辑 `private/intranet.yaml`（删掉 extra.overseas / extra.cn / profile.domains 里那行）→ `bash scripts/sync-intranet.sh`。
