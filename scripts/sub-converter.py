@@ -27,11 +27,13 @@
     intranet.yaml 结构见 private/intranet.yaml.example；支持多 profile，
     每个 profile 带 enabled 开关，互相独立。本地编辑后 scp 到 VPS 即可。
 
-固定路由策略：
-  - 公司内网（CIDR / 域名后缀）→ DIRECT，DNS 走系统解析（走公司内网 DNS 拿内网 IP）
-  - AI（OpenAI/Claude/Gemini/Cursor/GitHub Copilot）→ 🤖 AI（默认走代理）
-  - 境外社交（Discord/X/Telegram/Facebook/Instagram/YouTube）→ 🚀 PROXY
-  - 境内常用（抖音/淘宝/B 站/微博/QQ/百度）→ DIRECT
+固定路由策略（按规则顺序优先级从高到低）：
+  - 公司内网（profile.cidrs / profile.domains）→ DIRECT，DNS 走 profile.dns_servers
+  - extra.overseas（用户手加 / Mac 本地池 promote）→ 🚀 PROXY
+  - extra.cn（用户手加 / Mac 本地池 promote）→ DIRECT
+  - AI（OpenAI/Claude/Gemini/Cursor/GitHub Copilot，内置）→ 🤖 AI
+  - 境外社交（Discord/X/Telegram/Facebook/Instagram/YouTube，内置）→ 🚀 PROXY
+  - 境内常用（抖音/淘宝/B 站/微博/QQ/百度，内置）→ DIRECT
   - GEOIP CN → DIRECT
   - MATCH → 🐟 FINAL（默认代理，可手动切直连）
 """
@@ -76,24 +78,34 @@ def load_intranet_config() -> Dict[str, Any]:
 
     返回：
       {
-        "domains": ["app.corp-a.example", ...],
+        "domains": ["app.corp-a.example", ...],   # 公司内网 → DIRECT
         "cidrs":   ["10.0.0.0/8", ...],
-        "domain_dns": {                       # 域名 → 专属 DNS 服务器列表
+        "domain_dns": {                           # 域名 → 专属 DNS 服务器列表
             "app.corp-a.example": ["10.x.x.1", "10.x.x.2"],
             ...
         },
-        "active_profiles": ["corp-a", ...],   # 仅用于日志
+        "active_profiles": ["corp-a", ...],       # 仅用于日志
+        "extra_overseas": ["claude-foo.example"], # 跨 profile 的额外代理域名
+        "extra_cn":       ["misclassified.cn"],   # 跨 profile 的额外直连域名
       }
 
     关于 domain_dns：
       若 profile 配了 dns_servers（例如公司内网 DNS），该 profile 下所有 domain
       都会用这些 server 做解析，绕开系统 DNS（防 Mihomo / Clash Party GUI 强改
       系统 DNS 后拿不到内网 IP）。未配则回落到 "system"。
+
+    关于 extra：
+      顶层 `extra: {overseas: [...], cn: [...]}`，由 promote-to-vps.sh 把 Mac 本
+      地池里 cn / overseas 类规则合并到这里。和 profiles 解耦——换公司不影响。
+      在 build_rules 中 prepend 到 AI / SOCIAL_PROXY / CHINA_DIRECT 之前，
+      让用户手加规则永远赢内置默认。
     """
     domains: List[str] = list(COMPANY_SFX)
     cidrs: List[str] = list(COMPANY_CIDRS)
     active: List[str] = []
     domain_dns: Dict[str, List[str]] = {}
+    extra_overseas: List[str] = []
+    extra_cn: List[str] = []
 
     if INTRANET_FILE and os.path.isfile(INTRANET_FILE):
         try:
@@ -136,6 +148,16 @@ def load_intranet_config() -> Dict[str, Any]:
                 for c in (data.get("cidrs") or []):
                     if isinstance(c, str) and c.strip():
                         cidrs.append(c.strip())
+
+            # 顶层 extra（profiles / 扁平格式都共享，不归任何 profile）
+            extra = data.get("extra") or {}
+            if isinstance(extra, dict):
+                for d in (extra.get("overseas") or []):
+                    if isinstance(d, str) and d.strip():
+                        extra_overseas.append(d.strip())
+                for d in (extra.get("cn") or []):
+                    if isinstance(d, str) and d.strip():
+                        extra_cn.append(d.strip())
         except Exception as e:  # noqa: BLE001
             sys.stderr.write(f"[intranet] failed to parse {INTRANET_FILE}: {e}\n")
 
@@ -153,6 +175,8 @@ def load_intranet_config() -> Dict[str, Any]:
         "cidrs": _dedup(cidrs),
         "domain_dns": domain_dns,
         "active_profiles": active,
+        "extra_overseas": _dedup(extra_overseas),
+        "extra_cn": _dedup(extra_cn),
     }
 
 
@@ -338,26 +362,36 @@ def build_rules(proxy_names: List[str], intranet: Dict[str, Any]) -> List[str]:
         "IP-CIDR6,fc00::/7,DIRECT,no-resolve",
     ]
 
-    # 3. AI
+    # 3. extra.overseas（用户在 Mac 上 promote 上来的代理域名）
+    #    放在 AI / SOCIAL_PROXY 之前，让用户手加规则赢内置默认
+    for d in intranet.get("extra_overseas") or []:
+        rules.append(f"DOMAIN-SUFFIX,{d},🚀 PROXY")
+
+    # 4. extra.cn（用户 promote 上来的强制直连域名）
+    #    放在 AI / SOCIAL_PROXY 之前，让"国内被误判"的修正生效
+    for d in intranet.get("extra_cn") or []:
+        rules.append(f"DOMAIN-SUFFIX,{d},DIRECT")
+
+    # 5. AI（内置）
     for d in AI_DOMAINS:
         rules.append(f"DOMAIN-SUFFIX,{d},🤖 AI")
 
-    # 4. 社交/工具（强制走代理）
+    # 6. 社交/工具（强制走代理，内置）
     for d in SOCIAL_PROXY:
         rules.append(f"DOMAIN-SUFFIX,{d},🚀 PROXY")
 
-    # 5. 流媒体
+    # 7. 流媒体（内置）
     for d in MEDIA_PROXY:
         rules.append(f"DOMAIN-SUFFIX,{d},📺 MEDIA")
 
-    # 6. 国内直连（抖音/淘宝/B 站等）
+    # 8. 国内直连（抖音/淘宝/B 站等，内置）
     for d in CHINA_DIRECT:
         if len(d) <= 2:
             rules.append(f"DOMAIN-SUFFIX,{d},DIRECT")
         else:
             rules.append(f"DOMAIN-SUFFIX,{d},DIRECT")
 
-    # 7. GEOIP 兜底
+    # 9. GEOIP 兜底
     rules += [
         "GEOIP,PRIVATE,DIRECT,no-resolve",
         "GEOIP,CN,DIRECT",
@@ -568,6 +602,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 f"active_profiles={','.join(intranet['active_profiles']) or '(none)'}\n"
                 f"domains={len(intranet['domains'])}\n"
                 f"cidrs={len(intranet['cidrs'])}\n"
+                f"extra_overseas={len(intranet.get('extra_overseas') or [])}\n"
+                f"extra_cn={len(intranet.get('extra_cn') or [])}\n"
             ).encode()
             self._reply(200, body, "text/plain; charset=utf-8")
             return

@@ -14,7 +14,7 @@
 4. [iPhone 与 iPad](#4-iphone-与-ipad)
 5. [Windows 配置（家人版）](#5-windows-配置家人版)
 6. [Android 手机与平板](#6-android-手机与平板)
-7. [新 Mac 30 分钟上手](#7-新-mac-30-分钟上手)（附 7.7/7.8 管理员速查：换机同步 · 换公司内网）
+7. [新 Mac 30 分钟上手](#7-新-mac-30-分钟上手)（附 7.7/7.8/7.9 管理员速查：换机同步 · 换公司内网 · 本地规则池）
 8. [日常使用小贴士](#8-日常使用小贴士)
 9. [常见问题 FAQ](#9-常见问题-faq)
 10. [给家人的极简卡片](#10-给家人的极简卡片)
@@ -513,6 +513,120 @@ bash scripts/test-route.sh https://git.corp-b.example/
 ```
 
 一次输出：规则命中 / DNS 解析 / TCP / TLS / TTFB 各阶段延时 / 出口 IP。95% 的接入问题能被这一条命令定位。剩下 5% 多半是本机**公司 VPN 客户端没连上**（Corplink / AnyConnect 等），内网 CIDR 路由没发布到 `utun`，`DIRECT` 命中后包无处可发。
+
+---
+
+### 7.9（仅管理员）本地规则池：单机即时加规则，积累后批量推 VPS
+
+> **家人可以跳过本节。** 适用场景：日常发现某个域名要走代理 / 直连 / 内网，不想每条都立刻惊动 VPS 和家人客户端，先在自己 Mac 上即时生效，攒一周再批量推。
+
+#### 设计原则
+
+```
+   ┌──────────────────┐
+   │  优先级（从高到低）  │
+   ├──────────────────┤
+   │  1. 本地池规则     │  ← Mihomo Party override.yaml prepend
+   │  2. VPS 订阅规则   │  ← sub-converter 生成
+   │  3. MATCH/FINAL   │
+   └──────────────────┘
+```
+
+天然就是 "**本地 > VPS**"。promote 到 VPS 后本地池清空，"VPS 新规则覆盖本地旧规则" 自动达成（本地为空，全是 VPS）。
+
+#### 三个 target 怎么选
+
+| TARGET | 落到什么规则 | 何时用 |
+|--------|--------------|-------|
+| `intranet` | DOMAIN-SUFFIX,host,**DIRECT** + 走当前 enabled profile 的内网 DNS（fake-ip-filter + nameserver-policy） | 公司内网新发现的域名 |
+| `cn` | DOMAIN-SUFFIX,host,**DIRECT** | 国内站被 sub-converter 误判走代理（少见） |
+| `overseas` | DOMAIN-SUFFIX,host,**🚀 节点选择** | 新 AI 服务 / 新海外站点没被 sub-converter 默认覆盖 |
+
+三种 target promote 后的去向：
+
+| target | promote 写入 `intranet.yaml` 的位置 | 是否随 profile 切换 |
+|--------|--------------------------------------|---------------------|
+| `intranet` | `profiles[当前 enabled].domains` | ✅ 跟着公司走 |
+| `overseas` | 顶层 `extra.overseas` | ❌ 跨公司共享 |
+| `cn` | 顶层 `extra.cn` | ❌ 跨公司共享 |
+
+#### 4 个脚本（cheatsheet）
+
+```bash
+# 加规则（最常用）
+bash scripts/add-rule.sh https://gitlab.corp-a.example/  intranet  "内网 GitLab"
+bash scripts/add-rule.sh https://claude-foo.example overseas  "新 AI 服务"
+bash scripts/add-rule.sh https://www.some-cn.com    cn        "国内站被误判"
+
+# 看积累了什么
+bash scripts/list-rules.sh
+bash scripts/list-rules.sh intranet     # 只看 intranet 类
+
+# 手动重新渲染（一般不用，add-rule 自动调）
+bash scripts/apply-local-overrides.sh
+
+# 攒了一周，批量推 VPS（推完自动清空本地池）
+bash scripts/promote-to-vps.sh --dry-run    # 先看计划
+bash scripts/promote-to-vps.sh              # 真推
+```
+
+#### add-rule 之后发生了什么
+
+1. 写入 `ace-vpn-private/local-rules.yaml`（git 跟踪，多 Mac 同步本地池）
+2. 渲染 → `~/Library/Application Support/mihomo-party/override/ace-vpn-local.yaml`
+3. 自动注册到 `~/Library/Application Support/mihomo-party/override.yaml`（item id = `ace-vpn-local`，global=true）
+4. Mihomo Party GUI 监听 override 目录变化 → **秒级自动 reload**，本机生效
+5. 从此这条规则的优先级最高，订阅刷新 / 配置切换都不会冲掉它
+
+> **GUI 没启动？** 没关系，文件已经写好了，下次开 Mihomo Party 自动应用。
+
+#### promote 之后发生了什么
+
+1. 扫描本地池，按 target 分组合并到 `intranet.yaml`：
+   - `intranet` → 当前 enabled profile 的 `domains`（跟着公司走，换公司会一起 enable/disable）
+   - `overseas` → 顶层 `extra.overseas`（跨 profile 共享，换公司不影响）
+   - `cn`       → 顶层 `extra.cn`（跨 profile 共享）
+2. 调 `sync-intranet.sh` scp 到 VPS，sub-converter 热加载（无需 systemctl restart）
+3. 已 promote 的规则全部从本地池删除（避免重复）
+4. 重新渲染本地 override（本地池空了那部分，规则 100% 来自 VPS 订阅）
+5. 家人客户端：下次订阅刷新（默认每隔几小时，或手动点刷新）拿到新规则
+
+#### sub-converter 规则优先级
+
+```
+1. profile.cidrs                    → DIRECT
+2. profile.domains                  → DIRECT  + 走 profile.dns_servers
+3. 私有网段（127/8、10/8、192.168/16…）→ DIRECT
+4. extra.overseas（你 promote 上来的）→ 🚀 PROXY      ← 用户加的赢内置
+5. extra.cn      （你 promote 上来的）→ DIRECT        ← 用户加的赢内置
+6. AI 内置（OpenAI/Claude/Cursor…）→ 🤖 AI
+7. 海外社交内置（Discord/X/Telegram…）→ 🚀 PROXY
+8. 流媒体内置（YouTube/Netflix…）   → 📺 MEDIA
+9. 国内常用内置（淘宝/B 站/抖音…）   → DIRECT
+10. GEOIP CN                        → DIRECT
+11. MATCH                           → 🐟 FINAL
+```
+
+`extra.*` 在内置 AI / SOCIAL_PROXY / CHINA_DIRECT 之前，所以你手加的规则**永远赢内置默认**——比如某个本来被 GEOIP CN 误判的国内站，加到 `cn` 后立刻直连。
+
+#### 多 Mac 同步本地池
+
+`local-rules.yaml` 在 private 仓库里，git 跟踪。在公司 Mac 上加的规则，回家那台只要 `git pull` 一下，再跑一次 `bash scripts/apply-local-overrides.sh` 就同步了 override。
+
+```bash
+# 在第二台 Mac 上偶尔同步本地池
+cd ~/workspace/publish/ace-vpn-private && git pull
+cd ~/workspace/publish/ace-vpn        && bash scripts/apply-local-overrides.sh
+```
+
+#### 常见疑问
+
+- **Q：本地池能放多久？** 没有上限。但建议每 1-2 周 promote 一次，避免家人那边规则缺失太多。
+- **Q：promote 后我的 Mac 还有那条规则吗？** 有，只是从"本地池 prepend"变成"VPS 订阅里的 extra/profile.domains"，优先级降一档但效果不变。
+- **Q：换公司后 `extra` 里的规则会丢吗？** 不会。`extra` 是顶层字段，独立于 profiles，不受 enabled/disabled 影响。换公司只切 profile，extra 里的 AI / 海外站点继续生效。
+- **Q：手编辑 `local-rules.yaml` 行不行？** 行。改完跑 `bash scripts/apply-local-overrides.sh` 渲染一下。
+- **Q：怎么删一条本地规则？** 直接编辑 `local-rules.yaml` 删行 → `apply-local-overrides.sh`。
+- **Q：怎么删一条已经 promote 到 VPS 的规则？** 编辑 `private/intranet.yaml`（删掉 extra.overseas / extra.cn / profile.domains 里那行）→ `bash scripts/sync-intranet.sh`。
 
 ---
 

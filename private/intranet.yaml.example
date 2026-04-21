@@ -79,6 +79,22 @@ profiles:
     cidrs:
       - 192.168.50.0/24
 
+# ═════════════════════════════════════════════════════════════
+# 顶层 extra：跨所有 profile 共享的非内网规则
+# ═════════════════════════════════════════════════════════════
+#
+# 主要由 scripts/promote-to-vps.sh 把本地池里 cn / overseas 类规则合并到这里，
+# 也可以手编辑。和 profiles 解耦——换公司不影响这里的规则。
+#
+# 优先级：在 sub-converter 硬编码的 AI / SOCIAL_PROXY / CHINA_DIRECT 之前 prepend，
+# 让用户手加规则永远赢内置默认。
+extra:
+  overseas:               # → 🚀 PROXY（走代理）
+    # - new-ai-tool.com
+    # - claude-foo.example
+  cn:                     # → DIRECT（普通国内直连，少用——多数靠 GEOIP CN 已覆盖）
+    # - misclassified-cn-site.com
+
 # ─────────────────────────────────────────────────────────────
 # 替代写法（扁平格式，不支持 profile 切换，仅兼容保留）：
 #

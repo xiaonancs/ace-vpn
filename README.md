@@ -68,6 +68,22 @@ bash scripts/test-route.sh https://portal.corp-a.example/
 - **VPS 热加载**：每次 HTTP 订阅请求自动重读 YAML，不用重启 systemd
 - 客户端刷新订阅即生效（Mac / iPhone / Windows / Android）
 
+### ⚡ 本地规则池（Mac 即时加规则，攒后批量推 VPS）
+
+日常发现某个域名要走代理 / 直连 / 内网，不想每条都立刻惊动 VPS 和家人客户端：
+
+```bash
+# 加规则（秒级在本机生效，VPS 不动）
+bash scripts/add-rule.sh https://gitlab.corp-a.example/  intranet  "内网 GitLab"
+bash scripts/add-rule.sh https://claude-foo.example overseas  "新 AI"
+
+bash scripts/list-rules.sh                  # 看积累了啥
+bash scripts/promote-to-vps.sh --dry-run    # 预览批量推
+bash scripts/promote-to-vps.sh              # 推 VPS + 清空本地池
+```
+
+机制：写入 `private/local-rules.yaml` → 渲染成 Mihomo Party 的 `override.yaml`（`+rules:` prepend，本地优先级最高）→ Mihomo GUI 秒级自动 reload。promote 时三种 target 全部入 `intranet.yaml`（`intranet` → `profile.domains`、`overseas` → `extra.overseas`、`cn` → `extra.cn`）→ scp VPS 热加载 → 全设备同步。详见 [user-guide §7.9](docs/用户手册%20user-guide.md#79仅管理员本地规则池单机即时加规则积累后批量推-vps)。
+
 > ⚠️ **Clash Party / Mihomo Party 用户必做一次性 DNS 配置修复**：默认
 > `controlDns: true` 会把订阅的 DNS 段整块替换，导致 `fake-ip-filter` /
 > `nameserver-policy` 失效，内网域名永远拿假 IP。一次性命令：
@@ -108,6 +124,8 @@ DNS / 凭据都不会进本仓库 git 历史**。详见 [private/README.md](priv
 - **2026-04-19** sub-converter 新增 `/match` 权威匹配接口 + `scripts/test-route.sh` 诊断工具，一行命令输出 URL 走哪条规则、经哪个代理组、各阶段延时
 - **2026-04-19** per-profile `dns_servers` 定向解析；修复 Clash Party GUI 吞订阅 DNS 的深坑（详见 `docs/三网段分流架构.md` §9.1）
 - **2026-04-19** 公私仓库分离：新增 `docs/三网段分流架构.md`（对外技术方案，含架构 / 流程 / 时序图）；真实配置迁入私有仓库 `ace-vpn-private`，public 仓库通过 symlink 接入
+- **2026-04-21** 本地规则池工作流：`add-rule.sh` / `list-rules.sh` / `apply-local-overrides.sh` / `promote-to-vps.sh` 四脚本闭环。Mac 单机加规则秒级生效（渲染 Mihomo Party `override.yaml` 的 `+rules` prepend），积累后批量 promote 进 `intranet.yaml` 推 VPS 同步全设备。本地池 `local-rules.yaml` 由 private 仓库托管，多 Mac 之间通过 git pull 同步
+- **2026-04-21** sub-converter 扩展 `intranet.yaml` 顶层 `extra: {overseas, cn}`，promote 闭环补完：三种 target（intranet / overseas / cn）全部能 promote 到 VPS 全设备共享；extra 在内置 AI / SOCIAL_PROXY / CHINA_DIRECT 之前 prepend，用户手加规则永远赢内置默认；`/healthz` 暴露 extra 计数便于验证
 
 ## 📄 许可
 

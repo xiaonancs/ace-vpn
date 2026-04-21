@@ -23,7 +23,8 @@ private/
 ├── env.sh.minimal.example       公开模板（最小环境变量）
 ├── intranet.yaml.example        公开模板（脱敏占位）
 │
-├── intranet.yaml    → symlink → ../../ace-vpn-private/intranet.yaml
+├── intranet.yaml    → symlink → ../../ace-vpn-private/intranet.yaml      （VPS 共享规则）
+├── local-rules.yaml → symlink → ../../ace-vpn-private/local-rules.yaml   （Mac 本地池）
 ├── env.sh           → symlink → ../../ace-vpn-private/env.sh            （可选）
 └── credentials.txt  → symlink → ../../ace-vpn-private/credentials.txt   （可选）
 ```
@@ -40,7 +41,7 @@ git clone git@github.com:xiaonancs/ace-vpn-private.git
 
 # 2. 建 symlink
 cd ace-vpn
-for f in intranet.yaml env.sh credentials.txt; do
+for f in intranet.yaml local-rules.yaml env.sh credentials.txt; do
   [ -f ../ace-vpn-private/$f ] && ln -sf ../../ace-vpn-private/$f private/$f
 done
 
@@ -51,10 +52,11 @@ python3 -c "import yaml; print(len(yaml.safe_load(open('private/intranet.yaml'))
 
 ## 日常工作流
 
+### 长期 / 全设备共享规则（VPS 同步）
+
 ```bash
 cd ~/workspace/publish/ace-vpn
 $EDITOR private/intranet.yaml          # 实际编辑 private 仓库文件（透过 symlink）
-source private/env.sh                  # 同上
 bash scripts/sync-intranet.sh          # scp 推到 VPS 热加载，家人客户端刷新即生效
 
 cd ~/workspace/publish/ace-vpn-private # 把真实改动提交到 private 仓库（备份）
@@ -62,6 +64,19 @@ git add intranet.yaml
 git commit -m "update: corp-a 新 DNS"
 git push
 ```
+
+### 临时 / 仅本机即时生效（本地规则池）
+
+```bash
+cd ~/workspace/publish/ace-vpn
+bash scripts/add-rule.sh https://gitlab.corp-a.example/ intranet "内网 GitLab"
+# ↑ 写入 private/local-rules.yaml + 渲染 Mihomo override + GUI 秒级 reload
+#   家人 / VPS 不动；攒一段时间后跑 promote-to-vps.sh 批量 sync
+bash scripts/list-rules.sh             # 看本地池现状
+bash scripts/promote-to-vps.sh         # 批量 promote → 推 VPS → 清空本地池
+```
+
+详细工作流见 [`docs/用户手册 user-guide.md` §7.9](../docs/用户手册%20user-guide.md#79仅管理员本地规则池单机即时加规则积累后批量推-vps)。
 
 ## pre-commit hook（强烈建议装）
 

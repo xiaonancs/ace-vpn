@@ -864,6 +864,31 @@ ssh root@$VPS_IP "systemctl restart ace-vpn-sub"
 # 家人客户端点"更新订阅"，10 秒生效
 ```
 
+### 10.2b 本地规则池（Mac 即时生效，攒后批量推 VPS）
+
+日常发现某域名要走代理 / 直连 / 内网，但还没想清楚是否值得让全家都同步：
+
+```bash
+bash scripts/add-rule.sh https://gitlab.corp-a.example/  intranet  "内网 GitLab"
+bash scripts/add-rule.sh https://claude-foo.example overseas  "新 AI"
+bash scripts/list-rules.sh                  # 看本地池
+bash scripts/promote-to-vps.sh --dry-run    # 预览 promote 计划
+bash scripts/promote-to-vps.sh              # 推 VPS + 清空本地池
+```
+
+机制（详见 [user-guide §7.9](用户手册%20user-guide.md#79仅管理员本地规则池单机即时加规则积累后批量推-vps)）：
+
+- `private/local-rules.yaml`（git 跟踪在 ace-vpn-private）→ 渲染 → `~/Library/Application Support/mihomo-party/override/ace-vpn-local.yaml`
+- 用 Mihomo Party 的深度合并语法：`+rules:` prepend、`dns.+fake-ip-filter:` prepend、`dns.nameserver-policy.<+.host>:` 强制覆盖
+- 优先级：本地池 prepend > 订阅 rules > MATCH。promote 后本地池清空，规则下沉到 VPS 订阅，"VPS 新规则覆盖本地旧" 自然达成。
+- Mihomo Party GUI 监听 override 目录，秒级自动 reload；GUI 没启动时下次开 GUI 会自动应用
+- promote 落地三种 target：
+    - `intranet` → `intranet.yaml` 的 `profiles[当前 enabled].domains`（跟着公司走）
+    - `overseas` → 顶层 `extra.overseas`（独立 profile，跨公司共享）
+    - `cn`       → 顶层 `extra.cn`（同上）
+- sub-converter `build_rules()` 把 `extra.overseas` / `extra.cn` 插在内置 AI / SOCIAL_PROXY / CHINA_DIRECT **之前** prepend，所以用户手加规则永远赢内置默认（修正误判 / 接管新服务）
+- 后验证：`curl -fsS http://VPS:25500/healthz` 看 `extra_overseas=N` `extra_cn=N` 是否符合预期；`curl -fsS "http://VPS:25500/match?host=foo.example"` 看具体命中哪条
+
 ### 10.3 日志自动清理（小盘 NVMe 必装）
 
 ```bash
