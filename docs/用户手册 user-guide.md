@@ -375,7 +375,76 @@ bash scripts/promote-to-vps.sh            # 真推（自动清空本地池）
 
 推完之后家人的客户端下次刷新订阅（默认每隔几小时）就拿到新规则，不需要做任何事。
 
-> 完整原理 / 优先级 / 多机本地池同步 / FAQ → [§9.3](#93仅管理员本地规则池单机即时加规则积累后批量推-vps)
+### 7.5 真实案例：长 URL 想加宽到 SLD 段
+
+最常见的踩坑：浏览器复制下来一个超长 URL，里面 host 是带 region/服务节点
+的精确长 host（例：`aaa.bbb.api.corp-a.example`），但你真正想加的是整个
+`*.api.corp-a.example` 段。
+
+❌ 老办法（一条窄规则 + 事后改 yaml）：
+
+```bash
+# 第 1 步：扔 URL 进去
+bash scripts/add-rule.sh https://aaa.bbb.api.corp-a.example/path/x.dmg IN
+#   → 只匹配 *.aaa.bbb.api.corp-a.example 这一精确后缀，不覆盖其他 region 节点
+
+# 第 2 步：发现匹配太窄，手动编辑 yaml 把 host 改宽
+$EDITOR ~/workspace/publish/ace-vpn-private/local-rules.yaml
+bash scripts/apply-local-overrides.sh
+```
+
+✅ 新办法（HOST_OVERRIDE 一条搞定，不用事后手编辑 yaml）：
+
+```bash
+bash scripts/add-rule.sh https://aaa.bbb.api.corp-a.example/path/x.dmg IN api.corp-a.example
+#                          └─ 只用来读                                    └─ 真正落到 yaml 的 host
+#   → 写入规则 host = api.corp-a.example，匹配整个 *.api.corp-a.example 段
+```
+
+更一般的速查（任何带 `://` 且 host 段数 ≥ 3 的 URL，脚本会自动给提示）：
+
+```text
+$ bash scripts/add-rule.sh https://aaa.bbb.api.corp-a.example/path/x.dmg IN
+  ✅ 新增：aaa.bbb.api.corp-a.example → IN
+
+💡 当前规则按 DOMAIN-SUFFIX 只匹配 *.aaa.bbb.api.corp-a.example（精确这条后缀）
+   想加宽？两种办法：
+   A) 下次直接传裸 host：
+        bash scripts/add-rule.sh bbb.api.corp-a.example  IN   # 覆盖 *.bbb.api.corp-a.example
+        bash scripts/add-rule.sh corp-a.example          IN   # 覆盖整个 SLD
+   B) 保留长 URL 不动，第 3 个参数手动指定要的 host：
+        bash scripts/add-rule.sh 'https://aaa.bbb.api.corp-a.example/path/x.dmg' IN bbb.api.corp-a.example
+```
+
+A、B 任选其一。已经踩坑加完窄规则的，照 A/B 重新加一条更宽的 + 删旧那条
+（编辑 yaml 删一行）即可，不会冲突。
+
+### 7.6 多机本地池同步（顺带说一下）
+
+`ace-vpn/private/local-rules.yaml` 是 **symlink**，指向
+`ace-vpn-private/local-rules.yaml`，由 git 跟踪。在公司 Mac 上加的规则，
+回家那台只要 `git pull` 一下、再渲染一遍 override 就同步了：
+
+```bash
+# 在第二台 Mac 上偶尔同步本地池
+cd ~/workspace/publish/ace-vpn-private && git pull
+cd ~/workspace/publish/ace-vpn        && bash scripts/apply-local-overrides.sh
+```
+
+> ⚠️ 如果你在 §9.1 之前装出来的环境 `ace-vpn/private/local-rules.yaml`
+> 是独立文件而不是 symlink，跑下面这一条做 migration（一次性，做完就稳了）：
+>
+> ```bash
+> # 假设两边都有 yaml：先合并到 private 仓库的版本，再做 symlink
+> mv ~/workspace/publish/ace-vpn/private/local-rules.yaml \
+>    ~/workspace/publish/ace-vpn-private/local-rules.yaml.merge && \
+> $EDITOR ~/workspace/publish/ace-vpn-private/local-rules.yaml{.merge,}  # 手动合并
+> ln -sf ../../ace-vpn-private/local-rules.yaml \
+>    ~/workspace/publish/ace-vpn/private/local-rules.yaml
+> ```
+
+> 完整原理 / 优先级 / promote 后流程 / sub-converter 规则优先级 / FAQ
+> → [§9.3](#93仅管理员本地规则池单机即时加规则积累后批量推-vps)
 
 ---
 
