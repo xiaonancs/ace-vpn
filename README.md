@@ -5,6 +5,8 @@
 
 Xray + Reality 自建，2–5 人家庭共享。**公司内网 DIRECT · 大陆公网直连 · 海外走代理**，客户端一次订阅全自动。
 
+**普通用户直接跳转：[用户手册 user-guide](docs/用户手册%20user-guide.md)**
+
 | 方案 | 费用 | 说明 |
 |------|------|------|
 | **白嫖** | 永久 0 元 | [Oracle Cloud Always Free ARM](docs/Oracle%20Cloud%20注册教程.md) · 4C / 24G / 10TB 流量 |
