@@ -44,8 +44,8 @@ import urllib.parse
 from lib import local_rules as lr
 
 raw, target, note = sys.argv[1], sys.argv[2], sys.argv[3]
+raw_was_url = "://" in raw
 
-# 解析 host：支持完整 URL（https://foo.com/path）/ 裸域 / 带通配 (*.foo.com)
 host = raw.strip()
 if "://" not in host:
     host = "scheme://" + host
@@ -63,6 +63,19 @@ status = "✅" if added else "ℹ"
 print(f"  {status} {msg}")
 if note:
     print(f"     备注: {note}")
+
+# 当输入是完整 URL 且 host 段数 >= 3 时，提示一下"想加宽匹配可以这样"
+parts = host.split(".")
+if raw_was_url and len(parts) >= 3:
+    suggested_n1 = ".".join(parts[1:])     # 去掉最左一段
+    suggested_sld = ".".join(parts[-2:])   # 只保留最右两段
+    print()
+    print(f"💡 当前规则按 DOMAIN-SUFFIX 只匹配 *.{host}（精确这条后缀）")
+    print(f"   如果想覆盖更宽的范围，下次直接传裸 host：")
+    print(f"     bash scripts/add-rule.sh {suggested_n1:<35} {target}   # 覆盖 *.{suggested_n1}")
+    if suggested_sld != suggested_n1:
+        print(f"     bash scripts/add-rule.sh {suggested_sld:<35} {target}   # 覆盖整个 SLD（更宽）")
+    print(f"   想改这次的：编辑 private/local-rules.yaml 的 host 字段 → bash scripts/apply-local-overrides.sh")
 PY
 
 echo
