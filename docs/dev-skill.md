@@ -870,8 +870,10 @@ ssh root@$VPS_IP "systemctl restart ace-vpn-sub"
 
 ```bash
 # TARGET = IN | DIRECT | VPS（大小写无关；老名 intranet/cn/overseas 也兼容）
-bash scripts/add-rule.sh https://gitlab.corp-a.example/  IN   "内网 GitLab"
-bash scripts/add-rule.sh https://claude-foo.example      VPS  "新 AI 走 VPS 出去"
+bash scripts/add-rule.sh https://gitlab.corp-a.example/  IN   --note "内网 GitLab"
+bash scripts/add-rule.sh https://claude-foo.example      VPS  --note "新 AI 走 VPS 出去"
+# 第 3 个位置参数可选：手动指定 host，覆盖从 URL 解析的结果
+bash scripts/add-rule.sh https://aaa.api.corp-a.example/x.dmg IN api.corp-a.example
 bash scripts/list-rules.sh                  # 看本地池
 bash scripts/promote-to-vps.sh --dry-run    # 预览 promote 计划
 bash scripts/promote-to-vps.sh              # 推 VPS + 清空本地池

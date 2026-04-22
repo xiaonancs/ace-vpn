@@ -90,10 +90,22 @@ def _load_yaml(path: Path, default: Any = None) -> Any:
 
 
 def _atomic_write(path: Path, content: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
+    """原子写入。
+
+    ⚠ 关键：先 resolve() 跟随 symlink 到真实文件再做 rename，否则
+       tmp.replace(symlink_path) 会把 symlink 本身替换成普通文件，
+       破坏 ace-vpn/private/local-rules.yaml → ace-vpn-private/... 的链接。
+    """
+    target = path
+    try:
+        if path.is_symlink() or path.exists():
+            target = path.resolve()
+    except OSError:
+        target = path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    tmp = target.with_suffix(target.suffix + ".tmp")
     tmp.write_text(content, encoding="utf-8")
-    tmp.replace(path)
+    tmp.replace(target)
 
 
 # ─────────────────────────────────────────────────────────────────

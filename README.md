@@ -76,9 +76,13 @@ bash scripts/test-route.sh https://portal.corp-a.example/
 
 ```bash
 # 加规则（秒级在本机生效，VPS 不动）—— TARGET = IN | DIRECT | VPS
-bash scripts/add-rule.sh https://gitlab.corp-a.example/  IN   "内网 GitLab"
-bash scripts/add-rule.sh https://claude-foo.example      VPS  "新 AI（走 VPS 出去）"
-bash scripts/add-rule.sh https://misclassified-cn.example DIRECT "国内站被误判"
+bash scripts/add-rule.sh https://gitlab.corp-a.example/   IN     --note "内网 GitLab"
+bash scripts/add-rule.sh https://claude-foo.example       VPS    --note "新 AI（走 VPS 出去）"
+bash scripts/add-rule.sh https://misclassified-cn.example DIRECT --note "国内站被误判"
+
+# 第 3 个位置参数可选：自定义 host（覆盖从 URL 自动解析的结果）
+# 例：URL 解析出来是 aaa.api.corp-a.example，但你想加宽到整个 *.api.corp-a.example
+bash scripts/add-rule.sh https://aaa.api.corp-a.example/x.dmg IN api.corp-a.example
 
 bash scripts/list-rules.sh                  # 看积累了啥
 bash scripts/promote-to-vps.sh --dry-run    # 预览批量推

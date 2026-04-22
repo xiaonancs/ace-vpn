@@ -14,7 +14,7 @@ ace-vpn 不是普通 VPN，是一套"自己当运营商"的家庭网络分流系
 |------|--------|------|
 | 🌐 **三网段智能分流** | 公司内网（IN）/ 国内（DIRECT）/ 海外（VPS）三种链路自动选 | [§7 三选一速查](#7-如何自定义新增-url-和规则) · [§9.3 规则优先级](#sub-converter-规则优先级) |
 | 📱 **跨四端零差异** | Mac / Windows / iPhone / iPad / Android 同一份订阅 URL，规则全自动同步 | [§3](#3-mac-配置) / [§4](#4-iphone-与-ipad) / [§5](#5-windows-配置家人版) / [§6](#6-android-手机与平板) |
-| ⚡ **一条命令加规则** | `bash scripts/add-rule.sh <URL> <IN\|DIRECT\|VPS> "备注"` 秒级生效 | [§7](#7-如何自定义新增-url-和规则) |
+| ⚡ **一条命令加规则** | `bash scripts/add-rule.sh <URL_OR_HOST> <IN\|DIRECT\|VPS> [HOST] [--note "..."]` 秒级生效 | [§7](#7-如何自定义新增-url-和规则) |
 | 🔄 **本地优先 + 全设备同步** | Mac 本地池立即生效，攒一周一键 promote 到 VPS，全家人订阅自动刷新 | [§9.3 设计原则](#设计原则) |
 | 🏢 **换公司一行命令** | profile 系统：换公司只需 `enabled: true/false`，旧公司规则保留不丢 | [§9.2 换公司内网](#92仅管理员换公司内网改一次-yaml全家生效) |
 | 💻 **多 Mac git 同步本地池** | 公司 Mac / 家里 Mac 通过 private git 仓库自动同步未 promote 的规则 | [§9.3 多 Mac 同步](#多-mac-同步本地池) |
@@ -326,29 +326,33 @@ FINAL,PROXY
 
 ```bash
 cd ~/workspace/publish/ace-vpn
-
-# 三选一
-bash scripts/add-rule.sh https://gitlab.corp-a.example/  IN      "内网 GitLab"
-bash scripts/add-rule.sh https://claude-foo.example      VPS     "新 AI（走 VPS 出去）"
-bash scripts/add-rule.sh https://www.some-cn-tool.com    DIRECT  "国内站被误判"
+# 完整签名
+bash scripts/add-rule.sh <URL_OR_HOST> <TARGET> [HOST_OVERRIDE] [--note "备注"]
 ```
 
-执行完毕规则**秒级生效**：`add-rule.sh` 自动写入本地池 + 渲染 Mihomo Party 的 override.yaml + 触发客户端 reload。打开 Mihomo Party GUI 在 Connections 里立刻能看到新规则。
+三种典型用法：
 
-> ⚠️ **传 URL vs 传裸 host：注意匹配范围**
+```bash
+# 1) 最常见：扔一个 URL 进去，自动解析 host
+bash scripts/add-rule.sh https://gitlab.corp-a.example/  IN
+
+# 2) 直接传裸 host（最干净；想加宽到 *.foo.com 段时推荐）
+bash scripts/add-rule.sh api.corp-a.example  IN  --note "公司 API（含所有 region）"
+
+# 3) URL + 自定义 HOST：丢一长串 URL 但用第 3 个参数手动指定真正写入的 host
+bash scripts/add-rule.sh https://aaa.bbb.api.corp-a.example/x.dmg  IN  api.corp-a.example
+#                          └─ 只用来读              └─ 真正落到 yaml 的 host
+```
+
+执行完毕规则**秒级生效**：脚本写入本地池 + 渲染 Mihomo Party override + 触发客户端 reload。打开 Mihomo Party GUI 在 Connections 里立刻能看到新规则。
+
+> ⚠️ **HOST 匹配范围说明**
 >
-> 规则是 `DOMAIN-SUFFIX,host,...`，**只覆盖 `*.host` 这一精确后缀**。脚本不会替你猜"哪几段是站点边界"（不存在 PSL 也猜不准）。
+> 规则是 `DOMAIN-SUFFIX,host,...`，**只覆盖 `*.host` 这一精确后缀**。脚本不会替你猜"哪几段是站点边界"（没有 PSL 也猜不准 `api.foo.com` vs `foo.com`）。
 >
-> ```bash
-> # 例：你扔进去一个长 URL，host 解析成 cnbj1-fds.api.corp-a.example
-> bash scripts/add-rule.sh https://cnbj1-fds.api.corp-a.example/path/x.dmg IN
-> #   → 只命中 *.cnbj1-fds.api.corp-a.example，不覆盖其他 region 节点
+> 当你**传完整 URL 且没传 HOST_OVERRIDE，且解析出的 host 段数 ≥ 3** 时，脚本会自动打印一段 hint，给两条可复制的"加宽匹配"命令（一条收敛到上一级、一条到 SLD）。要改已加的某条规则，直接编辑 `private/local-rules.yaml` 的 `host` 字段 → 跑 `bash scripts/apply-local-overrides.sh`。
 >
-> # 想覆盖整个 *.api.corp-a.example？直接传裸 host：
-> bash scripts/add-rule.sh api.corp-a.example IN "公司内网 API（含所有 region）"
-> ```
->
-> 当你**传完整 URL** 且 host 段数 ≥ 3 时，脚本会自动打印一段 hint，给你两个建议命令（`*.api.corp-a.example` 和整个 SLD）方便复制下次用。要修当前已加的某条，直接编辑 `private/local-rules.yaml` 的 `host` 字段 → 跑一次 `bash scripts/apply-local-overrides.sh`。
+> `--note "..."` 可以放在任意位置，全部可选。
 
 ### 7.3 看 / 删 / 重渲染
 

@@ -70,8 +70,8 @@ git push
 ```bash
 cd ~/workspace/publish/ace-vpn
 # TARGET = IN | DIRECT | VPS（大小写无关）
-bash scripts/add-rule.sh https://gitlab.corp-a.example/ IN  "内网 GitLab"
-bash scripts/add-rule.sh https://claude-foo.example     VPS "新 AI 走 VPS 出去"
+bash scripts/add-rule.sh https://gitlab.corp-a.example/ IN  --note "内网 GitLab"
+bash scripts/add-rule.sh https://claude-foo.example     VPS --note "新 AI 走 VPS 出去"
 # ↑ 写入 private/local-rules.yaml + 渲染 Mihomo override + GUI 秒级 reload
 #   家人 / VPS 不动；攒一段时间后跑 promote-to-vps.sh 批量 sync
 bash scripts/list-rules.sh             # 看本地池现状
