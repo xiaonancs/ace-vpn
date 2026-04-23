@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  ace-vpn · 每 30 分钟从本机 SSH 到各 VPS，对「speed-test-endpoints + 可选 vps-watch-urls」合并列表测延迟，
+  追加写入单一日志文件（默认 ~/Library/Logs/ace-vpn/vps-watch.log，可用环境变量 VPS_WATCH_LOG_FILE 改路径）。
+
+  安装步骤（在「工作 Mac」上）：
+    1. 复制本文件：
+         cp scripts/launchd/ace-vpn.vps-watch-urls.example.plist \\
+            ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.vps-watch-urls.plist
+    2. 编辑 plist，把 __REPO_ROOT__ 换成你本机 ace-vpn 路径，例如：
+         /Users/hexiaonan/workspace/publish/ace-vpn
+    3. 确保 private/env.sh 已设 VPS_SSH_KEY，且两台 VPS 已 ssh-copy-id 免密
+    4. private/vps-watch-urls.txt 可选（仅额外 URL）；不建则只测 speed-test-endpoints.txt
+    5. 加载定时任务：
+         launchctl load ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.vps-watch-urls.plist
+    6. 立即试跑一次：
+         launchctl start com.xiaonancs.ace-vpn.vps-watch-urls
+    7. 看日志：
+         tail -f ~/Library/Logs/ace-vpn/vps-watch.log
+
+  卸载：
+         launchctl unload ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.vps-watch-urls.plist
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.xiaonancs.ace-vpn.vps-watch-urls</string>
+
+  <key>WorkingDirectory</key>
+  <string>__REPO_ROOT__</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>-lc</string>
+    <string>source private/env.sh &amp;&amp; exec bash scripts/vps-watch-urls.sh --log</string>
+  </array>
+
+  <!-- 1800 秒 = 30 分钟 -->
+  <key>StartInterval</key>
+  <integer>1800</integer>
+
+  <key>RunAtLoad</key>
+  <true/>
+  <!-- 标准输出由脚本内 --log 写入 ~/Library/Logs/ace-vpn/vps-watch.log，此处不再单独配置 -->
+</dict>
+</plist>

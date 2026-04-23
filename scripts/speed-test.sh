@@ -70,6 +70,7 @@ ep() {
     "$(fmt_t $total)" "$(fmt_t $connect)" "$(fmt_t $ssl)" "$ip"
 }
 
+# 下列 URL 与 scripts/speed-test-endpoints.txt 保持同步（供 vps-watch-urls 定时合并）
 scenes() {
   echo
   echo "${c}━━ AI 服务（看你最关心的）━━${o}"

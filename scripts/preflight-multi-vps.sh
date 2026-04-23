@@ -58,7 +58,7 @@ if [[ -n "${VPS_NODES:-}" ]]; then
     name="${entry%%:*}"
     ip="${entry##*:}"
     [[ -z "$name" || -z "$ip" || "$name" == "$ip" ]] && {
-      echo "VPS_NODES 格式错误：$entry（应为 name:ip）" >&2
+      echo "VPS_NODES 格式错误：${entry}（应为 name:ip）" >&2
       exit 1
     }
     NODES+=("$name|$ip")

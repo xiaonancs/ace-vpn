@@ -46,7 +46,7 @@ for arg in "$@"; do
     --vps) EXPECT_VPS_VALUE=1 ;;
     --continue-on-error) SYNC_PASSTHROUGH+=(--continue-on-error) ;;
     -h|--help) sed -n '1,/^set/p' "$0" | grep '^#' ; exit 0 ;;
-    *) die "未知参数：$arg（看 --help）" ;;
+    *) die "未知参数：${arg}（看 --help）" ;;
   esac
 done
 [[ $EXPECT_VPS_VALUE -eq 1 ]] && die "--vps 后面要跟节点 name 或 ip"

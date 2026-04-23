@@ -73,7 +73,7 @@ for arg in "$@"; do
       if [[ "$ONE_TARGET" == "__NEXT__" ]]; then
         ONE_TARGET="$arg"
       else
-        die "未知参数：$arg（看 --help）"
+        die "未知参数：${arg}（看 --help）"
       fi ;;
   esac
 done
@@ -129,7 +129,7 @@ case "$MODE" in
     for entry in $VPS_NODES; do
       name="${entry%%:*}"
       ip="${entry##*:}"
-      [[ -z "$name" || -z "$ip" || "$name" == "$ip" ]] && die "VPS_NODES 格式错：$entry（要 name:ip）"
+      [[ -z "$name" || -z "$ip" || "$name" == "$ip" ]] && die "VPS_NODES 格式错：${entry}（要 name:ip）"
       TARGETS+=("$name|$ip")
     done
     ;;

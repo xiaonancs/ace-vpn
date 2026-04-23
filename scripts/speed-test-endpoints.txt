@@ -1,0 +1,18 @@
+# 与 scripts/speed-test.sh 中 scenes() 探测地址保持一致（每行一个 URL）
+# vps-watch-urls.sh 默认会合并本文件 + private/vps-watch-urls.txt（去重）
+
+https://gemini.google.com/
+https://aistudio.google.com/
+https://claude.ai/
+https://chatgpt.com/
+https://api.anthropic.com/
+https://api.openai.com/
+https://api2.cursor.sh/
+https://api3.cursor.sh/
+https://repo42.cursor.sh/
+https://cursor.com/
+https://www.youtube.com/
+https://github.com/
+https://www.google.com/
+https://www.baidu.com/
+https://www.qq.com/

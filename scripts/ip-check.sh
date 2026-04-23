@@ -211,8 +211,8 @@ rm -f /tmp/gem.html
 # 4.2 Google search —— 最宽松，几乎只要能访问就 200
 gs_status=$(curl "${CURL_OPTS[@]}" -o /dev/null -w "%{http_code}" "https://www.google.com/" 2>/dev/null || echo "000")
 [[ "$gs_status" == "200" || "$gs_status" == "301" || "$gs_status" == "302" ]] \
-  && ok "google.com → HTTP $gs_status（基础连通 OK）" \
-  || no "google.com → HTTP $gs_status"
+  && ok "google.com → HTTP ${gs_status}（基础连通 OK）" \
+  || no "google.com → HTTP ${gs_status}"
 
 # 4.3 OpenAI / ChatGPT
 echo
@@ -231,7 +231,7 @@ case "$oai_status" in
   401) ok "api.openai.com → 401（IP 通过国家检查；正常未带 token 是 401）" ;;
   403) no "api.openai.com → ${RED}403${RST}（IP 国家被拒；这就是 Cursor 报海外检测失败的原因）" ;;
   200) ok "api.openai.com → 200" ;;
-  *)   warn "api.openai.com → HTTP $oai_status（异常）" ;;
+  *)   warn "api.openai.com → HTTP ${oai_status}（异常）" ;;
 esac
 
 # 4.4 Anthropic / Claude
@@ -239,7 +239,7 @@ echo
 echo "${BOLD}Anthropic / Claude / Claude Code${RST}"
 anthropic_status=$(curl "${CURL_OPTS[@]}" -o /dev/null -w "%{http_code}" "https://api.anthropic.com/v1/messages" 2>/dev/null || echo "000")
 case "$anthropic_status" in
-  401|400) ok "api.anthropic.com → $anthropic_status（IP 通过；正常未带 token）" ;;
+  401|400) ok "api.anthropic.com → ${anthropic_status}（IP 通过；正常未带 token）" ;;
   403)     no "api.anthropic.com → ${RED}403${RST}（IP 国家被拒）" ;;
   200)     ok "api.anthropic.com → 200" ;;
   *)       warn "api.anthropic.com → HTTP $anthropic_status" ;;
@@ -249,7 +249,7 @@ esac
 echo
 cursor_status=$(curl "${CURL_OPTS[@]}" -o /dev/null -w "%{http_code}" "https://api2.cursor.sh/" 2>/dev/null || echo "000")
 case "$cursor_status" in
-  200|404|401|403) [[ "$cursor_status" == "403" ]] && no "api2.cursor.sh → ${RED}403${RST}" || ok "api2.cursor.sh → $cursor_status（基础连通 OK）" ;;
+  200|404|401|403) [[ "$cursor_status" == "403" ]] && no "api2.cursor.sh → ${RED}403${RST}" || ok "api2.cursor.sh → ${cursor_status}（基础连通 OK）" ;;
   *) warn "api2.cursor.sh → HTTP $cursor_status" ;;
 esac
 

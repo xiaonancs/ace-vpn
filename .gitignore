@@ -37,6 +37,7 @@ private/*
 !private/env.sh.minimal.example
 !private/credentials.txt.example
 !private/intranet.yaml.example
+!private/vps-watch-urls.example.txt
 *.creds
 ace-vpn-credentials.txt
 

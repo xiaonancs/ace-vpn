@@ -42,6 +42,8 @@
 | [`speed-test.sh`](speed-test.sh) | 测当前网络对 AI / cursor / youtube 等关键服务的延迟 + 带宽 | 怀疑网速慢、对比节点速度 |
 | [`diagnose.sh`](diagnose.sh) | 一次性收集 mihomo 状态 + 出口 IP + cursor 后端可达性 + cursor IDE 日志 | cursor / gemini 突然不能用，要把诊断信息整包发出去看 |
 | [`ip-check.sh`](ip-check.sh) | 测当前出口 IP 在 Google / OpenAI / Anthropic 眼里是哪国 + 哪些 AI 服务能用 | 怀疑出口 IP 被某 AI 服务封了 |
+| [`check-xui-panel.sh`](check-xui-panel.sh) | 从本机 `curl -vk` 探测 3x-ui 面板 URL（TCP/TLS/HTTP 层） | 面板突然打不开，先区分是端口/路径/服务还是本地网络 |
+| [`vps-watch-urls.sh`](vps-watch-urls.sh) | SSH 到各 VPS，默认合并 `speed-test-endpoints.txt` + 可选 `private/vps-watch-urls.txt`，curl 指标与 `speed-test.sh` 一致；`--log` 写入单文件 | 每 30 分钟对比两台 VPS 出站（LaunchAgent 模板见 `scripts/launchd/`） |
 | [`test-route.sh`](test-route.sh) | 给一个 URL，输出命中哪条规则 + 命中哪个组 + 实测延时 + 出口 IP | 想知道某站到底走的什么路径 |
 
 ### D. 仓库辅助
@@ -128,44 +130,19 @@ sudo mtr -rwzbc 30 103.173.179.55   # 改成你 VPS IP
 
 ---
 
-## ⚠️ 多 VPS 同步现状
+## 多 VPS（`VPS_NODES`）
 
-**当前所有日常运维脚本（`sync-intranet.sh` / `promote-to-vps.sh` / `add-rule.sh`）只支持单台 VPS**，由 `private/env.sh` 里的 `VPS_IP` 决定。
+在 `private/env.sh` 里配置 `VPS_NODES="name1:ip1 name2:ip2"` 后：
 
-如果你有多台 VPS（比如 hosthatch + vultr）想同步规则，目前有两种做法：
+- `bash scripts/sync-intranet.sh --all-vps`：把 `intranet.yaml` 推到列表里每一台。
+- `bash scripts/promote-to-vps.sh --all-vps`：promote 后同样推多台（与上共用 SSH 配置）。
+- `bash scripts/preflight-multi-vps.sh`：只读体检各节点 SSH / sub-converter / xray 摘要。
+- `bash scripts/vps-watch-urls.sh`：对各节点上的 `private/vps-watch-urls.txt` 跑出站延迟（需 **`export VPS_SSH_KEY=...` + `ssh-copy-id`** 才能免密定时跑）。
 
-### 做法 A：手动切 env 重跑（最简单）
-
-```bash
-# 1. 准备多份 env
-ls private/env.*.sh
-#   private/env.hosthatch.sh   (VPS_IP=103.173.179.55)
-#   private/env.vultr.sh       (VPS_IP=207.148.102.103)
-
-# 2. 推第一台
-source private/env.hosthatch.sh
-bash scripts/promote-to-vps.sh
-
-# 3. 推第二台（注意：promote-to-vps 第二次会发现本地池已空，跳过 promote 只 sync）
-source private/env.vultr.sh
-bash scripts/sync-intranet.sh   # 直接 sync，不重新 promote
-```
-
-### 做法 B：扩展脚本支持 `VPS_IPS` 数组（待实现）
-
-把 `sync-intranet.sh` / `promote-to-vps.sh` 改成支持：
-
-```bash
-# private/env.sh
-export VPS_IPS=(
-  "103.173.179.55"   # hosthatch JP
-  "207.148.102.103"  # vultr
-)
-```
-
-脚本里 for 循环每台跑一遍。优点：一条命令同步全部。缺点：需要改脚本 + 测试每台 ssh / sub-converter / x-ui 都已部署。
-
-**目前未实现**，等你确定长期要用两台再做改造（毕竟两个节点都不稳定，可能要先决定主线）。
+**定时每 30 分钟（macOS）**：复制并按注释编辑  
+`scripts/launchd/ace-vpn.vps-watch-urls.example.plist` →  
+`~/Library/LaunchAgents/com.xiaonancs.ace-vpn.vps-watch-urls.plist`，  
+把 `__REPO_ROOT__` 换成本机 `ace-vpn` 路径后 `launchctl load`。
 
 ---
 
