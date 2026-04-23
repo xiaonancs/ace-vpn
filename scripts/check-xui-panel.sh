@@ -11,7 +11,7 @@
 #   5. 证书是自签 IP 证书：浏览器会拦截，需「继续访问」或用 curl -k 看 HTTP 层
 #
 # 用法：
-#   bash scripts/check-xui-panel.sh 'https://207.148.102.103:2053/aekqzAA5KU9l44Pjmy/panel/'
+#   bash scripts/check-xui-panel.sh 'https://<VPS_IP>:<面板端口>/<webBasePath>/panel/'
 #   source private/env.sh && bash scripts/check-xui-panel.sh "$PANEL_URL"   # 若 env 里有 PANEL_URL
 set +e
 

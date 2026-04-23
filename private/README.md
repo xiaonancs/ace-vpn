@@ -22,6 +22,7 @@ private/
 ├── env.sh.example               公开模板（全量环境变量）
 ├── env.sh.minimal.example       公开模板（最小环境变量）
 ├── intranet.yaml.example        公开模板（脱敏占位）
+├── vps-watch-urls.example.txt   公开模板（可选：vps-watch-urls.sh 额外探测 URL）
 │
 ├── intranet.yaml    → symlink → ../../ace-vpn-private/intranet.yaml      （VPS 共享规则）
 ├── local-rules.yaml → symlink → ../../ace-vpn-private/local-rules.yaml   （Mac 本地池）
