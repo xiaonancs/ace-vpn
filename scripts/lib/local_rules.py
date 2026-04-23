@@ -13,7 +13,7 @@ local-rules.yaml schema:
 target 语义：
     IN      → 公司内网 DOMAIN-SUFFIX,host,DIRECT + nameserver-policy 走内网 DNS
     DIRECT  → DOMAIN-SUFFIX,host,DIRECT（普通直连，国内站误判修正用）
-    VPS     → DOMAIN-SUFFIX,host,🚀 节点选择（走 VPS 代理出去；新 AI / 新海外站）
+    VPS     → DOMAIN-SUFFIX,host,🚀 PROXY（走 VPS 代理出去；新 AI / 新海外站）
 
 为兼容老数据，加载时会把 intranet→IN / cn→DIRECT / overseas→VPS 自动 normalize。
 
@@ -43,13 +43,21 @@ INTRANET_PATH = REPO_ROOT / "private" / "intranet.yaml"
 MIHOMO_DIR = Path.home() / "Library" / "Application Support" / "mihomo-party"
 OVERRIDE_REGISTRY = MIHOMO_DIR / "override.yaml"
 OVERRIDE_DIR = MIHOMO_DIR / "override"
+OVERRIDE_BAK_DIR = OVERRIDE_DIR / ".bak"
+OVERRIDE_BAK_KEEP = 10  # 最多保留 10 个备份
+
+PROFILE_REGISTRY = MIHOMO_DIR / "profile.yaml"
+PROFILE_DIR = MIHOMO_DIR / "profiles"
 
 OVERRIDE_ID = "ace-vpn-local"
 OVERRIDE_NAME = "ace-vpn local rules (auto-generated)"
 OVERRIDE_FILE = OVERRIDE_DIR / f"{OVERRIDE_ID}.yaml"
 
+# Mihomo / Clash builtin rule targets，永远合法，不需要在 proxy-groups 里查找
+BUILTIN_TARGETS = {"DIRECT", "REJECT", "REJECT-DROP", "PASS", "COMPATIBLE", "GLOBAL"}
+
 # 三种 target 对应的 proxy group 名（与 sub-converter.py 输出保持一致）
-PROXY_GROUP_VPS = "🚀 节点选择"
+PROXY_GROUP_VPS = "🚀 PROXY"  # 必须与 sub-converter.py 输出的 group name 一致！
 
 # 用户面向的 target 名（命令行 / yaml 字段值 / UI 输出 一律这三个）
 TARGET_IN = "IN"          # 公司内网
@@ -297,13 +305,158 @@ def render_override_yaml(pool: list[dict]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_and_install() -> dict:
+def get_active_profile_id() -> str | None:
+    """从 Mihomo Party profile.yaml 注册表里取第一个 enabled 的 profile id。
+
+    profile.yaml 结构（用户切换 profile 后这个会自动改）：
+        items:
+          - id: 19da8c4f699
+            name: ...
+            ...
+          - id: ...
+    Mihomo Party 用 items[0]（注册表是顺序敏感的，第 1 个就是 current）。
+    """
+    if not PROFILE_REGISTRY.exists():
+        return None
+    try:
+        data = _load_yaml(PROFILE_REGISTRY, default={}) or {}
+    except Exception:
+        return None
+    items = data.get("items") or []
+    if not items:
+        return None
+    first = items[0]
+    if isinstance(first, dict) and first.get("id"):
+        return str(first["id"])
+    return None
+
+
+def get_available_proxy_groups(profile_id: str | None = None) -> set[str]:
+    """读 active profile 拿所有 proxy / proxy-group 的合法名集合 + builtin。
+
+    用于 pre-flight check：本地池里所有 target 必须在这个集合里，否则
+    写到 override 后 Mihomo Party 加载 profile 会整体失败 → 用户连不上网。
+    """
+    pid = profile_id or get_active_profile_id()
+    if not pid:
+        return set()
+    pf = PROFILE_DIR / f"{pid}.yaml"
+    if not pf.exists():
+        return set()
+    try:
+        data = _load_yaml(pf, default={}) or {}
+    except Exception:
+        return set()
+    names: set[str] = set(BUILTIN_TARGETS)
+    for g in (data.get("proxy-groups") or []):
+        if isinstance(g, dict) and g.get("name"):
+            names.add(str(g["name"]))
+    for p in (data.get("proxies") or []):
+        if isinstance(p, dict) and p.get("name"):
+            names.add(str(p["name"]))
+    return names
+
+
+def validate_pool(pool: list[dict]) -> tuple[bool, list[str], set[str]]:
+    """pre-flight 校验本地池里每条规则引用的 target proxy 是否存在于 active profile。
+
+    返回 (ok, errors, available_groups)：
+      - ok=False 时 errors 列出哪些规则坏了
+      - available_groups 用于在错误信息里告诉用户当前 profile 有哪些可选
+    """
+    available = get_available_proxy_groups()
+    if not available:
+        # 拿不到可用 group 集合（profile 文件不存在 / 解析失败 / GUI 未启动）
+        # 不卡用户：返回 ok=True 让流程继续，但 errors 里给一条 warning
+        return True, ["⚠ 无法读取当前 profile，跳过 proxy group 校验（GUI 未启动？）"], set()
+
+    errors = []
+    for r in pool:
+        host = r.get("host", "?")
+        target = normalize_target(r.get("target"))
+        if target == TARGET_VPS:
+            wanted = PROXY_GROUP_VPS
+            if wanted not in available:
+                errors.append(
+                    f"VPS 类规则 host={host} 引用 proxy '{wanted}'，但当前 profile 里没有这个 group"
+                )
+        # IN / DIRECT 都用 builtin DIRECT，永远合法
+
+    return (len(errors) == 0), errors, available
+
+
+def _backup_override_file() -> Path | None:
+    """写新 override 前备份当前 override 文件到 override/.bak/<file>.<timestamp>。
+
+    返回备份路径；若当前没有 override 文件则返回 None。同时清理超出
+    OVERRIDE_BAK_KEEP 数量的旧备份。
+    """
+    if not OVERRIDE_FILE.exists() and not OVERRIDE_FILE.is_symlink():
+        return None
+    OVERRIDE_BAK_DIR.mkdir(parents=True, exist_ok=True)
+    ts = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    bak = OVERRIDE_BAK_DIR / f"{OVERRIDE_FILE.name}.{ts}.bak"
+    bak.write_bytes(OVERRIDE_FILE.read_bytes())
+
+    # GC 旧备份：保留 OVERRIDE_BAK_KEEP 个最新
+    baks = sorted(OVERRIDE_BAK_DIR.glob(f"{OVERRIDE_FILE.name}.*.bak"))
+    for old in baks[:-OVERRIDE_BAK_KEEP]:
+        try:
+            old.unlink()
+        except OSError:
+            pass
+    return bak
+
+
+def list_override_backups() -> list[Path]:
+    """按时间倒序（新→旧）列出所有 override 备份。"""
+    if not OVERRIDE_BAK_DIR.exists():
+        return []
+    return sorted(OVERRIDE_BAK_DIR.glob(f"{OVERRIDE_FILE.name}.*.bak"), reverse=True)
+
+
+def restore_override_backup(bak: Path) -> None:
+    """把 bak 文件恢复成当前 override（不删 bak，方便反复）。"""
+    if not bak.exists():
+        raise FileNotFoundError(f"备份不存在：{bak}")
+    OVERRIDE_DIR.mkdir(parents=True, exist_ok=True)
+    _atomic_write(OVERRIDE_FILE, bak.read_text(encoding="utf-8"))
+
+
+def disable_override_in_registry() -> bool:
+    """把 override.yaml 注册表里 ace-vpn-local 那条 enabled 改成 false（应急用）。
+
+    返回 True 表示改成功，False 表示注册表里没找到这条。
+    """
+    if not OVERRIDE_REGISTRY.exists():
+        return False
+    registry = _load_yaml(OVERRIDE_REGISTRY, default={"items": []}) or {"items": []}
+    items = registry.get("items") or []
+    found = False
+    for item in items:
+        if isinstance(item, dict) and item.get("id") == OVERRIDE_ID:
+            item["enabled"] = False
+            item["updated"] = int(datetime.datetime.now().timestamp() * 1000)
+            found = True
+            break
+    if found:
+        _atomic_write(OVERRIDE_REGISTRY, _yaml_dump(registry))
+    return found
+
+
+def render_and_install(*, validate: bool = True) -> dict:
     """渲染本地池 → 写到 Mihomo override 子文件 + 注册到 override.yaml。
 
-    返回统计字典。
+    流程（带安全网）：
+      1. pre-flight 校验：本地池里所有 VPS 类规则引用的 proxy group 都
+         必须在当前 active profile 里存在。任意一个不在 → 拒绝写入，
+         保留旧 override 不动（用户网络不会因为新加的坏规则断掉）
+      2. 备份当前 override 文件到 override/.bak/<file>.<ts>.bak
+      3. 原子写入新 override
+      4. 同步 override 注册表
+    返回统计字典；validate 失败时 raise ValueError。
     """
     pool = load_pool()
-    content = render_override_yaml(pool)
 
     if not MIHOMO_DIR.exists():
         raise FileNotFoundError(
@@ -311,7 +464,30 @@ def render_and_install() -> dict:
             f"请先安装并启动一次 Mihomo Party / Clash Party"
         )
 
+    if validate:
+        ok, errors, available = validate_pool(pool)
+        if not ok:
+            msg_lines = ["pre-flight 校验失败，未写入 override（你的网络不受影响）：", ""]
+            msg_lines.extend(f"  ✗ {e}" for e in errors)
+            if available:
+                vps_like = sorted(g for g in available if g not in BUILTIN_TARGETS)
+                msg_lines.extend([
+                    "",
+                    f"当前 profile 里可用的 proxy group：",
+                    "    " + ", ".join(vps_like[:20]) + (" ..." if len(vps_like) > 20 else ""),
+                    "",
+                    f"修法：编辑 {LOCAL_RULES_PATH} 修正/删除上面那些坏规则，",
+                    f"     再跑一次 bash scripts/apply-local-overrides.sh",
+                ])
+            raise ValueError("\n".join(msg_lines))
+        # warning 也展示
+        for w in errors:
+            print(f"  {w}")
+
+    content = render_override_yaml(pool)
+
     OVERRIDE_DIR.mkdir(parents=True, exist_ok=True)
+    bak = _backup_override_file()
     _atomic_write(OVERRIDE_FILE, content)
 
     # 注册到 override.yaml（如果还没注册过）

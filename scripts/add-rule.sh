@@ -25,7 +25,7 @@
 # TARGET（大小写无关；老名 intranet/cn/overseas 也兼容）：
 #   IN      → 公司内网 DIRECT + 走内网 DNS（fake-ip-filter + nameserver-policy）
 #   DIRECT  → 普通直连（走系统/公网 DNS；用于修正国内站被误判）
-#   VPS     → 走 VPS 代理出去（🚀 节点选择；用于新 AI / 新海外站）
+#   VPS     → 走 VPS 代理出去（🚀 PROXY；用于新 AI / 新海外站）
 #
 # 行为：
 #   1. 解析 URL 拿 host（去 protocol / port / path / 通配前缀）

@@ -19,11 +19,23 @@ die()  { echo "${color_red}ERROR${color_off} $*" >&2; exit 1; }
 info() { echo "${color_grn}→${color_off} $*"; }
 warn() { echo "${color_ylw}!${color_off}  $*" >&2; }
 
-PYTHONPATH="$SCRIPT_DIR" python3 - <<'PY' || die "渲染 / 触发 reload 失败"
+set +e
+PYTHONPATH="$SCRIPT_DIR" python3 - <<'PY'
 import sys
 from lib import local_rules as lr
 
-stats = lr.render_and_install()
+try:
+    stats = lr.render_and_install()
+except ValueError as e:
+    # pre-flight 校验失败：旧 override 完整保留，用户网络不受影响
+    print()
+    print(str(e))
+    print()
+    sys.exit(2)
+except Exception as e:
+    print(f"❌ 渲染失败：{type(e).__name__}: {e}", file=sys.stderr)
+    sys.exit(3)
+
 print(f"  规则总数: {stats['rules_total']}")
 print(f"  按 target: {stats['by_target']}")
 print(f"  写入: {stats['override_file']}")
@@ -34,11 +46,18 @@ ok, msg = lr.trigger_mihomo_reload()
 prefix = "  ✅" if ok else "  ⚠"
 print(f"{prefix} Mihomo reload: {msg}")
 
-# Mihomo Party 有个特性：override 文件改了它会自动 watch 重载，
-# 但在某些情况（比如用户没启动 GUI）curl reload 会失败也无妨——
-# 下次 GUI 一启动会自动应用。
-sys.exit(0 if ok else 0)  # 不让 reload 失败阻塞，只警告
+# Mihomo Party 监听 override 目录会自动重载；这里 reload 调用失败不阻塞流程。
+sys.exit(0)
 PY
+rc=$?
+set -e
+
+case $rc in
+  0) ;;
+  2) die "本地池里有不合法的规则，旧 override 已保留，网络不受影响。按上面提示修复 local-rules.yaml 再跑一次。" ;;
+  *) die "渲染 / 触发 reload 失败（rc=$rc）。旧 override 已保留。"
+     ;;
+esac
 
 echo
 info "完成。在 Mihomo Party 设置 → 覆写 里能看到 'ace-vpn local rules'"

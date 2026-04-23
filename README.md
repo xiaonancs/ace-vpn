@@ -87,9 +87,13 @@ bash scripts/add-rule.sh https://aaa.api.corp-a.example/x.dmg IN api.corp-a.exam
 bash scripts/list-rules.sh                  # 看积累了啥
 bash scripts/promote-to-vps.sh --dry-run    # 预览批量推
 bash scripts/promote-to-vps.sh              # 推 VPS + 清空本地池
+
+# 出问题了？三层安全网保你 30 秒回到能上网的状态
+bash scripts/rollback-overrides.sh --last     # 回退到最近一个备份
+bash scripts/rollback-overrides.sh --disable  # 应急核选项：彻底禁用本地 override
 ```
 
-机制：写入 `private/local-rules.yaml` → 渲染成 Mihomo Party 的 `override.yaml`（`+rules:` prepend，本地优先级最高）→ Mihomo GUI 秒级自动 reload。promote 时三种 target 全部入 `intranet.yaml`（`IN` → `profile.domains`、`VPS` → `extra.overseas`、`DIRECT` → `extra.cn`）→ scp VPS 热加载 → 全设备同步。详见 [user-guide §7.9](docs/用户手册%20user-guide.md#79仅管理员本地规则池单机即时加规则积累后批量推-vps)。
+机制：写入 `private/local-rules.yaml` → **pre-flight 校验**（坏规则永远写不进 override）→ **自动备份**当前 override → 渲染成 Mihomo Party 的 `override.yaml`（`+rules:` prepend，本地优先级最高）→ Mihomo GUI 秒级自动 reload。promote 时三种 target 全部入 `intranet.yaml`（`IN` → `profile.domains`、`VPS` → `extra.overseas`、`DIRECT` → `extra.cn`）→ scp VPS 热加载 → 全设备同步。详见 [user-guide §7](docs/用户手册%20user-guide.md#7-如何自定义新增-url-和规则) + [§9.4 安全网](docs/用户手册%20user-guide.md#94仅管理员安全网应急回退别让一条坏规则把自己的网砍了)。
 
 > ⚠️ **Clash Party / Mihomo Party 用户必做一次性 DNS 配置修复**：默认
 > `controlDns: true` 会把订阅的 DNS 段整块替换，导致 `fake-ip-filter` /
@@ -131,6 +135,7 @@ DNS / 凭据都不会进本仓库 git 历史**。详见 [private/README.md](priv
 - **2026-04-19** sub-converter 新增 `/match` 权威匹配接口 + `scripts/test-route.sh` 诊断工具，一行命令输出 URL 走哪条规则、经哪个代理组、各阶段延时
 - **2026-04-19** per-profile `dns_servers` 定向解析；修复 Clash Party GUI 吞订阅 DNS 的深坑（详见 `docs/三网段分流架构.md` §9.1）
 - **2026-04-19** 公私仓库分离：新增 `docs/三网段分流架构.md`（对外技术方案，含架构 / 流程 / 时序图）；真实配置迁入私有仓库 `ace-vpn-private`，public 仓库通过 symlink 接入
+- **2026-04-23** 本地规则三层安全网：`add-rule.sh` / `apply-local-overrides.sh` 写 override 前 pre-flight 校验本地池里所有 `VPS` 类规则的 proxy group 在当前 active profile 里存在；坏规则直接拒写、网络不受影响。每次写入前自动备份旧 override 到 `override/.bak/`（保留最近 10 个）。新增 `rollback-overrides.sh` 一键回退（`--last` / `--disable` / `--clear` / 交互选）。详见 [user-guide §9.4](docs/用户手册%20user-guide.md#94仅管理员安全网应急回退别让一条坏规则把自己的网砍了)
 - **2026-04-21** 本地规则池工作流：`add-rule.sh` / `list-rules.sh` / `apply-local-overrides.sh` / `promote-to-vps.sh` 四脚本闭环。Mac 单机加规则秒级生效（渲染 Mihomo Party `override.yaml` 的 `+rules` prepend），积累后批量 promote 进 `intranet.yaml` 推 VPS 同步全设备。本地池 `local-rules.yaml` 由 private 仓库托管，多 Mac 之间通过 git pull 同步
 - **2026-04-21** sub-converter 扩展 `intranet.yaml` 顶层 `extra: {overseas, cn}`，promote 闭环补完：三种 target 全部能 promote 到 VPS 全设备共享；extra 在内置 AI / SOCIAL_PROXY / CHINA_DIRECT 之前 prepend，用户手加规则永远赢内置默认；`/healthz` 暴露 extra 计数便于验证
 - **2026-04-21** target 命名从 `intranet/cn/overseas` 改成更直观的 `IN/DIRECT/VPS`（用户视角：内网 / 直连 / 经过 VPS）；大小写无关 + 老名兼容自动归一；用户手册顶部加亮点功能索引
