@@ -77,13 +77,15 @@ echo "   当前 enabled profile: $ACTIVE"
 echo
 print_section() {
   local icon=$1 label=$2 add_list=$3 add_n=$4 dup_list=$5 dup_n=$6 dest=$7
-  if [[ $add_n -gt 0 ]]; then
-    echo "   $icon $label：合并到 $dest（+$add_n 条）"
-    echo "$add_list" | sed 's/^/        + /'
+  # ⚠ 所有紧贴中文/全角字符的变量必须用 ${var} 显式包裹，否则 UTF-8 locale 下
+  #    bash 会把后面的全角冒号 / 括号字节认成变量名的一部分（set -u 触发未绑定错误）
+  if [[ ${add_n} -gt 0 ]]; then
+    echo "   ${icon} ${label}：合并到 ${dest}（+${add_n} 条）"
+    echo "${add_list}" | sed 's/^/        + /'
   fi
-  if [[ $dup_n -gt 0 ]]; then
-    echo "   ⏭  $label：已存在跳过（$dup_n 条）"
-    echo "$dup_list" | sed 's/^/        · /'
+  if [[ ${dup_n} -gt 0 ]]; then
+    echo "   ⏭  ${label}：已存在跳过（${dup_n} 条）"
+    echo "${dup_list}" | sed 's/^/        · /'
   fi
 }
 
