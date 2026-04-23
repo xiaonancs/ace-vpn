@@ -9,10 +9,13 @@
 #   4. 重新渲染 Mihomo override（本地池清空了那部分，规则下沉到订阅）
 #
 # 用法：
-#   bash scripts/promote-to-vps.sh             # 标准流程
+#   bash scripts/promote-to-vps.sh             # 标准流程（推 $VPS_IP 那一台）
+#   bash scripts/promote-to-vps.sh --all-vps   # 推 $VPS_NODES 所有节点
+#   bash scripts/promote-to-vps.sh --vps NAME  # 只推某一台（按 name 或 ip）
 #   bash scripts/promote-to-vps.sh --dry-run   # 只预览，不改文件
 #   bash scripts/promote-to-vps.sh --keep      # 推 VPS 后不清空本地池（debug 用）
 #   bash scripts/promote-to-vps.sh --no-sync   # 只改本地 intranet.yaml + 清池，不推 VPS
+#   bash scripts/promote-to-vps.sh --continue-on-error  # 多 VPS 时单台失败继续
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -26,15 +29,27 @@ warn() { echo "${color_ylw}!${color_off}  $*" >&2; }
 DRY_RUN=0
 KEEP=0
 NO_SYNC=0
+SYNC_PASSTHROUGH=()      # 透传给 sync-intranet.sh 的参数（如 --all-vps / --vps X）
+EXPECT_VPS_VALUE=0
 for arg in "$@"; do
+  if [[ $EXPECT_VPS_VALUE -eq 1 ]]; then
+    SYNC_PASSTHROUGH+=(--vps "$arg")
+    EXPECT_VPS_VALUE=0
+    continue
+  fi
   case "$arg" in
     --dry-run) DRY_RUN=1 ;;
     --keep) KEEP=1 ;;
     --no-sync) NO_SYNC=1 ;;
+    --all-vps|--all) SYNC_PASSTHROUGH+=(--all-vps) ;;
+    --vps=*) SYNC_PASSTHROUGH+=("$arg") ;;
+    --vps) EXPECT_VPS_VALUE=1 ;;
+    --continue-on-error) SYNC_PASSTHROUGH+=(--continue-on-error) ;;
     -h|--help) sed -n '1,/^set/p' "$0" | grep '^#' ; exit 0 ;;
-    *) die "未知参数：$arg" ;;
+    *) die "未知参数：$arg（看 --help）" ;;
   esac
 done
+[[ $EXPECT_VPS_VALUE -eq 1 ]] && die "--vps 后面要跟节点 name 或 ip"
 
 info "扫描本地池..."
 PLAN=$(PYTHONPATH="$SCRIPT_DIR" python3 - <<'PY'
@@ -119,10 +134,15 @@ print(f"  ✅ {total} 条已写入 {lr.INTRANET_PATH}")
 PY
 
 if [[ $NO_SYNC -eq 0 ]]; then
-  info "推 VPS（调 sync-intranet.sh）..."
-  bash "$SCRIPT_DIR/sync-intranet.sh"
+  if [[ ${#SYNC_PASSTHROUGH[@]} -gt 0 ]]; then
+    info "推 VPS（调 sync-intranet.sh ${SYNC_PASSTHROUGH[*]}）..."
+    bash "$SCRIPT_DIR/sync-intranet.sh" "${SYNC_PASSTHROUGH[@]}"
+  else
+    info "推 VPS（调 sync-intranet.sh，单 VPS 模式）..."
+    bash "$SCRIPT_DIR/sync-intranet.sh"
+  fi
 else
-  warn "--no-sync，没推 VPS。手动跑：bash scripts/sync-intranet.sh"
+  warn "--no-sync，没推 VPS。手动跑：bash scripts/sync-intranet.sh${SYNC_PASSTHROUGH[*]:+ }${SYNC_PASSTHROUGH[*]:-}"
 fi
 
 if [[ $KEEP -eq 0 ]]; then

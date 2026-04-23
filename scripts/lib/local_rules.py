@@ -274,9 +274,13 @@ def render_override_yaml(pool: list[dict]) -> str:
     ]
 
     if not other_rules:
-        lines.append("# 本地池为空")
-        lines.append("rules: []  # 占位（不实际覆盖订阅 rules）")
-        # 用占位 rules 而不是 +rules，避免清空订阅原有规则
+        # ⚠ 本地池为空时，整个 override 必须**完全不含 rules / +rules / dns**
+        #   等任何顶层字段，否则 Mihomo Party 的 deep merge 会把那个字段当成
+        #   "用户指定要覆盖" → 用空 list 替换掉订阅里原本的规则集 → 全网瘫痪。
+        #   历史曾错误地写过 `rules: []`（注释自称"占位"），实测会直接清空订阅
+        #   rules 让 mihomo total rules=0，所有流量 fall through 到 DIRECT。
+        #   现在保险做法：只留头部注释，不输出任何 yaml key。
+        lines.append("# 本地池为空 —— 不输出任何字段，避免 deep merge 把订阅 rules 替换成空")
         return "\n".join(lines) + "\n"
 
     lines.append("+rules:")

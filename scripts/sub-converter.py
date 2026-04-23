@@ -276,13 +276,21 @@ def parse_vless(uri: str) -> Optional[Dict[str, Any]]:
 
 
 # 规则集（顺序即优先级）
+#
+# 🤖 AI group 现在专门用来"标记需要走特殊出口（例如 VPS 上 xray 的 wireguard
+# outbound 把 Google AI 转 WARP）的域名"。其他 AI 站（OpenAI / Claude / Cursor 等）
+# 在 VPS 那边能直出干净 IP，留在默认 🚀 PROXY 即可，没必要进 🤖 AI；进了反而让
+# mac 端 group 显示混乱、并误导 VPS 端 routing 加多余规则。
+#
+# 👉 想"专属出口"的域名才往这里加；只是"想代理"的请让它走 🚀 PROXY。
 AI_DOMAINS = [
-    "openai.com", "chatgpt.com", "oaistatic.com", "oaiusercontent.com",
-    "anthropic.com", "claude.ai",
-    "gemini.google.com", "bard.google.com", "generativelanguage.googleapis.com",
-    "cursor.sh", "cursor.com",
-    "copilot.microsoft.com", "githubcopilot.com",
-    "perplexity.ai",
+    "gemini.google.com",
+    "bard.google.com",
+    "aistudio.google.com",
+    "generativelanguage.googleapis.com",
+    "makersuite.google.com",
+    "notebooklm.google.com",
+    "labs.google",
 ]
 
 SOCIAL_PROXY = [
