@@ -193,7 +193,7 @@ journalctl -u ace-vpn-sub -n 50
 ```
 
 ### 改完 xray config 重启回滚
-看 [docs/warp-upgrade.md 第 5 节](../docs/warp-upgrade.md#5-3x-ui-数据库覆盖坑必读)。
+3x-ui 启动时从 `/etc/x-ui/x-ui.db` 的 `xrayTemplateConfig` 反向覆盖 `config.json`。看 [docs/dev-skill.md §9.5](../docs/dev-skill.md#95-改-xray-config-必须改数据库最深的坑)。
 
 ---
 
@@ -204,8 +204,9 @@ journalctl -u ace-vpn-sub -n 50
 | [`../docs/三网段分流架构.md`](../docs/三网段分流架构.md) | 整体架构原理（公司内网 / 大陆公网 / 海外三网段分流的设计） |
 | [`../docs/dev-skill.md`](../docs/dev-skill.md) | 开发者手册（从 0 在新 VPS 搭 + 整库迁移流程） |
 | [`../docs/用户手册 user-guide.md`](../docs/用户手册%20user-guide.md) | 终端用户使用指南 |
-| [`../docs/warp-upgrade.md`](../docs/warp-upgrade.md) | **WARP 接入备选方案 + 2026-04-23 实战教训** |
 | [`../docs/Oracle Cloud 注册教程.md`](../docs/Oracle%20Cloud%20注册教程.md) | 免费 VPS 来源 |
+
+> WARP 备选方案（IP 被 Google 封时启用）已收敛进 [`../docs/dev-skill.md` §9](../docs/dev-skill.md#9-warp-备选方案cloudflare-warp-outbound)，原 `warp-upgrade.md` 已删除。
 
 ---
 

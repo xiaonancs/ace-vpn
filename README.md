@@ -139,6 +139,8 @@ DNS / 凭据都不会进本仓库 git 历史**。详见 [private/README.md](priv
 - **2026-04-21** 本地规则池工作流：`add-rule.sh` / `list-rules.sh` / `apply-local-overrides.sh` / `promote-to-vps.sh` 四脚本闭环。Mac 单机加规则秒级生效（渲染 Mihomo Party `override.yaml` 的 `+rules` prepend），积累后批量 promote 进 `intranet.yaml` 推 VPS 同步全设备。本地池 `local-rules.yaml` 由 private 仓库托管，多 Mac 之间通过 git pull 同步
 - **2026-04-21** sub-converter 扩展 `intranet.yaml` 顶层 `extra: {overseas, cn}`，promote 闭环补完：三种 target 全部能 promote 到 VPS 全设备共享；extra 在内置 AI / SOCIAL_PROXY / CHINA_DIRECT 之前 prepend，用户手加规则永远赢内置默认；`/healthz` 暴露 extra 计数便于验证
 - **2026-04-21** target 命名从 `intranet/cn/overseas` 改成更直观的 `IN/DIRECT/VPS`（用户视角：内网 / 直连 / 经过 VPS）；大小写无关 + 老名兼容自动归一；用户手册顶部加亮点功能索引
+- **2026-04-23** WARP 备选方案实战跑通后弃用（HostHatch JP 当前 IP 没被 Google 封）；`fscarmen/warp` Non-global 接入 + Xray `outbounds[0]=direct` + 第一条 routing 把 VPS 自身 `/32` 强制 `direct`，避免 SSH 自指环路；改 xray 必须改 `/etc/x-ui/x-ui.db` 的 `xrayTemplateConfig`（直接编 `config.json` 会被 systemctl restart 回滚）。完整流程精简版沉淀进 [dev-skill §9](docs/dev-skill.md#9-warp-备选方案cloudflare-warp-outbound)
+- **2026-04-24** intranet schema 重构：明确"真·内网 / SaaS / 零信任网关"三类域名分类，`profiles.<>.domains` 只放公网解不到的内网域名，公网公司域名（SaaS 应用、零信任网关后挂的内部服务）改放 `extra.cn`。`sub-converter.py` 给 `extra.cn` 强制配国内 UDP 公网 DNS（`119.29.29.29` + `223.5.5.5`），并加进 `fake-ip-filter`，避免默认 DoH 经海外 PROXY 解析到海外 CDN 节点 IP 导致 TLS 握手卡死。`promote-to-vps.sh` 默认 local-wins + 冲突日志，`sync-intranet.sh` VPS 端自动滚动备份最近 5 份 `intranet.yaml`。详见 [三网段分流架构 §9.6-9.8](docs/三网段分流架构.md#96-把零信任--saas-公网域名误当成真内网域名) + [dev-skill §8.13-8.16](docs/dev-skill.md#813-把零信任--saas-公网域名误当成真内网域名-)
 
 ## 📄 许可
 

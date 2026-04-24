@@ -16,9 +16,10 @@
 6. [分流规则](#6-分流规则)
 7. [客户端分发策略](#7-客户端分发策略)
 8. [踩过的坑 & 根因](#8-踩过的坑--根因)
-9. [VPS 迁移 Playbook](#9-vps-迁移-playbook)
-10. [日常维护 Cheatsheet](#10-日常维护-cheatsheet)
-11. [红线 & 安全](#11-红线--安全)
+9. [WARP 备选方案（Cloudflare WARP outbound）](#9-warp-备选方案cloudflare-warp-outbound)
+10. [VPS 迁移 Playbook](#10-vps-迁移-playbook)
+11. [日常维护 Cheatsheet](#11-日常维护-cheatsheet)
+12. [红线 & 安全](#12-红线--安全)
 
 ---
 
@@ -580,7 +581,7 @@ systemctl restart x-ui
 
 HostHatch 入门套餐只有 10 GB NVMe，journalctl 和 x-ui access.log 不清会把盘挤满。
 
-**修复**：装 cron 日常清理（见 §10.3）。
+**修复**：装 cron 日常清理（见 §11.3）。
 
 ### 8.12 Clash Party / Mihomo Party 吞掉订阅的 DNS 配置 ⚠️
 
@@ -644,13 +645,205 @@ dig portal.corp-a.example +short       # 应返回真实 10.x.x.x，不再是 19
 - fake-ip-filter 里 `"*"` 不是"匹配所有"，而是"只匹配一段标签（如 `com`）"。Clash Party 默认写 `"*"` 实际等于没写，所以用户看到全域名都被 fake-ip 了。
 - TUN 模式下 Mihomo 会拦截所有 UDP 53，不论目标 IP——所以 `dig @公网DNS` 也骗不过它，只能靠正确的 fake-ip-filter + nameserver-policy 让它自己去查真 DNS。
 
+### 8.13 把"零信任 / SaaS 公网域名"误当成"真·内网域名" ⚠️
+
+**现象（2026-04-24，本周最深的坑）**：把公司常用的 SaaS 域名 / 零信任网关后挂的服务域名（如 `<saas>.example` / `<sso>.<corp-office>.example` / `<biz-app>.<corp-app>.example`）加进了 `intranet.yaml` 的 `profiles.<>.domains`。一开 ace-vpn TUN：
+
+- `dig <域名>` SERVFAIL 或假 IP
+- `curl` 卡死 / 不响应
+- 关掉 ace-vpn 反而能上
+
+**根因**：这些域名其实是**公网域名**，公网 DNS 能查到公司零信任网关（`<gw>.corp-a.example`）的国内公网 IP，鉴权由网关侧的企业 VPN 客户端 session 负责，**不需要也不该走 10.x 公司内网 DNS**。但 sub-converter 把 `profiles.<>.domains` 自动转成 `nameserver-policy → 公司 10.x DNS`，企业 VPN 没真注入 10/8 路由时（被 ace-vpn TUN 抢全表后是常态）→ DNS SERVFAIL。
+
+**正确分类（已固化在 private 仓库 `intranet.yaml` 顶部注释）**：
+
+| 类型 | 公网 DNS | 入口 | 应放在 |
+|---|---|---|---|
+| A. 真·内网（`<srv>.intranet`）| 解不到 | 10/8 | `profiles.<>.domains` |
+| B. SaaS（`<saas-app>.example`）| 公网真实 IP | 公网 | `extra.cn` |
+| C. 零信任网关（`<sso>.<corp-office>.example`）| 公网网关 IP | 公网网关 | `extra.cn` |
+
+**判定方法**：彻底关 ace-vpn 和企业 VPN 客户端，跑 `dig +short <域名>`。返回 IP（哪怕是网关 IP）→ B/C，放 `extra.cn`；空/SERVFAIL → A，放 `profiles.<>.domains`。
+
+### 8.14 extra.cn 域名走默认 DoH 解析到海外 IP ⚠️
+
+**现象（2026-04-24，§8.13 修完后才暴露的进阶坑）**：`extra.cn` 里的零信任域名虽然分类对了，但 TUN + 海外 PROXY 节点同时开时：
+
+- `dig` 返回 fake-IP（198.18.x.x）
+- `curl` Connected → TLS 握手卡死 10 秒超时
+- 通过 Mihomo HTTP 代理 CONNECT 该域名时，Mihomo 内部解析到的是该零信任网关的**海外节点 IP**（CDN 边缘节点）
+
+**根因**：Mihomo 默认 `nameserver` 是 DoH（`doh.pub`、`dns.alidns.com`）。TUN + 海外 PROXY 开启时，DoH 流量经 PROXY 节点出去 → **站在海外节点视角**解析 → 拿到零信任网关海外节点 IP → DIRECT 直连 → 海外节点对未鉴权请求静默丢包 → TLS 卡死。
+
+**修复（已固化在 `sub-converter.py`，`CN_PUBLIC_DNS` 常量）**：给 `extra.cn` 域名**强制配国内 UDP 公网 DNS**（`119.29.29.29` DNSPod + `223.5.5.5` AliDNS），并加进 `fake-ip-filter`。Mihomo 看到裸 IP 不预解析、直接 UDP 出去（不经 PROXY），永远拿国内视角 IP，秒回 302。
+
+```yaml
+# sub-converter 自动生成
+nameserver-policy:
+  +.<sso-domain>.example: [119.29.29.29, 223.5.5.5]
+fake-ip-filter:
+  - +.<sso-domain>.example
+```
+
+**验证**：客户端刷新订阅 + `rm cache.db` + 完全重启 mihomo（不只是重启 TUN）后：
+
+```bash
+dig +short <你的零信任域名>        # 期望国内 IP（应为该网关国内入口段）
+curl -o /dev/null -w '%{http_code}\n' https://<你的零信任域名>/   # 期望 302
+```
+
+### 8.15 企业 VPN 客户端 + ace-vpn TUN 启动顺序
+
+**现象**：企业 VPN 客户端打开后看似已连，但 `netstat -rn -f inet | grep "^10/"` **看不到 10.0.0.0/8 路由**，所有内网请求打不通。
+
+**根因**：ace-vpn TUN 用 `auto-route: true` 把 `0.0.0.0/0` 拆成 `1/8` `2/7` `4/6` ... 占满全表。后启动的企业 VPN 客户端发现冲突就静默放弃注入 10/8。
+
+**修复**：调整启动顺序——**先连企业 VPN 客户端**，看到 `utun*: 10.x.x.x` + `10/8 → utun*` 后**再开 ace-vpn TUN**。基于"更具体路由优先"，两者共存：10.x 走企业 VPN，其他走 ace-vpn TUN。
+
+### 8.16 promote / sync 默认 local-wins + 自动备份
+
+**2026-04-24 重构**：
+
+- `promote-to-vps.sh` 默认**用本地 `local-rules.yaml` 覆盖 VPS 上 `intranet.yaml` 中同名 host**（不再需要 `--local-wins` flag），并打印冲突日志：哪些 host 是新增、哪些和 VPS 一致、哪些是改写（含 from→to 的位置 / 目标变化）。
+- `sync-intranet.sh` 每次推送前在 VPS 上把当前 `intranet.yaml` 复制到 `<dir>/backups/intranet-<时间戳>.yaml`，**只保留最近 5 份**。出问题想回退：`scp <vps>:/etc/ace-vpn/backups/intranet-<时间戳>.yaml ./private/intranet.yaml && bash scripts/sync-intranet.sh`。
+
 ---
 
-## 9. VPS 迁移 Playbook
+## 9. WARP 备选方案（Cloudflare WARP outbound）
+
+> **2026-04-23 实战已跑通后弃用**——HostHatch JP 当前 IP 没被 Google 封，WARP 不必要。流程沉淀在此，未来真被封时照做。完整 step-by-step 历史版本可在 git history 查已删除的 `docs/warp-upgrade.md`（commit 前于 2026-04-24）。
+
+### 9.1 什么时候真的需要
+
+只有这两种情况才上 WARP：
+
+| 场景 | 判定 |
+|---|---|
+| ① VPS IP 被 Google 标地区限制 | 浏览器无痕 + 干净账号访问 `https://gemini.google.com` 弹 "Gemini isn't currently supported in your country"，且 SSH 上 `curl` 拿首页关键词 `notSupported` / `country` 高频出现 |
+| ② VPS 出口到 Google 物理路由完全不通 | `curl https://gemini.google.com/` 直接 timeout（不是慢，是连不上） |
+
+**不需要 WARP 的两种伪信号**：
+- 直出能拿 200 + 完整 HTML（哪怕慢）→ 是路由慢，WARP 救不了
+- 浏览器弹 "isn't supported" 但 SSH 上 `curl` 能 200 → 是 **Google 账号绑定地区**问题，跟 IP 无关，WARP 也救不了
+
+### 9.2 IP 是否被封的快速 SOP
+
+```bash
+ssh root@<VPS_IP> 'curl -sSL --max-time 15 -4 \
+  -H "Accept-Language: en-US,en;q=0.9" \
+  -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/130.0.0.0" \
+  https://gemini.google.com/ -o /tmp/g.html \
+  -w "http=%{http_code} size=%{size_download} time=%{time_total}s\n"
+grep -oE "<title>[^<]+</title>" /tmp/g.html | head -1
+for k in country notSupported isn\\'t Sign\\ in Bard Gemini; do
+  printf "  %-15s: %s\n" "$k" "$(grep -ioE \"$k\" /tmp/g.html | wc -l)"
+done'
+```
+
+**判定矩阵**：
+
+| `<title>` | 关键词 | 结论 |
+|---|---|---|
+| `Google Gemini` | country=0, notSupported=0, Sign in≥3 | ✅ 未被封，是正常 SPA |
+| `Sorry, Gemini isn't available...` | country / isn't 高频 | ❌ 被封 |
+| HTTP 302 → `support.google.com/.../answer/13278668` | — | ❌ 被封（地区受限重定向） |
+
+### 9.3 接入流程（fscarmen/warp，已实战跑通）
+
+```bash
+# VPS 上 root 跑（fscarmen 已迁 GitLab）
+wget -N https://gitlab.com/fscarmen/warp/-/raw/main/menu.sh
+bash menu.sh 4   # 选 4 = Non-global IPv4 模式（关键，否则 SSH 自指环路）
+
+# 验证
+wg show
+curl --interface warp -sS https://www.cloudflare.com/cdn-cgi/trace
+# 应看到 ip=104.28.x.x  warp=on
+```
+
+**`Non-global` 模式必须**：只创建 `warp` 接口，**不**改默认路由。后续由 xray 自己决定哪些域名走 WARP。如果选了 global 模式，VPS 自身管理流量也被路由到 WARP 然后回环 → SSH 都连不上自己。
+
+### 9.4 Xray outbounds + routing 模板（关键三条铁律）
+
+- **`outbounds[0]` 必须是 `direct`**（默认出口；放成 `warp` 会让 VPS 自指环路）
+- **第一条 routing 规则强制把 `<VPS_PUBLIC_IPV4>/32` 走 `direct`**（管理流量永远不进 WARP）
+- **WireGuard `reserved` 字段必须从 `wgcf-account.toml` / `warp-account.conf` 读真值**——`[0,0,0]` 默认值会让 Cloudflare 静默丢包，TLS 握手永远完不成
+
+```bash
+# 提取真实 reserved
+grep -oE 'reserved.*\[.*\]' /etc/wireguard/wgcf.conf 2>/dev/null \
+  || grep -oE 'reserved.*\[.*\]' /etc/wireguard/warp-account.conf
+```
+
+### 9.5 改 xray config 必须改数据库（最深的坑）
+
+**直接编辑 `/usr/local/x-ui/bin/config.json`，systemctl restart x-ui 后改动会被回滚**。原因：3x-ui 启动时从 `/etc/x-ui/x-ui.db` 的 `settings.xrayTemplateConfig` 读模板覆盖 config.json。
+
+**正确改法**：
+
+```bash
+ssh root@<VPS_IP> 'python3 <<"PY"
+import json, sqlite3
+con = sqlite3.connect("/etc/x-ui/x-ui.db")
+cur = con.cursor()
+cur.execute("SELECT value FROM settings WHERE key=?", ("xrayTemplateConfig",))
+tpl = json.loads(cur.fetchone()[0])
+
+# 加 warp outbound + Google AI 域名走 warp 的 routing 规则
+tpl["outbounds"].insert(1, {
+  "tag": "warp", "protocol": "wireguard",
+  "settings": {
+    "secretKey": "<wgcf 生成的 PrivateKey>",
+    "address":   ["172.16.0.2/32"],
+    "peers":     [{"publicKey":"bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=",
+                   "endpoint":"engage.cloudflareclient.com:2408",
+                   "keepAlive":30,"allowedIPs":["0.0.0.0/0","::/0"]}],
+    "reserved":  [<填真实 reserved>],
+    "mtu": 1280
+  }
+})
+tpl["routing"]["rules"].insert(0, {
+  "type": "field", "ip": ["<VPS_PUBLIC_IPV4>/32"], "outboundTag": "direct"
+})
+tpl["routing"]["rules"].insert(1, {
+  "type": "field", "outboundTag": "warp",
+  "domain": ["domain:gemini.google.com",
+             "domain:generativelanguage.googleapis.com",
+             "domain:aistudio.google.com",
+             "domain:bard.google.com",
+             "domain:notebooklm.google.com"]
+})
+cur.execute("UPDATE settings SET value=? WHERE key=?",
+            (json.dumps(tpl), "xrayTemplateConfig"))
+con.commit()
+PY
+systemctl restart x-ui'
+```
+
+### 9.6 弃用 / 拆除
+
+```bash
+# 1) 同步删 db 里的 warp outbound + warp routing 规则（同 9.5 反向操作）
+# 2) 拆 fscarmen
+bash menu.sh u
+systemctl disable --now wg-quick@warp.service 2>/dev/null
+rm -rf /etc/wireguard/warp* /etc/wireguard/wgcf*
+ip link delete warp 2>/dev/null
+```
+
+### 9.7 关键教训
+
+- **不要把 Cursor / OpenAI / Claude / Anthropic 加进 WARP 路由**——这些站 IP 没被封，走 WARP 反而绕远 + Cloudflare WARP IP 段被它们风控会更慢。`AI_DOMAINS` 里只该留 Google AI 相关 7 个域名。
+- **fscarmen Non-global 残留的系统级路由要清**：`systemctl disable --now wg-quick@warp.service` + `ip rule del table 51820`，否则 SSH 自指。
+- **看到 "isn't supported in your country" 不要直接判 IP 被封**——先用 §9.2 SOP 验证。
+
+---
+
+## 10. VPS 迁移 Playbook
 
 > 通用 playbook。本次案例 **Vultr → HostHatch**，未来再换家把 `<OLD_VPS_IP>` / `<NEW_VPS_IP>` / `<你的 SubId>` / `<OLD_SUB_PATH>` 替换即可。
 
-### 9.1 迁移架构图
+### 10.1 迁移架构图
 
 ```
 [Day 0]                  [Day 1-14]                [Day 15+]
@@ -659,7 +852,7 @@ dig portal.corp-a.example +short       # 应返回真实 10.x.x.x，不再是 19
                          （跑通后切生产）
 ```
 
-### 9.2 Phase 1：买新 VPS
+### 10.2 Phase 1：买新 VPS
 
 下单时注意：
 - 关代理、用真实中国 IP、账单地址填真实中国地址（见 §3.4）
@@ -667,7 +860,7 @@ dig portal.corp-a.example +short       # 应返回真实 10.x.x.x，不再是 19
 - Hostname 中性
 - 月付/年付按能接受的退款窗口决定
 
-### 9.3 Phase 2：新机服务器初始化
+### 10.3 Phase 2：新机服务器初始化
 
 ```bash
 # 本地 Mac
@@ -692,7 +885,7 @@ apt update && apt upgrade -y
 timedatectl set-timezone UTC
 ```
 
-### 9.4 Phase 3：部署基础设施（不建 inbound）
+### 10.4 Phase 3：部署基础设施（不建 inbound）
 
 ```bash
 # 本地 Mac: 推代码
@@ -707,7 +900,7 @@ sudo bash scripts/install.sh
 
 **关键**：**不要**在新机面板上手动改 panel port / admin / path，**不要**创建任何 inbound。所有值 Phase 4 会被旧机数据库覆盖。
 
-### 9.5 Phase 4：3x-ui 数据库整库迁移（⭐ 核心）
+### 10.5 Phase 4：3x-ui 数据库整库迁移（⭐ 核心）
 
 ```bash
 # 旧机：备份
@@ -735,7 +928,7 @@ OLD_PANEL_PORT=<旧机的 panel port>
 ufw allow $OLD_PANEL_PORT/tcp comment 'x-ui panel'
 ```
 
-### 9.6 Phase 4.5：验证
+### 10.6 Phase 4.5：验证
 
 ```bash
 ss -tlnp | grep x-ui
@@ -753,7 +946,7 @@ ssh root@<OLD_VPS_IP> "curl -sk https://127.0.0.1:2096/<OLD_SUB_PATH>/<你的 Su
 
 **一致** → 迁移成功。不一致（概率低）→ xray 重新生成了 key，手动到面板 Edit Inbound 粘贴旧机的 pbk/sid/spx。
 
-### 9.7 Phase 5：装 sub-converter（新机 IP 关键）
+### 10.7 Phase 5：装 sub-converter（新机 IP 关键）
 
 ```bash
 cd /root/ace-vpn/scripts
@@ -772,7 +965,7 @@ curl -s http://127.0.0.1:25500/clash/<SubId1> | grep 'server:' | head -3
 
 **关键**：`SERVER_OVERRIDE` 必须是**新机**的 IP，否则订阅 YAML 里 server 还是旧机，等于没迁。
 
-### 9.8 Phase 6：自己先试 3-5 天（不通知家人）
+### 10.8 Phase 6：自己先试 3-5 天（不通知家人）
 
 **Mac (Mihomo Party)**：新建 Profile `ace-vpn-<新机代号>`，URL = `http://<NEW_VPS_IP>:25500/clash/<你的 SubId>`，切换测试。
 
@@ -789,7 +982,7 @@ curl -o /dev/null https://speed.cloudflare.com/__down?bytes=104857600 \
 
 任一晚低于 3 MB/s 或 YouTube 4K 频繁 buffer，记下来。
 
-### 9.9 Phase 7：通知家人切换
+### 10.9 Phase 7：通知家人切换
 
 判断标准：
 - ✅ 晚高峰 4K 不卡 + 白天流畅 → 通知家人
@@ -798,7 +991,7 @@ curl -o /dev/null https://speed.cloudflare.com/__down?bytes=104857600 \
 
 **强烈建议**：用 TeamViewer / 向日葵 **远程帮每个家人操作一遍**，比让他们自己搞效率高 5 倍。
 
-### 9.10 Phase 8：旧机冷备 1 个月
+### 10.10 Phase 8：旧机冷备 1 个月
 
 - 旧机不动任何配置
 - 家人客户端里保留旧机订阅作为 fallback Profile
@@ -817,7 +1010,7 @@ Destroy 前：
 2. 删掉 API key / cloud console 里和旧机绑的 SSH key
 3. Billing 页看是否有按天退费（prorated refund）
 
-### 9.11 紧急回滚
+### 10.11 紧急回滚
 
 任何阶段出问题：
 
@@ -829,7 +1022,7 @@ Destroy 前：
 
 **核心心法**：冷备期内**旧机永远不要手动碰它**，它是你的红色按钮。
 
-### 9.12 迁移验收清单
+### 10.12 迁移验收清单
 
 - [ ] 新机买到，Ubuntu 22.04 跑起来
 - [ ] SSH key 配好，密码登录禁用
@@ -844,9 +1037,9 @@ Destroy 前：
 
 ---
 
-## 10. 日常维护 Cheatsheet
+## 11. 日常维护 Cheatsheet
 
-### 10.1 加一个家人
+### 11.1 加一个家人
 
 ```
 1. 面板 → Inbounds → ace-vpn-reality → Add Client
@@ -855,7 +1048,7 @@ Destroy 前：
 4. 发订阅 URL: http://<VPS_IP>:25500/clash/sub-hxn01
 ```
 
-### 10.2 改分流规则（全家同步）
+### 11.2 改分流规则（全家同步）
 
 ```bash
 # 本地改 scripts/sub-converter.py
@@ -864,7 +1057,7 @@ ssh root@$VPS_IP "systemctl restart ace-vpn-sub"
 # 家人客户端点"更新订阅"，10 秒生效
 ```
 
-### 10.2b 本地规则池（Mac 即时生效，攒后批量推 VPS）
+### 11.2b 本地规则池（Mac 即时生效，攒后批量推 VPS）
 
 日常发现某域名要走代理 / 直连 / 内网，但还没想清楚是否值得让全家都同步：
 
@@ -895,7 +1088,7 @@ bash scripts/promote-to-vps.sh              # 推 VPS + 清空本地池
 - sub-converter `build_rules()` 把 `extra.overseas` / `extra.cn` 插在内置 AI / SOCIAL_PROXY / CHINA_DIRECT **之前** prepend，所以用户手加规则永远赢内置默认（修正误判 / 接管新服务）
 - 后验证：`curl -fsS http://VPS:25500/healthz` 看 `extra_overseas=N` `extra_cn=N` 是否符合预期；`curl -fsS "http://VPS:25500/match?host=foo.example"` 看具体命中哪条
 
-### 10.3 日志自动清理（小盘 NVMe 必装）
+### 11.3 日志自动清理（小盘 NVMe 必装）
 
 ```bash
 cat > /etc/cron.daily/ace-vpn-logclean <<'EOF'
@@ -907,7 +1100,7 @@ EOF
 chmod +x /etc/cron.daily/ace-vpn-logclean
 ```
 
-### 10.4 自动备份数据库
+### 11.4 自动备份数据库
 
 ```bash
 cat > /etc/cron.daily/ace-vpn-backup <<'EOF'
@@ -920,7 +1113,7 @@ EOF
 chmod +x /etc/cron.daily/ace-vpn-backup
 ```
 
-### 10.5 健康检查 + 自恢复
+### 11.5 健康检查 + 自恢复
 
 ```bash
 cat > /etc/cron.hourly/ace-vpn-healthcheck <<'EOF'
@@ -932,7 +1125,7 @@ EOF
 chmod +x /etc/cron.hourly/ace-vpn-healthcheck
 ```
 
-### 10.6 证书续期（IP 证书 6 天）
+### 11.6 证书续期（IP 证书 6 天）
 
 面板用的是 Let's Encrypt for IP 临时证书，6 天续一次：
 
@@ -943,7 +1136,7 @@ ssh root@$VPS_IP x-ui
 
 或写成 cron（需先确认 `x-ui` CLI 支持非交互参数）。
 
-### 10.7 SUB_TOKEN / UUID 定期轮换（半年一次）
+### 11.7 SUB_TOKEN / UUID 定期轮换（半年一次）
 
 1. 3x-ui 面板里 SubId 重命名（如 `sub-hxn` → `sub-hxn-2026q4`）
 2. 更新 `SUB_TOKENS` 环境变量：`systemctl edit ace-vpn-sub`
@@ -952,7 +1145,7 @@ ssh root@$VPS_IP x-ui
 
 ---
 
-## 11. 红线 & 安全
+## 12. 红线 & 安全
 
 1. **不提交任何 UUID / pbk / 面板 URL / 订阅 URL / 真实 VPS IP** 到 Git（见 `.gitignore`）
 2. **面板端口/路径/账号绝不用默认值**（2053/admin/admin 的面板等于裸奔）

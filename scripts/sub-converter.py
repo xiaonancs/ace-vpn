@@ -68,6 +68,18 @@ INTRANET_FILE = os.environ.get("INTRANET_FILE", "/etc/ace-vpn/intranet.yaml").st
 # 保险丝：强制覆盖节点 server 字段（3x-ui 会根据 Host 头返回 127.0.0.1 等内网 IP，这里统一改成公网 IP）
 SERVER_OVERRIDE = os.environ.get("SERVER_OVERRIDE", "").strip()
 
+# extra.cn 域名强制使用的"国内公网 DNS"。
+#
+# 为什么必须强制？因为 Mihomo 默认 nameserver 是 DoH（doh.pub / dns.alidns.com），
+# 当客户端开 TUN + 远端 PROXY 节点在海外（如新加坡 / 东京）时，DoH 流量会经过 PROXY，
+# 远端解析返回的是站在海外节点视角的 IP（很多企业零信任网关 / 国内 SaaS 在海外有
+# CDN 边缘节点，但这些节点对未授权请求静默丢包）—— 接着 DIRECT 直连那个海外 IP，
+# TLS 通常被拒/卡死。
+#
+# 这里固定用 119.29.29.29 (DNSPod) 和 223.5.5.5 (AliDNS) UDP 53，
+# Mihomo 把它们当成 DIRECT 直连解析（绕过 PROXY 节点），永远拿到国内视角的 IP。
+CN_PUBLIC_DNS = ["119.29.29.29", "223.5.5.5"]
+
 
 def load_intranet_config() -> Dict[str, Any]:
     """热加载内网规则。每次 HTTP 请求调用一次，改 YAML 无需重启服务。
@@ -442,19 +454,31 @@ def build_clash_yaml(proxies: List[Dict[str, Any]], intranet: Dict[str, Any]) ->
                 "+.msftconnecttest.com",
                 "+.msftncsi.com",
                 *[f"+.{sfx}" for sfx in intranet["domains"]],
+                # extra.cn 也跳过 fake-ip：避免 Mihomo fake-ip 反查路径上某些客户端
+                # 实现把 nameserver-policy 绕过去，导致 DIRECT 真实解析仍走默认 DoH
+                *[f"+.{sfx}" for sfx in (intranet.get("extra_cn") or [])],
             ],
             # 关键：内网域名用 profile 里配的 dns_servers（例如公司 VPN 下发的
             # 10.x.x.x 内网 DNS），回落到 "system"。用具体 DNS 能绕过 Mihomo /
             # Clash Party GUI 强改系统 DNS 后内网域名解不出的问题。
             # 用 list(...) 给每个 domain 独立副本，避免 PyYAML dump 出 &id001
-            # 锚点语法（Mihomo 支持，但某些简易客户端/可读性不友好）
+            # 锚点语法（Mihomo 支持，但某些简易客户端/可读性不友好）。
+            #
+            # extra.cn 域名强制走 CN_PUBLIC_DNS（国内 UDP 公网 DNS）：
+            # 见 CN_PUBLIC_DNS 注释，避免 default DoH 经 PROXY 拿到海外 IP。
             "nameserver-policy": {
-                f"+.{sfx}": (
-                    list(intranet["domain_dns"][sfx])
-                    if sfx in intranet["domain_dns"]
-                    else "system"
-                )
-                for sfx in intranet["domains"]
+                **{
+                    f"+.{sfx}": (
+                        list(intranet["domain_dns"][sfx])
+                        if sfx in intranet["domain_dns"]
+                        else "system"
+                    )
+                    for sfx in intranet["domains"]
+                },
+                **{
+                    f"+.{sfx}": list(CN_PUBLIC_DNS)
+                    for sfx in (intranet.get("extra_cn") or [])
+                },
             },
             "nameserver": [
                 "https://doh.pub/dns-query",
