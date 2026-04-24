@@ -125,7 +125,7 @@ bash scripts/speed-test.sh --quick
 
 # 如果想看路由质量（哪一段丢包）
 brew install mtr   # 一次性
-sudo mtr -rwzbc 30 103.173.179.55   # 改成你 VPS IP
+sudo mtr -rwzbc 30 <VPS_IP>        # 换成你当前节点的公网 IP
 ```
 
 ---
