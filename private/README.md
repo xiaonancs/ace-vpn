@@ -121,7 +121,7 @@ chmod +x ~/workspace/publish/ace-vpn/.git/hooks/pre-commit
 
 - 所有 private 仓库下真实文件 `chmod 600`
 - 不把 private 内容复制/粘贴到聊天；截图前马赛克 IP / 公司名
-- 定期滚动 SubToken（见 `docs/dev-skill.md` §10.7）
+- 定期滚动 SubToken（见 `docs/dev-skill.md` §7.7）
 - 怀疑泄露：3x-ui 面板禁用对应 Client → 重新生成 UUID → 家人重订阅
 - private 仓库绝对不要 public 化、不要加 contributor
 
