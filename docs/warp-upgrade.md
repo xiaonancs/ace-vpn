@@ -77,7 +77,7 @@ OUTER
 | `Google Gemini` | 关键词都接近 0 | ⚠️ HTML 是 JS bundle，必须浏览器实测 |
 | HTTP 302 重定向到 `support.google.com/.../answer/13278668` | - | ❌ **被封**（典型地区受限重定向） |
 
-**本次 hosthatch (103.173.179.55) 实测结果**：
+**本次 HostHatch Tokyo 节点（公网 IP 记为 `<VPS_IP>`）实测结果**：
 ```
 title:  <title>Google Gemini</title>          ← 正常
 country: 0   notSupported: 0   isn't: 0       ← 全 0
