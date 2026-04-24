@@ -23,6 +23,7 @@ Mihomo Party override 渲染目标：
 """
 from __future__ import annotations
 
+import copy
 import datetime
 import os
 import sys
@@ -597,27 +598,71 @@ def trigger_mihomo_reload() -> tuple[bool, str]:
 # promote：本地池 → intranet.yaml 合并 + 清空
 # ─────────────────────────────────────────────────────────────────
 
-def promote_to_intranet() -> dict:
-    """把本地池里的规则按 target 合并到 intranet.yaml。
+def _find_host_locations_in_intranet(intra: dict, active_name: str, host: str) -> list[str]:
+    """列出 host 当前出现在 intranet 的哪些位置（用于冲突提示）。host 小写。"""
+    hn = host.lower()
+    locs: list[str] = []
+    profs = intra.get("profiles") or {}
+    if isinstance(profs, dict):
+        for pname, p in profs.items():
+            if not isinstance(p, dict):
+                continue
+            for d in p.get("domains") or []:
+                if str(d).strip().lower() == hn:
+                    locs.append(f"profiles.{pname}.domains (IN)")
+                    break
+    extra = intra.get("extra")
+    if isinstance(extra, dict):
+        for x in extra.get("overseas") or []:
+            if str(x).strip().lower() == hn:
+                locs.append("extra.overseas (VPS)")
+                break
+        for x in extra.get("cn") or []:
+            if str(x).strip().lower() == hn:
+                locs.append("extra.cn (DIRECT)")
+                break
+    return locs
 
-    映射（用户 target → intranet.yaml 字段）：
-      IN     → profiles[active].domains            （随当前 enabled profile）
-      VPS    → 顶层 extra.overseas                  （跨 profile 共享）
-      DIRECT → 顶层 extra.cn                        （跨 profile 共享）
 
-    注：intranet.yaml 顶层 extra 字段名（overseas/cn）保持不变，
-       因为 sub-converter 已经按这套 schema 部署在 VPS 上。
-       用户层面只看到 IN/DIRECT/VPS，schema 命名是内部细节。
+def _remove_host_from_all_rule_lists(intra: dict, host: str) -> None:
+    """从所有 profile.domains、extra.overseas、extra.cn 中删掉 host（大小写不敏感）。"""
+    hn = host.lower()
+    profs = intra.get("profiles") or {}
+    if isinstance(profs, dict):
+        for _, p in profs.items():
+            if not isinstance(p, dict):
+                continue
+            dom = list(p.get("domains") or [])
+            p["domains"] = [x for x in dom if str(x).strip().lower() != hn]
+    extra = intra.get("extra")
+    if not isinstance(extra, dict):
+        intra["extra"] = {}
+        extra = intra["extra"]
+    extra["overseas"] = [x for x in (extra.get("overseas") or []) if str(x).strip().lower() != hn]
+    extra["cn"] = [x for x in (extra.get("cn") or []) if str(x).strip().lower() != hn]
 
-    返回 plan dict（不真改文件），由 apply_promote() 落地。
+
+def _append_unique_ci(lst: list, host: str) -> None:
+    hn = host.lower()
+    for x in lst:
+        if str(x).strip().lower() == hn:
+            return
+    lst.append(host)
+
+
+def merge_local_pool_into_intranet_object(intra: dict, pool: list[dict]) -> tuple[list[str], list[str], str, list[tuple[str, str]]]:
+    """把本地池合并进 intranet 对象（就地修改）。
+
+    策略：**本地池优先**。每条规则会先全局删掉该 host，再按 target 写回唯一位置。
+    若池中同一 host 出现多次，**后者覆盖前者**（与处理顺序一致）。
+
+    返回 (conflict_log, hosts_processed, active_profile, unknown_list)
     """
-    pool = load_pool()
-    intra = _load_yaml(INTRANET_PATH, default={}) or {}
     profs = intra.get("profiles") or {}
     if not isinstance(profs, dict):
         raise ValueError(f"{INTRANET_PATH} 不是 profiles 结构")
 
-    active_name = None
+    active_name: str | None = None
     for name, prof in profs.items():
         if isinstance(prof, dict) and prof.get("enabled"):
             active_name = name
@@ -626,92 +671,116 @@ def promote_to_intranet() -> dict:
     if not active_name:
         raise ValueError(f"{INTRANET_PATH} 没有任何 enabled profile")
 
-    active = profs[active_name]
-    existing_in = set((d or "").lower() for d in (active.get("domains") or []))
-
-    extra = intra.get("extra") or {}
-    existing_vps = set((d or "").lower() for d in (extra.get("overseas") or []))
-    existing_direct = set((d or "").lower() for d in (extra.get("cn") or []))
-
-    plan = {
-        "active_profile": active_name,
-        "in_to_add": [], "in_skipped_dup": [],
-        "vps_to_add": [], "vps_skipped_dup": [],
-        "direct_to_add": [], "direct_skipped_dup": [],
-        "unknown": [],
-    }
+    conflict_log: list[str] = []
+    hosts_processed: list[str] = []
+    unknown: list[tuple[str, str]] = []
 
     for r in pool:
-        host = (r.get("host") or "").lower()
-        target = normalize_target(r.get("target"))
+        host = (r.get("host") or "").strip().lower()
         if not host:
             continue
-        if target == TARGET_IN:
-            (plan["in_skipped_dup"] if host in existing_in else plan["in_to_add"]).append(host)
-        elif target == TARGET_VPS:
-            (plan["vps_skipped_dup"] if host in existing_vps else plan["vps_to_add"]).append(host)
-        elif target == TARGET_DIRECT:
-            (plan["direct_skipped_dup"] if host in existing_direct else plan["direct_to_add"]).append(host)
-        else:
-            plan["unknown"].append((host, r.get("target")))
+        target = normalize_target(r.get("target"))
+        if not target:
+            unknown.append((host, str(r.get("target", ""))))
+            continue
 
-    return plan
+        before_locs = _find_host_locations_in_intranet(intra, active_name, host)
+        before_str = " ＋ ".join(before_locs) if before_locs else "（intranet 中未出现）"
+
+        _remove_host_from_all_rule_lists(intra, host)
+
+        active = profs[active_name]
+        if not isinstance(active, dict):
+            raise ValueError(f"profile {active_name!r} 不是 dict")
+
+        if target == TARGET_IN:
+            dom = list(active.get("domains") or [])
+            _append_unique_ci(dom, host)
+            active["domains"] = dom
+            after_str = f"profiles.{active_name}.domains (IN)"
+        elif target == TARGET_VPS:
+            extra = intra.get("extra")
+            if not isinstance(extra, dict):
+                intra["extra"] = {}
+                extra = intra["extra"]
+            ov = list(extra.get("overseas") or [])
+            _append_unique_ci(ov, host)
+            extra["overseas"] = ov
+            after_str = "extra.overseas (VPS)"
+        else:
+            extra = intra.get("extra")
+            if not isinstance(extra, dict):
+                intra["extra"] = {}
+                extra = intra["extra"]
+            cn = list(extra.get("cn") or [])
+            _append_unique_ci(cn, host)
+            extra["cn"] = cn
+            after_str = "extra.cn (DIRECT)"
+
+        if not before_locs:
+            conflict_log.append(f"  · 新增 {host} → {after_str}")
+        elif len(before_locs) == 1 and before_locs[0] == after_str:
+            conflict_log.append(
+                f"  · {host} 原已在「{after_str}」，与本地池一致（已按本地确认）"
+            )
+        else:
+            conflict_log.append(
+                f"⚠ 冲突 {host}：intranet 里此前为「{before_str}」→ 已按本地池改为「{after_str}」"
+            )
+
+        hosts_processed.append(host)
+
+    # 去重保序（池中同一 host 多行时，上面已以后者为准合并进 intranet）
+    seen: set[str] = set()
+    hosts_unique: list[str] = []
+    for h in hosts_processed:
+        if h not in seen:
+            seen.add(h)
+            hosts_unique.append(h)
+
+    return conflict_log, hosts_unique, active_name, unknown
+
+
+def promote_to_intranet() -> dict:
+    """预览：把本地池按「本地优先」合并进 intranet.yaml 后的结果说明。
+
+    不修改磁盘上的 intranet.yaml（由 apply_promote() 真正写入）。
+
+    返回字段：
+      - active_profile
+      - conflict_log: 人类可读行（新增 / 一致确认 / 冲突改写）
+      - hosts_processed: 成功消费的 host（用于从本地池删除）
+      - unknown: 无法识别 target 的池条目
+    """
+    pool = load_pool()
+    intra = copy.deepcopy(_load_yaml(INTRANET_PATH, default={}) or {})
+    conflict_log, hosts_processed, active_name, unknown = merge_local_pool_into_intranet_object(
+        intra, pool
+    )
+
+    return {
+        "active_profile": active_name,
+        "conflict_log": conflict_log,
+        "hosts_processed": hosts_processed,
+        "unknown": unknown,
+    }
 
 
 def apply_promote(plan: dict) -> None:
-    """根据 plan 实际改 intranet.yaml：
-       - IN     → profiles[active].domains 追加
-       - VPS    → 顶层 extra.overseas 追加
-       - DIRECT → 顶层 extra.cn 追加
-    """
-    if not (plan["in_to_add"] or plan["vps_to_add"] or plan["direct_to_add"]):
-        return
-
+    """将本地池按「本地优先」合并写入 intranet.yaml（再读一遍文件，避免与预览竞态）。"""
+    pool = load_pool()
     raw = INTRANET_PATH.read_text(encoding="utf-8")
     intra = yaml.safe_load(raw) or {}
-
-    # IN → profile.domains
-    if plan["in_to_add"]:
-        active_name = plan["active_profile"]
-        active = intra["profiles"][active_name]
-        domains = list(active.get("domains") or [])
-        for h in plan["in_to_add"]:
-            if h not in domains:
-                domains.append(h)
-        active["domains"] = domains
-
-    # VPS / DIRECT → 顶层 extra（不存在则建）
-    if plan["vps_to_add"] or plan["direct_to_add"]:
-        extra = intra.get("extra")
-        if not isinstance(extra, dict):
-            extra = {}
-            intra["extra"] = extra
-
-        if plan["vps_to_add"]:
-            cur = list(extra.get("overseas") or [])
-            for h in plan["vps_to_add"]:
-                if h not in cur:
-                    cur.append(h)
-            extra["overseas"] = cur
-
-        if plan["direct_to_add"]:
-            cur = list(extra.get("cn") or [])
-            for h in plan["direct_to_add"]:
-                if h not in cur:
-                    cur.append(h)
-            extra["cn"] = cur
-
-    INTRANET_PATH.write_text(_yaml_dump(intra), encoding="utf-8")
+    _conflict_log, hosts_processed, _active, _unknown = merge_local_pool_into_intranet_object(
+        intra, pool
+    )
+    if hosts_processed:
+        INTRANET_PATH.write_text(_yaml_dump(intra), encoding="utf-8")
 
 
 def all_promoted_hosts(plan: dict) -> list[str]:
-    """plan 里所有"将被 promote"的 host 集合（用于 promote 后从本地池剔除）。
-
-    跳过的（已存在 / unknown）不算——它们留在本地池让用户决定。
-    """
-    return list(plan["in_to_add"]) \
-         + list(plan["vps_to_add"]) \
-         + list(plan["direct_to_add"])
+    """plan 里所有被本地池消费掉的 host（与 hosts_processed 相同）。"""
+    return list(plan.get("hosts_processed") or [])
 
 
 def remove_from_pool(hosts: list[str]) -> int:

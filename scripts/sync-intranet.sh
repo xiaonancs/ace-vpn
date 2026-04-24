@@ -14,6 +14,8 @@
 #
 # 流程（每台 VPS 独立执行）：
 #   - 本地用 python3 yaml.safe_load 校验一次（共用）
+#   - 远端：若已有 intranet.yaml，先复制到 $(dirname REMOTE)/backups/intranet-时间戳.yaml，
+#     并只保留最近 5 份 intranet-*.yaml 备份，再 scp 覆盖 REMOTE_FILE
 #   - scp 覆盖 VPS 上的 /etc/ace-vpn/intranet.yaml
 #   - 远端 curl /healthz（新版）或回退探测 /clash/<token>（旧版无 healthz 时）
 #
@@ -182,6 +184,24 @@ push_one() {
   ssh "${SSH_OPTS[@]}" "$VPS_SSH_USER@$ip" \
     "mkdir -p '$(dirname "$REMOTE_FILE")' && chmod 0755 '$(dirname "$REMOTE_FILE")'" \
     || { warn "[$name] mkdir 失败"; return 1; }
+
+  info "远端备份当前规则（保留最近 5 份 intranet-*.yaml）"
+  if ! ssh "${SSH_OPTS[@]}" "$VPS_SSH_USER@$ip" bash <<EOF
+set -euo pipefail
+REMOTE_FILE='${REMOTE_FILE}'
+BACKUP_DIR="\$(dirname "\$REMOTE_FILE")/backups"
+mkdir -p "\$(dirname "\$REMOTE_FILE")"
+mkdir -p "\$BACKUP_DIR"
+if [[ -f "\$REMOTE_FILE" ]]; then
+  cp "\$REMOTE_FILE" "\$BACKUP_DIR/intranet-\$(date +%Y%m%d-%H%M%S).yaml"
+fi
+# 按修改时间保留最新 5 个，其余删除
+ls -1t "\$BACKUP_DIR"/intranet-*.yaml 2>/dev/null | tail -n +6 | xargs -r rm -f || true
+EOF
+  then
+    warn "[$name] 远端备份失败（中止推送以免无回滚点）"
+    return 1
+  fi
 
   info "上传到 $VPS_SSH_USER@$ip:$REMOTE_FILE"
   scp "${SSH_OPTS[@]}" "$LOCAL_FILE" "$VPS_SSH_USER@$ip:$REMOTE_FILE" \

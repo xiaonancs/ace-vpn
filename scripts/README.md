@@ -29,8 +29,8 @@
 | [`add-rule.sh`](add-rule.sh) | 加一条规则到本地池 + 自动 reload mihomo | 发现某个站走错路了想纠正时 |
 | [`list-rules.sh`](list-rules.sh) | 看本地池里积累了哪些规则 | 想知道还没 promote 的规则有啥 |
 | [`apply-local-overrides.sh`](apply-local-overrides.sh) | 把 `local-rules.yaml` 渲染成 mihomo override + 触发 reload | 手动改了 local-rules.yaml 后；add-rule 内部也调它 |
-| [`promote-to-vps.sh`](promote-to-vps.sh) | 把本地池的规则推到 VPS（合并进 intranet.yaml + scp + 清池） | 积累几天后批量同步给家人/手机 |
-| [`sync-intranet.sh`](sync-intranet.sh) | 把 `private/intranet.yaml` scp 到 VPS（不动本地池） | 直接编辑了 intranet.yaml 想推上去时；promote-to-vps 内部也调它 |
+| [`promote-to-vps.sh`](promote-to-vps.sh) | 把本地池合并进 `intranet.yaml`（**本地优先**，与已有 intranet 冲突则覆盖并打印前后对比）+ `sync-intranet` + 清池 | 积累几天后批量同步给家人/手机 |
+| [`sync-intranet.sh`](sync-intranet.sh) | 把 `private/intranet.yaml` scp 到 VPS；**推送前远端自动备份** `backups/intranet-*.yaml`（保留最近 5 份） | 直接编辑了 intranet.yaml 想推上去时；promote-to-vps 内部也调它 |
 | [`rollback-overrides.sh`](rollback-overrides.sh) | **应急**：回退 mihomo override 到上一个备份 / 禁用本地池 | 加了坏规则导致 mac 上不了网时 |
 
 ### C. 诊断 / 调试（**Mac** 或 **VPS**，按需）

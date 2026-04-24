@@ -885,6 +885,8 @@ bash scripts/promote-to-vps.sh              # 推 VPS + 清空本地池
 - 用 Mihomo Party 的深度合并语法：`+rules:` prepend、`dns.+fake-ip-filter:` prepend、`dns.nameserver-policy.<+.host>:` 强制覆盖
 - 优先级：本地池 prepend > 订阅 rules > MATCH。promote 后本地池清空，规则下沉到 VPS 订阅，"VPS 新规则覆盖本地旧" 自然达成。
 - Mihomo Party GUI 监听 override 目录，秒级自动 reload；GUI 没启动时下次开 GUI 会自动应用
+- **promote 合并策略（默认）**：**本地池优先**。每条规则先把 host 从所有 `profiles.*.domains`、`extra.overseas`、`extra.cn` 中删掉，再按 target 写回唯一位置；若与 intranet 原位置不一致，`promote-to-vps.sh` 会打印「此前为 … → 已改为 …」提醒。
+- **sync-intranet**：每次 scp 覆盖前，远端 `$(dirname intranet.yaml)/backups/` 下自动备份 `intranet-时间戳.yaml`，**只保留最近 5 份**。
 - promote 落地三种 target（用户层 → schema 字段）：
     - `IN`     → `intranet.yaml` 的 `profiles[当前 enabled].domains`（跟着公司走）
     - `VPS`    → 顶层 `extra.overseas`（独立 profile，跨公司共享）
