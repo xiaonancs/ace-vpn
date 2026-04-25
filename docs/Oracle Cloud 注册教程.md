@@ -402,7 +402,7 @@ sudo cat /etc/x-ui/x-ui.db | base64 > /tmp/x-ui-db.b64
 # 重新 Create Instance，新 IP 段概率高
 
 # 按 ace-vpn README 快速重新部署（5 分钟）
-# 或者用 dev-skill.md §6 迁移 playbook 恢复整库
+# 或者用 开发者日志.md §6 迁移 playbook 恢复整库
 ```
 
 ---
@@ -488,7 +488,7 @@ AUTO_CONFIGURE=1 bash scripts/install.sh
 
 - 甲骨文抢机脚本：[Cyberbolt/oci-help](https://github.com/Cyberbolt/oci-help)
 - Oracle Always Free 官方：https://www.oracle.com/cloud/free/
-- 本项目技术文档：[dev-skill.md](dev-skill.md)
+- 本项目技术文档：[开发者日志.md](开发者日志.md)
 - 用户使用手册：[用户手册 user-guide.md](用户手册%20user-guide.md)
 
 ---

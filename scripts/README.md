@@ -193,7 +193,7 @@ journalctl -u ace-vpn-sub -n 50
 ```
 
 ### 改完 xray config 重启回滚
-3x-ui 启动时从 `/etc/x-ui/x-ui.db` 的 `xrayTemplateConfig` 反向覆盖 `config.json`。看 [docs/dev-skill.md §5.5](../docs/dev-skill.md#55-改-xray-config-必须改数据库最深的坑)。
+3x-ui 启动时从 `/etc/x-ui/x-ui.db` 的 `xrayTemplateConfig` 反向覆盖 `config.json`。看 [docs/开发者日志.md §5.5](../docs/开发者日志.md#55-改-xray-config-必须改数据库最深的坑)。
 
 ---
 
@@ -202,11 +202,11 @@ journalctl -u ace-vpn-sub -n 50
 | 文档 | 内容 |
 |------|------|
 | [`../docs/ACE架构设计.md`](../docs/ACE架构设计.md) | ACE 架构设计 — 系统全景 / 部署 / DNS / 规则系统 / 多设备同步 |
-| [`../docs/dev-skill.md`](../docs/dev-skill.md) | 开发者日志 — 新增功能 / 性能优化 / 踩坑分类 / VPS 迁移 playbook |
+| [`../docs/开发者日志.md`](../docs/开发者日志.md) | 开发者日志 — 新增功能 / 性能优化 / 踩坑分类 / VPS 迁移 playbook |
 | [`../docs/用户手册 user-guide.md`](../docs/用户手册%20user-guide.md) | 终端用户使用指南 |
 | [`../docs/Oracle Cloud 注册教程.md`](../docs/Oracle%20Cloud%20注册教程.md) | 免费 VPS 来源 |
 
-> WARP 备选方案（IP 被 Google 封时启用）已收敛进 [`../docs/dev-skill.md` §5](../docs/dev-skill.md#5-warp-备选方案cloudflare-warp-outbound)，原 `warp-upgrade.md` 已删除。
+> WARP 备选方案（IP 被 Google 封时启用）已收敛进 [`../docs/开发者日志.md` §5](../docs/开发者日志.md#5-warp-备选方案cloudflare-warp-outbound)，原 `warp-upgrade.md` 已删除。
 
 ---
 
@@ -227,4 +227,4 @@ journalctl -u ace-vpn-sub -n 50
   客户端点"更新订阅"
 ```
 
-详见 [`docs/dev-skill.md`](../docs/dev-skill.md) 的"整库迁移"章节。
+详见 [`docs/开发者日志.md`](../docs/开发者日志.md) 的"整库迁移"章节。
