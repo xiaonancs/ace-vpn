@@ -122,7 +122,7 @@ sequenceDiagram
     participant VPS
     participant Cli as 家人客户端
     Mac->>Mac: 改 intranet.yaml
-    Mac->>VPS: bash scripts/rules/sync-intranet.sh [--all-vps]
+    Mac->>VPS: bash scripts/rules/sync-intranet.sh 
     VPS->>VPS: 备份旧 yaml → backups/intranet-时间戳.yaml<br/>(保留 5 份)
     VPS->>VPS: scp 覆盖 /etc/ace-vpn/intranet.yaml
     VPS-->>Mac: curl /healthz → ok active_profiles=corp-a
@@ -662,12 +662,12 @@ local-rules.yaml 渲染成 Mihomo Party override 时用 `+rules:` 语法，再 p
 ```bash
 # A1. 改内置硬编码（适合"天底下所有人都该这么走"）
 $EDITOR scripts/server/sub-converter.py
-scp scripts/server/sub-converter.py root@$VPS_IP:/opt/ace-vpn-sub/sub-converter.py
-ssh root@$VPS_IP "systemctl restart ace-vpn-sub"
+scp scripts/server/sub-converter.py root@<VPS-IP>:/opt/ace-vpn-sub/sub-converter.py
+ssh root@<VPS-IP> "systemctl restart ace-vpn-sub"
 
 # A2. 改 intranet.yaml（适合公司域名 / extra）
 $EDITOR private/intranet.yaml      # 等价于 ace-vpn-private/intranet.yaml
-bash scripts/rules/sync-intranet.sh [--all-vps]
+bash scripts/rules/sync-intranet.sh 
 # 家人客户端"刷新订阅"，10 秒生效
 ```
 
@@ -731,11 +731,11 @@ target 落地（用户层 → schema 字段）：
 
 ```bash
 # /healthz 看激活计数
-curl -fsS http://$VPS_IP:25500/healthz
+curl -fsS http://<VPS-IP>:25500/healthz
 # 期望: ok\nactive_profiles=corp-a\ndomains=N\ncidrs=N\nextra_overseas=N\nextra_cn=N
 
 # /match 看具体某个 host 命中哪条
-curl -fsS "http://$VPS_IP:25500/match?host=foo.example" | python3 -m json.tool
+curl -fsS "http://<VPS-IP>:25500/match?host=foo.example" | python3 -m json.tool
 
 # Mac 端一行命令完整诊断
 bash scripts/test/test-route.sh https://foo.example/
@@ -810,20 +810,18 @@ iHome Mac 和 iWork Mac 都通过 git 同步到 `ace-vpn-private`，后到的 Ma
 - 路径 A：local-rules 只用在一台 Mac
 - 路径 B：每次改前先 `git pull`，promote 后立即 `git push`
 
-### 9.4 多 VPS 之间：`sync-intranet.sh --all-vps`
+### 9.4 多 VPS 之间：`sync-intranet.sh`
 
 `private/env.sh` 里定义（真实 IP 在 `ace-vpn-private/env.sh`，public 仓库只放占位符）：
 
 ```bash
-VPS_IP_HOSTHATCH=<HostHatch-IP>
-VPS_IP_VULTR=<Vultr-IP>          # 冷备 / 跳板
-VPS_NODES="hosthatch:$VPS_IP_HOSTHATCH vultr:$VPS_IP_VULTR"
+VPS_IP_LIST="hosthatch:<HostHatch-IP> vultr:<Vultr-IP>"
 ```
 
 一条命令同时刷所有节点：
 
 ```bash
-bash scripts/rules/sync-intranet.sh --all-vps
+bash scripts/rules/sync-intranet.sh
 ```
 
 行为：
@@ -832,27 +830,26 @@ bash scripts/rules/sync-intranet.sh --all-vps
 - 每台 VPS 独立做 5 份滚动备份，互不影响
 - 每台同步完都跑一次 `/healthz` 自检
 
-### 9.5 冷热备策略：HostHatch 主 + Vultr 冷备
+### 9.5 多节点一致性：HostHatch + Vultr
 
 | 角色 | 做什么 | 不做什么 |
 |---|---|---|
-| **HostHatch (主)** | 全家日常订阅 / 所有规则同步先到这 | 不做实验性 routing 改动（影响家人） |
-| **Vultr (冷备)** | 同步所有 intranet.yaml + sub-converter.py（保持配置一致）| 全家**不**默认指过来；只在主挂时 fallback / 实验性 routing 测试 |
+| **任意生产节点** | 保持同一份 `intranet.yaml` / `sub-converter.py`，订阅规则一致 | 不在单台 VPS 上手工改规则 |
+| **客户端 Profile** | 可以保留多条订阅 URL，按体感或故障手动切 | 不依赖脚本里的主/备概念 |
 
-**家人客户端上保留两个 Profile**：
-- `ace-vpn-hosthatch`（默认）
-- `ace-vpn-vultr-backup`（fallback；主挂时手动切，URL 已配好）
+脚本层不再区分主次，所有 VPS 都来自 `VPS_IP_LIST`，默认同步全部。哪条订阅给家人默认使用，是客户端配置选择，不是服务端同步策略。
 
 **月度健康检查**：
 
 ```bash
-# Vultr 是不是还在响应、是不是配置和主一致
-ssh root@$VPS_IP_VULTR "systemctl status x-ui ace-vpn-sub | head -3"
-diff <(curl -s http://$VPS_IP_HOSTHATCH:25500/clash/sub-hxn) \
-     <(curl -s http://$VPS_IP_VULTR:25500/clash/sub-hxn) | head
+# 分别替换成 VPS_IP_LIST 里的真实 IP，确认服务和订阅都健康
+ssh root@<IP-1> "systemctl status x-ui ace-vpn-sub | head -3"
+ssh root@<IP-2> "systemctl status x-ui ace-vpn-sub | head -3"
+diff <(curl -s http://<IP-1>:25500/clash/sub-hxn) \
+     <(curl -s http://<IP-2>:25500/clash/sub-hxn) | head
 ```
 
-如果 diff 有内容 → 跑 `sync-intranet.sh --all-vps` + 手动 scp `sub-converter.py` 到 Vultr。
+如果 diff 有内容 → 跑 `sync-intranet.sh` + 手动 scp `sub-converter.py` 到对应 VPS。
 
 ### 9.6 远程跳板：`sg-tunnel.sh`
 
@@ -861,7 +858,7 @@ diff <(curl -s http://$VPS_IP_HOSTHATCH:25500/clash/sub-hxn) \
 ```bash
 bash scripts/common-tools/sg-tunnel.sh
 # 等价于：
-#   ssh -D 1080 -C -N -f root@$VPS_IP_SG_TUNNEL
+#   ssh -D 1080 -C -N -f root@<VPS-IP>_SG_TUNNEL
 # 然后 Safari / curl 配 SOCKS5 127.0.0.1:1080 即可
 ```
 
@@ -875,7 +872,7 @@ flowchart TD
     subgraph S1["Mac iHome (改配置)"]
         M1[改 intranet.yaml]
         M1 --> GP[git push<br/>ace-vpn-private]
-        M1 --> SY[bash scripts/rules/sync-intranet.sh<br/>--all-vps]
+        M1 --> SY[bash scripts/rules/sync-intranet.sh]
     end
     SY --> HH["HostHatch (主)<br/>backup 5 份滚动<br/>→ scp → /healthz"]
     SY --> VL["Vultr (冷备)<br/>backup 5 份滚动<br/>→ scp → /healthz"]
@@ -1070,7 +1067,7 @@ extra:
 `sub-converter` 暴露的调试端点，返回某个 URL / host 命中的规则：
 
 ```bash
-$ curl -s "http://$VPS_IP:25500/match?url=https://portal.corp-a.example/" \
+$ curl -s "http://<VPS-IP>:25500/match?url=https://portal.corp-a.example/" \
   | python3 -m json.tool
 {
   "input": "https://portal.corp-a.example/",
@@ -1088,7 +1085,7 @@ $ curl -s "http://$VPS_IP:25500/match?url=https://portal.corp-a.example/" \
 ### 13.2 服务端 `/healthz` 接口
 
 ```bash
-$ curl -s http://$VPS_IP:25500/healthz
+$ curl -s http://<VPS-IP>:25500/healthz
 ok
 active_profiles=corp-a
 domains=7
@@ -1118,7 +1115,7 @@ $ bash scripts/test/test-route.sh https://portal.corp-a.example/
 ### 13.4 三层 diff（怀疑 GUI override 时）
 
 ```bash
-diff <(curl -s http://$VPS_IP:25500/clash/$SUB_TOKEN | grep -A30 "^dns:") \
+diff <(curl -s http://<VPS-IP>:25500/clash/$SUB_TOKEN | grep -A30 "^dns:") \
      <(grep -A30 "^dns:" ~/Library/Application\ Support/mihomo-party/work/config.yaml)
 ```
 

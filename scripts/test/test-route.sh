@@ -11,7 +11,7 @@
 #   bash scripts/test/test-route.sh 10.0.0.53                            # 内网 IP
 #
 # 前置：
-#   source private/env.sh       # 需要 $VPS_IP（或显式设 VPS_IP 环境变量）
+#   source private/env.sh       # 需要 $VPS_IP_LIST（或显式设 MATCH_VPS_IP）
 #   Mihomo Party / Clash 已启动 System Proxy（127.0.0.1:7890）——[3/3] 实测需要
 #
 # 输出：
@@ -37,14 +37,26 @@ kv()   { printf "  ${DIM}%-14s${RST} %s\n" "$1" "$2"; }
 warn() { echo "  ${YLW}!${RST} $*"; }
 
 # 自动 source private/env.sh
-if [[ -z "${VPS_IP:-}" && -f "$ROOT_DIR/private/env.sh" ]]; then
+if [[ -z "${VPS_IP_LIST:-}" && -z "${MATCH_VPS_IP:-}" && -f "$ROOT_DIR/private/env.sh" ]]; then
   # shellcheck disable=SC1091
   source "$ROOT_DIR/private/env.sh"
 fi
 
 [[ $# -ge 1 ]] || die "用法: $0 <URL 或 host>"
 URL_ARG="$1"
-: "${VPS_IP:?VPS_IP 未设置；先 source private/env.sh}"
+first_vps_ip() {
+  local entry
+  for entry in ${VPS_IP_LIST:-}; do
+    if [[ "$entry" == *:* ]]; then
+      echo "${entry##*:}"
+    else
+      echo "$entry"
+    fi
+    return
+  done
+}
+MATCH_VPS_IP=${MATCH_VPS_IP:-$(first_vps_ip)}
+: "${MATCH_VPS_IP:?MATCH_VPS_IP 或 VPS_IP_LIST 未设置；先 source private/env.sh}"
 SUB_PORT=${SUB_PORT_CLASH:-25500}
 LOCAL_PROXY=${LOCAL_PROXY:-http://127.0.0.1:7890}
 
@@ -64,20 +76,20 @@ print(p.hostname or '')" "$TEST_URL")
 echo
 echo "${BOLD}ace-vpn · Route Tester${RST}  ${DIM}($TEST_URL)${RST}"
 kv "Host"        "$HOST"
-kv "VPS"         "$VPS_IP:$SUB_PORT"
+kv "VPS"         "$MATCH_VPS_IP:$SUB_PORT"
 kv "Local proxy" "$LOCAL_PROXY"
 
 # ─────────────── [1/3] 查 /match（服务端权威） ───────────────
 hdr "[1/3] 服务端规则匹配（/match 权威查询）"
 
 URLENC=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1],safe=''))" "$TEST_URL")
-MATCH_URL="http://$VPS_IP:$SUB_PORT/match?url=$URLENC"
+MATCH_URL="http://$MATCH_VPS_IP:$SUB_PORT/match?url=$URLENC"
 
 if ! MATCH_JSON=$(curl -fsS --max-time 8 "$MATCH_URL" 2>&1); then
   warn "调 /match 失败：$MATCH_JSON"
   warn "旧版 sub-converter 没有这个接口，先升级："
-  echo "    scp scripts/server/sub-converter.py root@$VPS_IP:/opt/ace-vpn-sub/sub-converter.py"
-  echo "    ssh root@$VPS_IP 'systemctl restart ace-vpn-sub'"
+  echo "    scp scripts/server/sub-converter.py root@$MATCH_VPS_IP:/opt/ace-vpn-sub/sub-converter.py"
+  echo "    ssh root@$MATCH_VPS_IP 'systemctl restart ace-vpn-sub'"
   MATCH_JSON=""
 fi
 

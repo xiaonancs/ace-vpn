@@ -2,12 +2,11 @@
 # 把本地 private/intranet.yaml 同步到 VPS（热加载，不用重启 systemd）
 #
 # 前置：
-#   1. source private/env.sh       # 导出 $VPS_IP / $VPS_SSH_USER / $VPS_SSH_KEY
+#   1. source private/env.sh       # 导出 $VPS_IP_LIST / $VPS_SSH_USER / $VPS_SSH_KEY
 #   2. private/intranet.yaml 存在（从 intranet.yaml.example 复制并编辑）
 #
 # 用法：
-#   bash scripts/rules/sync-intranet.sh                  # 默认推 $VPS_IP 那一台（向后兼容）
-#   bash scripts/rules/sync-intranet.sh --all-vps        # 推 $VPS_NODES 列表里所有节点
+#   bash scripts/rules/sync-intranet.sh                  # 默认推 VPS_IP_LIST 里所有节点
 #   bash scripts/rules/sync-intranet.sh --vps name|ip    # 只推某一台（按 name 或 ip 匹配）
 #   bash scripts/rules/sync-intranet.sh --dry-run        # 校验 + 打印计划，不真推
 #   bash scripts/rules/sync-intranet.sh --continue-on-error  # 多 VPS 时单台失败继续下一台
@@ -57,13 +56,13 @@ warn() { echo "${color_ylw}!${color_off}  $*" >&2; }
 hdr()  { echo; echo "${color_cyn}━━━ $* ━━━${color_off}"; }
 
 # ────────── 解析参数 ──────────
-MODE="single"           # single | all | one
+MODE="all"              # all | one
 ONE_TARGET=""
 DRY_RUN=0
 CONTINUE_ON_ERROR=0
 for arg in "$@"; do
   case "$arg" in
-    --all-vps|--all)        MODE="all" ;;
+    --all-vps|--all)        MODE="all" ;;  # 兼容旧命令；现在默认就是 all
     --vps=*)                MODE="one"; ONE_TARGET="${arg#*=}" ;;
     --vps)                  MODE="one"; ONE_TARGET="__NEXT__" ;;
     --dry-run|-n)           DRY_RUN=1 ;;
@@ -82,7 +81,7 @@ done
 [[ "$ONE_TARGET" == "__NEXT__" ]] && die "--vps 后面要跟节点 name 或 ip"
 
 # 自动 source private/env.sh（如果存在且未 source 过）
-if [[ -z "${VPS_IP:-}" && -f "$ROOT_DIR/private/env.sh" ]]; then
+if [[ -z "${VPS_IP_LIST:-}" && -f "$ROOT_DIR/private/env.sh" ]]; then
   # shellcheck disable=SC1091
   source "$ROOT_DIR/private/env.sh"
 fi
@@ -122,40 +121,54 @@ PY
 declare -a TARGETS  # 每项形如 "name|ip"
 
 case "$MODE" in
-  single)
-    : "${VPS_IP:?VPS_IP not set; run 'source private/env.sh' first}"
-    TARGETS=("primary|$VPS_IP")
-    ;;
   all)
-    [[ -n "${VPS_NODES:-}" ]] || die "--all-vps 但 \$VPS_NODES 没设。在 private/env.sh 加：export VPS_NODES=\"name1:ip1 name2:ip2\""
-    for entry in $VPS_NODES; do
-      name="${entry%%:*}"
-      ip="${entry##*:}"
-      [[ -z "$name" || -z "$ip" || "$name" == "$ip" ]] && die "VPS_NODES 格式错：${entry}（要 name:ip）"
+    idx=1
+    for entry in $VPS_IP_LIST; do
+      if [[ "$entry" == *:* ]]; then
+        name="${entry%%:*}"
+        ip="${entry##*:}"
+      else
+        name="vps${idx}"
+        ip="$entry"
+      fi
+      [[ -z "$name" || -z "$ip" || "$name" == "$ip" ]] && die "VPS_IP_LIST 格式错：${entry}（用 name:ip 或裸 IP）"
       TARGETS+=("$name|$ip")
+      idx=$((idx + 1))
     done
     ;;
   one)
-    # 在 VPS_NODES 里按 name 或 ip 匹配
-    if [[ -n "${VPS_NODES:-}" ]]; then
-      for entry in $VPS_NODES; do
-        name="${entry%%:*}"
-        ip="${entry##*:}"
+    # 在 VPS_IP_LIST 里按 name 或 ip 匹配
+    if [[ -n "${VPS_IP_LIST:-}" ]]; then
+      idx=1
+      for entry in $VPS_IP_LIST; do
+        if [[ "$entry" == *:* ]]; then
+          name="${entry%%:*}"
+          ip="${entry##*:}"
+        else
+          name="vps${idx}"
+          ip="$entry"
+        fi
         if [[ "$ONE_TARGET" == "$name" || "$ONE_TARGET" == "$ip" ]]; then
           TARGETS=("$name|$ip")
           break
         fi
+        idx=$((idx + 1))
       done
     fi
     if [[ ${#TARGETS[@]} -eq 0 ]]; then
       # 退化：直接当 ip 用
       TARGETS=("custom|$ONE_TARGET")
-      warn "$ONE_TARGET 不在 \$VPS_NODES 里，按裸 IP 处理"
+      warn "$ONE_TARGET 不在 \$VPS_IP_LIST 里，按裸 IP 处理"
     fi
     ;;
 esac
 
 hdr "目标节点（${#TARGETS[@]} 个）"
+if [[ ${#TARGETS[@]} -eq 0 ]]; then
+  warn "VPS_IP_LIST 为空，没有远端 VPS 需要推送。"
+  warn "如需推送，请在 private/env.sh 设置：export VPS_IP_LIST=\"name1:ip1 name2:ip2\""
+  exit 0
+fi
 for t in "${TARGETS[@]}"; do
   echo "  • ${t%|*}  →  ${t#*|}"
 done

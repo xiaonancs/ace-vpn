@@ -144,12 +144,12 @@ sudo mtr -rwzbc 30 <VPS_IP>        # 换成你当前节点的公网 IP
 
 ---
 
-## 多 VPS（`VPS_NODES`）
+## 多 VPS（`VPS_IP_LIST`）
 
-在 `private/env.sh` 里配置 `VPS_NODES="name1:ip1 name2:ip2"` 后：
+在 `private/env.sh` 里配置 `VPS_IP_LIST="name1:ip1 name2:ip2"` 后：
 
-- `bash scripts/rules/sync-intranet.sh --all-vps`：把 `intranet.yaml` 推到列表里每一台。
-- `bash scripts/rules/promote-to-vps.sh --all-vps`：promote 后同样推多台（与上共用 SSH 配置）。
+- `bash scripts/rules/sync-intranet.sh`：把 `intranet.yaml` 推到列表里每一台。
+- `bash scripts/rules/promote-to-vps.sh`：promote 后同样推多台（与上共用 SSH 配置）。
 - `bash scripts/test/preflight-multi-vps.sh`：只读体检各节点 SSH / sub-converter / xray 摘要。
 - `bash scripts/test/vps-watch-urls.sh`：对各节点上的 `private/vps-watch-urls.txt` 跑出站延迟（需 **`export VPS_SSH_KEY=...` + `ssh-copy-id`** 才能免密定时跑）。
 
@@ -160,7 +160,7 @@ sudo mtr -rwzbc 30 <VPS_IP>        # 换成你当前节点的公网 IP
 
 ### HH / Vultr 连续 20 天网速对比
 
-这个方案从**本地 Mac 定时触发**，每 30 分钟 SSH 到 `VPS_NODES` 里的 HostHatch / Vultr，
+这个方案从**本地 Mac 定时触发**，每 30 分钟 SSH 到 `VPS_IP_LIST` 里的 HostHatch / Vultr，
 让两台 VPS 对同一批海外站点跑 `curl`。测到的是「VPS → 目标站」出站质量，适合长期比较两家 VPS
 到 AI / YouTube / X / Discord / Telegram / GitHub / Google 等服务的稳定性。
 
@@ -171,10 +171,9 @@ cd ~/workspace/cursor-base/ace-vpn
 source private/env.sh
 
 # 确认这两个变量已设，且两台都能免密 SSH
-echo "$VPS_NODES"
+echo "$VPS_IP_LIST"
 echo "$VPS_SSH_KEY"
-ssh -i "$VPS_SSH_KEY" root@"$VPS_IP_HOSTHATCH" 'echo hosthatch-ok'
-ssh -i "$VPS_SSH_KEY" root@"$VPS_IP_VULTR" 'echo vultr-ok'
+# 分别取列表里的 IP 测 ssh：ssh -i "$VPS_SSH_KEY" root@<IP> 'echo ok'
 ```
 
 手动试跑一次：

@@ -10,8 +10,7 @@
 #   4. 重新渲染 Mihomo override（本地池清空了那部分，规则下沉到订阅）
 #
 # 用法：
-#   bash scripts/rules/promote-to-vps.sh             # 标准流程（推 $VPS_IP 那一台）
-#   bash scripts/rules/promote-to-vps.sh --all-vps   # 推 $VPS_NODES 所有节点
+#   bash scripts/rules/promote-to-vps.sh             # 标准流程（推 VPS_IP_LIST 所有节点）
 #   bash scripts/rules/promote-to-vps.sh --vps NAME  # 只推某一台（按 name 或 ip）
 #   bash scripts/rules/promote-to-vps.sh --dry-run   # 只预览，不改文件
 #   bash scripts/rules/promote-to-vps.sh --keep      # 推 VPS 后不清空本地池（debug 用）
@@ -30,7 +29,7 @@ warn() { echo "${color_ylw}!${color_off}  $*" >&2; }
 DRY_RUN=0
 KEEP=0
 NO_SYNC=0
-SYNC_PASSTHROUGH=()      # 透传给 sync-intranet.sh 的参数（如 --all-vps / --vps X）
+SYNC_PASSTHROUGH=()      # 透传给 sync-intranet.sh 的参数（如 --vps X）
 EXPECT_VPS_VALUE=0
 for arg in "$@"; do
   if [[ $EXPECT_VPS_VALUE -eq 1 ]]; then
@@ -42,7 +41,7 @@ for arg in "$@"; do
     --dry-run) DRY_RUN=1 ;;
     --keep) KEEP=1 ;;
     --no-sync) NO_SYNC=1 ;;
-    --all-vps|--all) SYNC_PASSTHROUGH+=(--all-vps) ;;
+    --all-vps|--all) ;;  # 兼容旧命令；现在默认就是推 VPS_IP_LIST 全部节点
     --vps=*) SYNC_PASSTHROUGH+=("$arg") ;;
     --vps) EXPECT_VPS_VALUE=1 ;;
     --continue-on-error) SYNC_PASSTHROUGH+=(--continue-on-error) ;;
@@ -115,7 +114,7 @@ if [[ $NO_SYNC -eq 0 ]]; then
     info "推 VPS（调 sync-intranet.sh ${SYNC_PASSTHROUGH[*]}）..."
     bash "$SCRIPT_DIR/sync-intranet.sh" "${SYNC_PASSTHROUGH[@]}"
   else
-    info "推 VPS（调 sync-intranet.sh，单 VPS 模式）..."
+    info "推 VPS（调 sync-intranet.sh，默认推 VPS_IP_LIST 全部节点）..."
     bash "$SCRIPT_DIR/sync-intranet.sh"
   fi
 else

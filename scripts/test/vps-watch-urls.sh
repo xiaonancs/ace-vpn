@@ -32,7 +32,7 @@
 #
 # ── 每行输出列（TSV，制表符分隔）────────────────────────────
 #   列1  本机时间戳（跑脚本的那台 Mac 的 date）
-#   列2  节点名（VPS_NODES 里冒号前，如 hosthatch / vultr）
+#   列2  节点名（VPS_IP_LIST 里冒号前，如 hosthatch / vultr；裸 IP 自动命名 vps1/vps2）
 #   列3  该 VPS 公网 IP
 #   列4  HTTP 状态码（curl；000=超时或连不上）
 #   列5  总耗时秒 time_total（从发起到收完响应头/体相关阶段，与 curl 文档一致）
@@ -72,13 +72,13 @@ LOG_FILE="${VPS_WATCH_LOG_FILE:-${VPS_WATCH_LOG_DIR:-$HOME/Library/Logs/ace-vpn}
 
 # 用第一台可达的 IP 做「免密探测」（与 vps-watch 实际遍历的节点一致）
 first_probe_ip() {
-  if [[ -n "${VPS_IP:-}" ]]; then
-    echo "$VPS_IP"
-    return
-  fi
   local entry
-  for entry in ${VPS_NODES:-}; do
-    echo "${entry##*:}"
+  for entry in ${VPS_IP_LIST:-}; do
+    if [[ "$entry" == *:* ]]; then
+      echo "${entry##*:}"
+    else
+      echo "$entry"
+    fi
     return
   done
   echo ""
@@ -113,28 +113,31 @@ resolve_ssh_key() {
   done
 
   echo "ERROR: 未配置 VPS_SSH_KEY，且 ~/.ssh 下 id_rsa/id_ed25519/id_ecdsa 均无法免密登录 ${ip}。" >&2
-  echo "  请执行: ssh-copy-id -i ~/.ssh/id_rsa.pub root@${ip}（\$VPS_NODES 里每台都要）" >&2
+  echo "  请执行: ssh-copy-id -i ~/.ssh/id_rsa.pub root@${ip}（\$VPS_IP_LIST 里每台都要）" >&2
   echo "  或在 private/env.sh: export VPS_SSH_KEY=\"\$HOME/.ssh/id_rsa\"" >&2
   exit 1
 }
 
 build_nodes() {
   NODES=()
-  if [[ -n "${VPS_NODES:-}" ]]; then
-    for e in $VPS_NODES; do
-      NODES+=( "$e" )
-    done
-  elif [[ -n "${VPS_IP:-}" ]]; then
-    NODES+=( "primary:${VPS_IP}" )
-  else
-    echo "ERROR: 未设置 VPS_NODES 或 VPS_IP" >&2
+  if [[ -z "${VPS_IP_LIST:-}" ]]; then
+    echo "ERROR: 未设置 VPS_IP_LIST" >&2
     exit 1
   fi
+  local e idx=1
+  for e in $VPS_IP_LIST; do
+    if [[ "$e" == *:* ]]; then
+      NODES+=( "$e" )
+    else
+      NODES+=( "vps${idx}:${e}" )
+    fi
+    idx=$((idx + 1))
+  done
 }
 
 build_nodes
 probe_ip=$(first_probe_ip)
-[[ -n "$probe_ip" ]] || { echo "ERROR: 需要 VPS_IP 或 VPS_NODES" >&2; exit 1; }
+[[ -n "$probe_ip" ]] || { echo "ERROR: 需要 VPS_IP_LIST" >&2; exit 1; }
 resolve_ssh_key "$probe_ip"
 
 merge_watch_urls() {

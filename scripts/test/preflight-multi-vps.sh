@@ -51,22 +51,27 @@ sub_health_token() {
 }
 
 # ────────────── 节点列表 ──────────────
-# 只信 env.sh 里显式声明的节点；不再硬编码任何 hosthatch / vultr IP。
+# 只信 env.sh 里显式声明的 VPS_IP_LIST；不再硬编码任何 hosthatch / vultr IP。
 declare -a NODES=()
-if [[ -n "${VPS_NODES:-}" ]]; then
-  for entry in $VPS_NODES; do
-    name="${entry%%:*}"
-    ip="${entry##*:}"
+if [[ -n "${VPS_IP_LIST:-}" ]]; then
+  idx=1
+  for entry in $VPS_IP_LIST; do
+    if [[ "$entry" == *:* ]]; then
+      name="${entry%%:*}"
+      ip="${entry##*:}"
+    else
+      name="vps${idx}"
+      ip="$entry"
+    fi
     [[ -z "$name" || -z "$ip" || "$name" == "$ip" ]] && {
-      echo "VPS_NODES 格式错误：${entry}（应为 name:ip）" >&2
+      echo "VPS_IP_LIST 格式错误：${entry}（应为 name:ip 或裸 IP）" >&2
       exit 1
     }
     NODES+=("$name|$ip")
+    idx=$((idx + 1))
   done
-elif [[ -n "${VPS_IP:-}" ]]; then
-  NODES+=("primary|$VPS_IP")
 else
-  echo "既没有 VPS_NODES，也没有 VPS_IP；先 source private/env.sh" >&2
+  echo "没有 VPS_IP_LIST；先 source private/env.sh" >&2
   exit 1
 fi
 
@@ -265,7 +270,7 @@ echo "${BOLD}下一步（按出现的状况）${RST}："
 echo
 echo "${CYN}如果两台都 SSH 通 + sub-converter 健康：${RST}"
 echo "  ✅ 可以放心同步规则（intranet.yaml）"
-echo "  → 跑：bash scripts/rules/sync-intranet.sh --all-vps"
+echo "  → 跑：bash scripts/rules/sync-intranet.sh"
 echo "    （此命令会先 dry-run 列表，再让你确认，再 scp 推送）"
 echo
 echo "${CYN}如果某台 sub-converter 没装：${RST}"
