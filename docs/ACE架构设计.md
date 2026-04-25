@@ -68,7 +68,7 @@
 
 ### 2.1 三层架构
 
-<div style="background:#ffffff;padding:16px;border-radius:8px;margin:16px 0;" bgcolor="#ffffff">
+<div style="background: #ffffff !important; background-color: #ffffff !important; border: 1px solid #d0d7de; border-radius: 8px; padding: 16px; margin: 16px 0; overflow-x: auto;" bgcolor="#ffffff">
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables':{'background':'#ffffff','primaryColor':'#ffffff','primaryTextColor':'#000000','primaryBorderColor':'#333333','lineColor':'#444444','clusterBkg':'#f6f8fa','clusterBorder':'#666666','fontFamily':'Helvetica'}}}%%
@@ -113,7 +113,7 @@ flowchart TB
 
 ### 2.3 数据流时序
 
-<div style="background:#ffffff;padding:16px;border-radius:8px;margin:16px 0;" bgcolor="#ffffff">
+<div style="background: #ffffff !important; background-color: #ffffff !important; border: 1px solid #d0d7de; border-radius: 8px; padding: 16px; margin: 16px 0; overflow-x: auto;" bgcolor="#ffffff">
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables':{'background':'#ffffff','primaryColor':'#ffffff','primaryTextColor':'#000000','primaryBorderColor':'#333333','lineColor':'#444444','actorBkg':'#f6f8fa','actorBorder':'#666666','noteBkgColor':'#fff8c5','noteBorderColor':'#888888'}}}%%
@@ -354,7 +354,7 @@ Clash Party / Mihomo Party 默认 `controlDns: true`，会把订阅的 `dns:` �
 
 ### 6.3 分流决策流程
 
-<div style="background:#ffffff;padding:16px;border-radius:8px;margin:16px 0;" bgcolor="#ffffff">
+<div style="background: #ffffff !important; background-color: #ffffff !important; border: 1px solid #d0d7de; border-radius: 8px; padding: 16px; margin: 16px 0; overflow-x: auto;" bgcolor="#ffffff">
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables':{'background':'#ffffff','primaryColor':'#ffffff','primaryTextColor':'#000000','primaryBorderColor':'#333333','lineColor':'#444444','clusterBkg':'#f6f8fa','clusterBorder':'#666666','fontFamily':'Helvetica'}}}%%
@@ -440,7 +440,7 @@ rules:
 
 ### 7.1 DNS 解析路径全景
 
-<div style="background:#ffffff;padding:16px;border-radius:8px;margin:16px 0;" bgcolor="#ffffff">
+<div style="background: #ffffff !important; background-color: #ffffff !important; border: 1px solid #d0d7de; border-radius: 8px; padding: 16px; margin: 16px 0; overflow-x: auto;" bgcolor="#ffffff">
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables':{'background':'#ffffff','primaryColor':'#ffffff','primaryTextColor':'#000000','primaryBorderColor':'#333333','lineColor':'#444444','clusterBkg':'#f6f8fa','clusterBorder':'#666666','fontFamily':'Helvetica'}}}%%
@@ -862,7 +862,7 @@ bash scripts/sg-tunnel.sh
 
 ### 9.7 完整同步流程示意
 
-<div style="background:#ffffff;padding:16px;border-radius:8px;margin:16px 0;" bgcolor="#ffffff">
+<div style="background: #ffffff !important; background-color: #ffffff !important; border: 1px solid #d0d7de; border-radius: 8px; padding: 16px; margin: 16px 0; overflow-x: auto;" bgcolor="#ffffff">
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables':{'background':'#ffffff','primaryColor':'#ffffff','primaryTextColor':'#000000','primaryBorderColor':'#333333','lineColor':'#444444','clusterBkg':'#f6f8fa','clusterBorder':'#666666','fontFamily':'Helvetica'}}}%%
@@ -958,7 +958,7 @@ sub-hxn01 下（家人）:
 
 ### 11.1 目标：改一次 YAML，全家自动生效
 
-<div style="background:#ffffff;padding:16px;border-radius:8px;margin:16px 0;" bgcolor="#ffffff">
+<div style="background: #ffffff !important; background-color: #ffffff !important; border: 1px solid #d0d7de; border-radius: 8px; padding: 16px; margin: 16px 0; overflow-x: auto;" bgcolor="#ffffff">
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables':{'background':'#ffffff','primaryColor':'#ffffff','primaryTextColor':'#000000','primaryBorderColor':'#333333','lineColor':'#444444','actorBkg':'#f6f8fa','actorBorder':'#666666','noteBkgColor':'#fff8c5','noteBorderColor':'#888888'}}}%%

@@ -2,7 +2,7 @@
 
 > 项目从 2026-04-17 启动至今的开发记录。按 **新增功能 / 性能优化 / 踩坑与填坑** 三大主题组织，所有条目都标注日期，方便半年后翻看。
 >
-> 系统级文档（架构、部署、订阅、规则、客户端、同步）请看 [ACE 架构设计](./三网段分流架构.md)；本文只写"做了什么 / 学到什么"。
+> 系统级文档（架构、部署、订阅、规则、客户端、同步）请看 [ACE 架构设计](./ACE架构设计.md)；本文只写"做了什么 / 学到什么"。
 >
 > 案例主线：**Vultr Tokyo → HostHatch Tokyo**（2026-04，数据库整库迁移，家人无感切换）。
 
@@ -128,7 +128,7 @@
 - 旧做法：`COMPANY_CIDRS` / `COMPANY_SFX` 环境变量 → `systemctl restart`（每改一次都要 ssh + 改 env + 重启）
 - 新做法：一份 YAML（多 profile + `enabled` 开关）+ Mac 本地编辑 + `sync-intranet.sh` 一键 scp + VPS 端 per-request 热加载（零 systemctl）
 - per-profile `dns_servers` 把"公司 A 用 10.234.x DNS / 公司 B 用 10.20.x DNS"分开维护，外包 / 双公司场景同时开多个 profile 直接共存
-- 详见 [ACE 架构设计 §9 内网热加载机制](./三网段分流架构.md#9-内网热加载机制)
+- 详见 [ACE 架构设计 §9 内网热加载机制](./ACE架构设计.md#9-内网热加载机制)
 
 ### 2.11 [2026-04-19] sub-converter `/match` 调试接口 + `test-route.sh`
 
@@ -158,7 +158,7 @@ GET /clash/<token>:
 | `sub-hxn` | 自己（Mac×2 / iPhone / iPad / Android）|
 | `sub-hxn01` | 家人（Win×2 / ...） |
 
-加人只需面板加 Client + 挂对应 SubId；加新 SubId 改 `SUB_TOKENS` 环境变量 + restart。详见 [ACE 架构设计 §5 sub-converter 多 token 架构](./三网段分流架构.md#5-sub-converter-多-token-架构)。
+加人只需面板加 Client + 挂对应 SubId；加新 SubId 改 `SUB_TOKENS` 环境变量 + restart。详见 [ACE 架构设计 §5 sub-converter 多 token 架构](./ACE架构设计.md#5-sub-converter-多-token-架构)。
 
 ### 2.13 [2026-04-18] 整库迁移：3x-ui SQLite Vultr → HostHatch（家人无感）
 
@@ -168,7 +168,7 @@ GET /clash/<token>:
 
 ### 2.14 [2026-04-17] 一键部署：`install.sh` / `configure-3xui.sh`
 
-**变更**：新机 5 行命令完成"系统 + 防火墙 + 3x-ui + 自动建 Reality 入站 + sub-converter"。`AUTO_CONFIGURE=1` 模式下 `configure-3xui.sh` 调 3x-ui HTTP API 自动建 VLESS+Reality 入站（SNI=cloudflare.com，flow=xtls-rprx-vision），凭据写到 `/root/ace-vpn-credentials.txt`。详见 [ACE 架构设计 §3 VPS 一键部署](./三网段分流架构.md#3-vps-一键部署)。
+**变更**：新机 5 行命令完成"系统 + 防火墙 + 3x-ui + 自动建 Reality 入站 + sub-converter"。`AUTO_CONFIGURE=1` 模式下 `configure-3xui.sh` 调 3x-ui HTTP API 自动建 VLESS+Reality 入站（SNI=cloudflare.com，flow=xtls-rprx-vision），凭据写到 `/root/ace-vpn-credentials.txt`。详见 [ACE 架构设计 §3 VPS 一键部署](./ACE架构设计.md#3-vps-一键部署)。
 
 ---
 
@@ -816,7 +816,7 @@ bash scripts/promote-to-vps.sh --dry-run    # 预览 promote 计划
 bash scripts/promote-to-vps.sh              # 推 VPS + 清空本地池
 ```
 
-详细机制见 [ACE 架构设计 §7 规则系统](./三网段分流架构.md#7-规则系统更新--同步--冲突)。
+详细机制见 [ACE 架构设计 §7 规则系统](./ACE架构设计.md#7-规则系统更新--同步--冲突)。
 
 ### 7.3 日志自动清理（小盘 NVMe 必装）
 
@@ -902,6 +902,6 @@ ssh root@$VPS_IP x-ui
 | `scripts/lib/common.sh` | 共享工具（log / apt / root check）|
 | `private/env.sh` | 本地真实凭据（⚠️ 不入 git）|
 | `private/intranet.yaml` → `ace-vpn-private/intranet.yaml` symlink | 内网真实分流配置 |
-| [`docs/三网段分流架构.md`](./三网段分流架构.md) | ACE 架构设计 — 系统全景 + VPS 部署 + sub-converter + DNS + 规则系统 + 多设备同步 |
+| [`docs/ACE架构设计.md`](./ACE架构设计.md) | ACE 架构设计 — 系统全景 + VPS 部署 + sub-converter + DNS + 规则系统 + 多设备同步 |
 | `docs/用户手册 user-guide.md` | 给普通用户（家人）的手机 / 平板 / 电脑客户端手册 |
 | `docs/Oracle Cloud 注册教程.md` | 免费 ARM VPS 申请教程（备选） |

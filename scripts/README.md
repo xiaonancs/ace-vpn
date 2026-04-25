@@ -201,7 +201,7 @@ journalctl -u ace-vpn-sub -n 50
 
 | 文档 | 内容 |
 |------|------|
-| [`../docs/三网段分流架构.md`](../docs/三网段分流架构.md) | ACE 架构设计 — 系统全景 / 部署 / DNS / 规则系统 / 多设备同步 |
+| [`../docs/ACE架构设计.md`](../docs/ACE架构设计.md) | ACE 架构设计 — 系统全景 / 部署 / DNS / 规则系统 / 多设备同步 |
 | [`../docs/dev-skill.md`](../docs/dev-skill.md) | 开发者日志 — 新增功能 / 性能优化 / 踩坑分类 / VPS 迁移 playbook |
 | [`../docs/用户手册 user-guide.md`](../docs/用户手册%20user-guide.md) | 终端用户使用指南 |
 | [`../docs/Oracle Cloud 注册教程.md`](../docs/Oracle%20Cloud%20注册教程.md) | 免费 VPS 来源 |
