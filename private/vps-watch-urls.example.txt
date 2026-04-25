@@ -1,7 +1,7 @@
 # ace-vpn · 可选：在 speed-test 默认列表之外再监控的 URL（每行一个 https?://）
 #
 # vps-watch-urls.sh 会默认合并：
-#   scripts/speed-test-endpoints.txt（与 speed-test.sh 里 AI/Cursor/媒体/国内对照一致）
+#   scripts/test/speed-test-endpoints.txt（VPS 出站测速默认列表，100 个以内）
 #   + 本文件（若存在 private/vps-watch-urls.txt）
 # 去重后推到各 VPS 探测。
 #

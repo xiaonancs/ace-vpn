@@ -2,7 +2,7 @@
 # ace-vpn · 在每台 VPS 上对你关心的 URL 跑 curl 延迟（与 speed-test 同指标：code / total / tcp / ssl / ip）
 #
 # URL 来源（默认合并，去重）：
-#   1. scripts/test/speed-test-endpoints.txt（与 speed-test.sh scenes() 一致，仓库内维护）
+#   1. scripts/test/speed-test-endpoints.txt（VPS 出站测速列表，仓库内维护）
 #   2. private/vps-watch-urls.txt（可选，额外监控地址）
 #   环境变量 VPS_WATCH_INCLUDE_SPEED_TEST=0 可关闭合并 speed-test 列表；或命令行 --no-speed-merge
 #
@@ -19,6 +19,7 @@
 #   VPS_WATCH_LOG_FILE=~/logs/vps.tsv bash ... --log  # 自定义单一日志文件
 #
 # 定时每 30 分钟：scripts/launchd/ace-vpn.vps-watch-urls.example.plist（带 --log）
+# 默认连续跑 30 天；可用 VPS_WATCH_DAYS=0 表示不自动停止。
 #
 # ── 怎么跑 ─────────────────────────────────────────────────
 # 手跑（结果打终端）：
@@ -69,6 +70,42 @@ URL_FILE=${VPS_WATCH_URL_FILE:-"$ROOT_DIR/private/vps-watch-urls.txt"}
 SPEED_LIST="${VPS_SPEED_TEST_ENDPOINTS:-$SCRIPT_DIR/speed-test-endpoints.txt}"
 REMOTE_LIST=/tmp/ace-vpn-watch-urls.txt
 LOG_FILE="${VPS_WATCH_LOG_FILE:-${VPS_WATCH_LOG_DIR:-$HOME/Library/Logs/ace-vpn}/vps-watch.log}"
+WATCH_DAYS="${VPS_WATCH_DAYS:-30}"
+WATCH_STATE_DIR="${VPS_WATCH_STATE_DIR:-$HOME/Library/Application Support/ace-vpn}"
+WATCH_STARTED_AT_FILE="${VPS_WATCH_STARTED_AT_FILE:-$WATCH_STATE_DIR/vps-watch-started-at}"
+WATCH_LAUNCH_AGENT="${VPS_WATCH_LAUNCH_AGENT:-$HOME/Library/LaunchAgents/com.xiaonancs.ace-vpn.vps-watch-urls.plist}"
+
+check_watch_duration() {
+  [[ $USE_LOG -eq 1 ]] || return 0
+  [[ "${WATCH_DAYS}" =~ ^[0-9]+$ ]] || {
+    echo "ERROR: VPS_WATCH_DAYS 必须是非负整数，当前为 ${WATCH_DAYS}" >&2
+    exit 1
+  }
+  [[ "${WATCH_DAYS}" == "0" ]] && return 0
+
+  mkdir -p "${WATCH_STATE_DIR}"
+  local now start limit elapsed
+  now=$(date +%s)
+  if [[ ! -s "${WATCH_STARTED_AT_FILE}" ]]; then
+    printf '%s\n' "${now}" > "${WATCH_STARTED_AT_FILE}"
+  fi
+  start=$(<"${WATCH_STARTED_AT_FILE}")
+  if [[ ! "${start}" =~ ^[0-9]+$ ]]; then
+    start="${now}"
+    printf '%s\n' "${start}" > "${WATCH_STARTED_AT_FILE}"
+  fi
+
+  limit=$((WATCH_DAYS * 86400))
+  elapsed=$((now - start))
+  if (( elapsed >= limit )); then
+    echo "======== $(date '+%Y-%m-%d %H:%M:%S %z') ========"
+    echo "VPS watch 已运行 ${WATCH_DAYS} 天，自动停止 LaunchAgent。"
+    if command -v launchctl >/dev/null 2>&1 && [[ -f "${WATCH_LAUNCH_AGENT}" ]]; then
+      launchctl unload "${WATCH_LAUNCH_AGENT}" || true
+    fi
+    exit 0
+  fi
+}
 
 # 用第一台可达的 IP 做「免密探测」（与 vps-watch 实际遍历的节点一致）
 first_probe_ip() {
@@ -135,11 +172,6 @@ build_nodes() {
   done
 }
 
-build_nodes
-probe_ip=$(first_probe_ip)
-[[ -n "$probe_ip" ]] || { echo "ERROR: 需要 VPS_IP_LIST" >&2; exit 1; }
-resolve_ssh_key "$probe_ip"
-
 merge_watch_urls() {
   local out=$1
   : > "$out"
@@ -154,14 +186,6 @@ merge_watch_urls() {
   awk 'NF && $0 ~ /^https?:\/\// { if (!seen[$0]++) print }' "${out}" > "${out}.u" && mv "${out}.u" "${out}"
   return 0
 }
-
-MERGED=$(mktemp /tmp/ace-vpn-watch-merged.XXXXXX)
-trap 'rm -f "${MERGED}"' EXIT
-if ! merge_watch_urls "${MERGED}"; then
-  echo "ERROR: 合并后无可用 URL。请检查：" >&2
-  echo "  - ${SPEED_LIST}（speed-test 默认列表）是否存在，或设 VPS_WATCH_INCLUDE_SPEED_TEST=0 并创建 ${URL_FILE}" >&2
-  exit 1
-fi
 
 run_remote_probe() {
   local ip=$1
@@ -192,9 +216,27 @@ if [[ $USE_LOG -eq 1 ]]; then
   exec > >(tee -a "${LOG_FILE}") 2>&1
 fi
 
+check_watch_duration
+
+build_nodes
+probe_ip=$(first_probe_ip)
+[[ -n "$probe_ip" ]] || { echo "ERROR: 需要 VPS_IP_LIST" >&2; exit 1; }
+resolve_ssh_key "$probe_ip"
+
+MERGED=$(mktemp /tmp/ace-vpn-watch-merged.XXXXXX)
+trap 'rm -f "${MERGED}"' EXIT
+if ! merge_watch_urls "${MERGED}"; then
+  echo "ERROR: 合并后无可用 URL。请检查：" >&2
+  echo "  - ${SPEED_LIST}（VPS 出站测速默认列表）是否存在，或设 VPS_WATCH_INCLUDE_SPEED_TEST=0 并创建 ${URL_FILE}" >&2
+  exit 1
+fi
+
 echo "======== $(date '+%Y-%m-%d %H:%M:%S %z') ========"
 echo "合并 URL 数: $(wc -l < "${MERGED}" | xargs)（speed-test 列表 + 可选 ${URL_FILE}）"
 echo "日志文件（--log 时）: ${LOG_FILE}"
+if [[ $USE_LOG -eq 1 && "${WATCH_DAYS}" != "0" ]]; then
+  echo "测速窗口: ${WATCH_DAYS} 天（开始时间文件：${WATCH_STARTED_AT_FILE}）"
+fi
 
 for entry in "${NODES[@]}"; do
   name="${entry%%:*}"

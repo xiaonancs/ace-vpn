@@ -3,6 +3,7 @@
 <!--
   ace-vpn · 每 30 分钟从本机 SSH 到各 VPS，对「speed-test-endpoints + 可选 vps-watch-urls」合并列表测延迟，
   追加写入单一日志文件（默认 ~/Library/Logs/ace-vpn/vps-watch.log，可用环境变量 VPS_WATCH_LOG_FILE 改路径）。
+  默认连续运行 30 天，到期后脚本会自动 unload 本 LaunchAgent；也可手动 unload。
 
   安装步骤（在「工作 Mac」上）：
     1. 复制本文件：
@@ -18,6 +19,10 @@
          launchctl start com.xiaonancs.ace-vpn.vps-watch-urls
     7. 看日志：
          tail -f ~/Library/Logs/ace-vpn/vps-watch.log
+    8. 默认 30 天自动停止；如果要改天数，在 private/env.sh 写：
+         export VPS_WATCH_DAYS=14
+       如果要一直跑，在 private/env.sh 写：
+         export VPS_WATCH_DAYS=0
 
   卸载：
          launchctl unload ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.vps-watch-urls.plist

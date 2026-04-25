@@ -218,7 +218,7 @@ def print_comparison(summary: list[dict[str, object]]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Summarize ace-vpn VPS watch logs.")
     parser.add_argument("--log", default=os.environ.get("VPS_WATCH_LOG_FILE", str(DEFAULT_LOG)))
-    parser.add_argument("--days", type=int, default=20, help="Only include records from the last N days.")
+    parser.add_argument("--days", type=int, default=30, help="Only include records from the last N days.")
     parser.add_argument("--all", action="store_true", help="Include all records, ignoring --days.")
     parser.add_argument("--records", action="store_true", help="Print all matching raw records before summaries.")
     args = parser.parse_args()

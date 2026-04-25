@@ -162,7 +162,7 @@ sudo mtr -rwzbc 30 <VPS_IP>        # 换成你当前节点的公网 IP
 
 这个方案从**本地 Mac 定时触发**，每 30 分钟 SSH 到 `VPS_IP_LIST` 里的 HostHatch / Vultr，
 让两台 VPS 对同一批海外站点跑 `curl`。测到的是「VPS → 目标站」出站质量，适合长期比较两家 VPS
-到 AI / YouTube / X / Discord / Telegram / Meta / GitHub / Google 等服务的稳定性。
+到 Google、Apple、Microsoft / GitHub、Amazon / AWS、Meta、X、OpenAI / Claude、Netflix、Cloudflare、Discord 等头部海外服务的稳定性。
 
 前置：
 
@@ -195,13 +195,15 @@ launchctl load ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.vps-watch-urls.plist
 launchctl start com.xiaonancs.ace-vpn.vps-watch-urls
 ```
 
+默认连续跑 30 天，到期后 `scripts/test/vps-watch-urls.sh` 会自动 unload 这个 LaunchAgent；也可以随时手动 `launchctl unload`。
+
 看实时日志：
 
 ```bash
 tail -f ~/Library/Logs/ace-vpn/vps-watch.log
 ```
 
-随时汇总最近 20 天（默认窗口仍是 20 天）：
+随时汇总最近 30 天（默认窗口为 30 天）：
 
 ```bash
 python3 scripts/test/vps-watch-summary.py
@@ -213,7 +215,7 @@ python3 scripts/test/vps-watch-summary.py
 python3 scripts/test/vps-watch-summary.py --records
 ```
 
-手动终止定时测速：
+自动停止或手动终止定时测速：
 
 ```bash
 launchctl unload ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.vps-watch-urls.plist

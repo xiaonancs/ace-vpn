@@ -1,44 +1,55 @@
-# 与 scripts/speed-test.sh 中 scenes() 探测地址保持大体一致（每行一个 URL）。
+# ace-vpn · VPS 出站质量长期测速端点（每行一个 URL）。
 # vps-watch-urls.sh 默认会合并本文件 + private/vps-watch-urls.txt（去重）。
-# 用于长期对比 HH / Vultr：每 30 分钟 × VPS 数量 × URL 数持续追加日志。
-# 列表尽量覆盖常用 Web / 手机 App API / CDN，同时避免把单轮探测拖过 30 分钟。
+# 只保留常见海外服务，主要用于判断 VPS 到美国头部互联网公司产品的出站质量。
+# 控制在 100 个 URL 以内，避免每 30 分钟一轮的探测时间过长。
 
-# AI / LLM
+# Alphabet / Google
+https://www.google.com/
+https://www.gstatic.com/
+https://play.googleapis.com/
+https://accounts.google.com/
+https://mail.google.com/
+https://drive.google.com/
+https://docs.google.com/
+https://meet.google.com/
+https://www.youtube.com/
+https://music.youtube.com/
+https://www.googlevideo.com/
 https://gemini.google.com/
 https://aistudio.google.com/
 https://generativelanguage.googleapis.com/
 https://notebooklm.google.com/
-https://claude.ai/
-https://chatgpt.com/
-https://api.anthropic.com/
-https://api.openai.com/
+
+# Apple
+https://www.apple.com/
+https://www.icloud.com/
+https://api.apple-cloudkit.com/
+https://apps.apple.com/
+https://itunes.apple.com/
+https://mzstatic.com/
+https://s.mzstatic.com/
+https://gspe1-ssl.ls.apple.com/
+
+# Microsoft / GitHub / LinkedIn
+https://www.microsoft.com/
+https://login.live.com/
+https://login.microsoftonline.com/
+https://graph.microsoft.com/
+https://office.com/
+https://outlook.office.com/
+https://teams.microsoft.com/
 https://copilot.microsoft.com/
-https://www.perplexity.ai/
-
-# Cursor IDE
-https://api2.cursor.sh/
-https://api3.cursor.sh/
-https://repo42.cursor.sh/
-https://cursor.com/
-
-# Media / video
-https://www.youtube.com/
-https://www.googlevideo.com/
-https://www.netflix.com/
-https://www.twitch.tv/
-
-# Social / chat
-https://x.com/
-https://discord.com/
-https://telegram.org/
-https://t.me/
+https://github.com/
+https://api.github.com/
+https://raw.githubusercontent.com/
+https://githubusercontent.com/
+https://www.linkedin.com/
 
 # Meta / Facebook（Web + mobile API/CDN）
 https://www.facebook.com/
 https://m.facebook.com/
 https://graph.facebook.com/
 https://b-graph.facebook.com/
-https://graph-fallback.facebook.com/
 https://connect.facebook.net/
 https://static.xx.fbcdn.net/
 https://scontent.xx.fbcdn.net/
@@ -51,7 +62,6 @@ https://graph.instagram.com/
 https://gateway.instagram.com/
 https://static.cdninstagram.com/
 https://scontent.cdninstagram.com/
-https://lookaside.instagram.com/
 
 # WhatsApp（Web + mobile API/CDN）
 https://www.whatsapp.com/
@@ -61,12 +71,55 @@ https://static.whatsapp.net/
 https://mmg.whatsapp.net/
 https://media.whatsapp.net/
 
-# Developer / common overseas
-https://github.com/
-https://raw.githubusercontent.com/
-https://www.google.com/
-https://www.cloudflare.com/cdn-cgi/trace
+# Amazon / AWS / Twitch
+https://www.amazon.com/
+https://api.amazon.com/
+https://m.media-amazon.com/
+https://www.primevideo.com/
+https://aws.amazon.com/
+https://console.aws.amazon.com/
+https://cloudfront.net/
+https://www.twitch.tv/
+https://gql.twitch.tv/
+https://static.twitchcdn.net/
 
-# 国内对照
-https://www.baidu.com/
-https://www.qq.com/
+# X / Twitter
+https://x.com/
+https://api.x.com/
+https://twitter.com/
+https://api.twitter.com/
+https://pbs.twimg.com/
+https://video.twimg.com/
+
+# Other US head platforms / SaaS
+https://www.oracle.com/
+https://www.salesforce.com/
+https://slack.com/
+https://www.adobe.com/
+https://www.paypal.com/
+https://zoom.us/
+https://www.reddit.com/
+https://www.snapchat.com/
+https://www.uber.com/
+https://www.airbnb.com/
+https://www.nvidia.com/
+https://www.dropbox.com/
+
+# AI / Developer tools
+https://chatgpt.com/
+https://api.openai.com/
+https://claude.ai/
+https://api.anthropic.com/
+https://www.perplexity.ai/
+https://cursor.com/
+https://api2.cursor.sh/
+https://api3.cursor.sh/
+https://repo42.cursor.sh/
+
+# Netflix / Cloudflare / Discord
+https://www.netflix.com/
+https://assets.nflxext.com/
+https://www.cloudflare.com/
+https://www.cloudflare.com/cdn-cgi/trace
+https://discord.com/
+https://cdn.discordapp.com/
