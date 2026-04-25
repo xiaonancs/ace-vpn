@@ -71,7 +71,7 @@
 <div style="background: #ffffff !important; background-color: #ffffff !important; border: 1px solid #d0d7de; border-radius: 8px; padding: 16px; margin: 16px 0; overflow-x: auto;" bgcolor="#ffffff">
 
 ```mermaid
-%%{init: {'theme':'base', 'themeVariables':{'background':'#ffffff','primaryColor':'#ffffff','primaryTextColor':'#000000','primaryBorderColor':'#333333','lineColor':'#444444','clusterBkg':'#f6f8fa','clusterBorder':'#666666','fontFamily':'Helvetica'}}}%%
+%%{init: {"theme": "base", "themeCSS": "svg { background: #ffffff !important; } .label, .nodeLabel, .edgeLabel, text { color: #000000 !important; fill: #000000 !important; }", "themeVariables": {"background": "#ffffff", "mainBkg": "#ffffff", "primaryColor": "#ffffff", "primaryTextColor": "#000000", "primaryBorderColor": "#333333", "secondaryColor": "#f6f8fa", "tertiaryColor": "#ffffff", "lineColor": "#444444", "edgeLabelBackground": "#ffffff", "clusterBkg": "#f6f8fa", "clusterBorder": "#666666", "fontFamily": "Helvetica"}}}%%
 flowchart TB
     subgraph CFG["配置层 — Mac 本地 + 公私两仓库 + symlink"]
         direction LR
@@ -116,7 +116,7 @@ flowchart TB
 <div style="background: #ffffff !important; background-color: #ffffff !important; border: 1px solid #d0d7de; border-radius: 8px; padding: 16px; margin: 16px 0; overflow-x: auto;" bgcolor="#ffffff">
 
 ```mermaid
-%%{init: {'theme':'base', 'themeVariables':{'background':'#ffffff','primaryColor':'#ffffff','primaryTextColor':'#000000','primaryBorderColor':'#333333','lineColor':'#444444','actorBkg':'#f6f8fa','actorBorder':'#666666','noteBkgColor':'#fff8c5','noteBorderColor':'#888888'}}}%%
+%%{init: {"theme": "base", "themeCSS": "svg { background: #ffffff !important; } .label, .messageText, .loopText, .noteText, text { color: #000000 !important; fill: #000000 !important; }", "themeVariables": {"background": "#ffffff", "mainBkg": "#ffffff", "primaryColor": "#ffffff", "primaryTextColor": "#000000", "primaryBorderColor": "#333333", "lineColor": "#444444", "actorBkg": "#f6f8fa", "actorBorder": "#666666", "actorTextColor": "#000000", "activationBkgColor": "#ffffff", "activationBorderColor": "#333333", "noteBkgColor": "#fff8c5", "noteBorderColor": "#888888", "noteTextColor": "#000000", "signalColor": "#444444", "signalTextColor": "#000000"}}}%%
 sequenceDiagram
     participant Mac
     participant VPS
@@ -357,7 +357,7 @@ Clash Party / Mihomo Party 默认 `controlDns: true`，会把订阅的 `dns:` �
 <div style="background: #ffffff !important; background-color: #ffffff !important; border: 1px solid #d0d7de; border-radius: 8px; padding: 16px; margin: 16px 0; overflow-x: auto;" bgcolor="#ffffff">
 
 ```mermaid
-%%{init: {'theme':'base', 'themeVariables':{'background':'#ffffff','primaryColor':'#ffffff','primaryTextColor':'#000000','primaryBorderColor':'#333333','lineColor':'#444444','clusterBkg':'#f6f8fa','clusterBorder':'#666666','fontFamily':'Helvetica'}}}%%
+%%{init: {"theme": "base", "themeCSS": "svg { background: #ffffff !important; } .label, .nodeLabel, .edgeLabel, text { color: #000000 !important; fill: #000000 !important; }", "themeVariables": {"background": "#ffffff", "mainBkg": "#ffffff", "primaryColor": "#ffffff", "primaryTextColor": "#000000", "primaryBorderColor": "#333333", "secondaryColor": "#f6f8fa", "tertiaryColor": "#ffffff", "lineColor": "#444444", "edgeLabelBackground": "#ffffff", "clusterBkg": "#f6f8fa", "clusterBorder": "#666666", "fontFamily": "Helvetica"}}}%%
 flowchart TD
     A([应用发起 https://host:port]) --> B[DNS 解析]
     B --> C{host 命中<br/>fake-ip-filter?}
@@ -443,7 +443,7 @@ rules:
 <div style="background: #ffffff !important; background-color: #ffffff !important; border: 1px solid #d0d7de; border-radius: 8px; padding: 16px; margin: 16px 0; overflow-x: auto;" bgcolor="#ffffff">
 
 ```mermaid
-%%{init: {'theme':'base', 'themeVariables':{'background':'#ffffff','primaryColor':'#ffffff','primaryTextColor':'#000000','primaryBorderColor':'#333333','lineColor':'#444444','clusterBkg':'#f6f8fa','clusterBorder':'#666666','fontFamily':'Helvetica'}}}%%
+%%{init: {"theme": "base", "themeCSS": "svg { background: #ffffff !important; } .label, .nodeLabel, .edgeLabel, text { color: #000000 !important; fill: #000000 !important; }", "themeVariables": {"background": "#ffffff", "mainBkg": "#ffffff", "primaryColor": "#ffffff", "primaryTextColor": "#000000", "primaryBorderColor": "#333333", "secondaryColor": "#f6f8fa", "tertiaryColor": "#ffffff", "lineColor": "#444444", "edgeLabelBackground": "#ffffff", "clusterBkg": "#f6f8fa", "clusterBorder": "#666666", "fontFamily": "Helvetica"}}}%%
 flowchart TD
     A([应用 dig host]) --> B[TUN 模式拦截 UDP 53<br/>→ mihomo 内置 DNS]
     B --> C{命中<br/>fake-ip-filter?}
@@ -865,7 +865,7 @@ bash scripts/sg-tunnel.sh
 <div style="background: #ffffff !important; background-color: #ffffff !important; border: 1px solid #d0d7de; border-radius: 8px; padding: 16px; margin: 16px 0; overflow-x: auto;" bgcolor="#ffffff">
 
 ```mermaid
-%%{init: {'theme':'base', 'themeVariables':{'background':'#ffffff','primaryColor':'#ffffff','primaryTextColor':'#000000','primaryBorderColor':'#333333','lineColor':'#444444','clusterBkg':'#f6f8fa','clusterBorder':'#666666','fontFamily':'Helvetica'}}}%%
+%%{init: {"theme": "base", "themeCSS": "svg { background: #ffffff !important; } .label, .nodeLabel, .edgeLabel, text { color: #000000 !important; fill: #000000 !important; }", "themeVariables": {"background": "#ffffff", "mainBkg": "#ffffff", "primaryColor": "#ffffff", "primaryTextColor": "#000000", "primaryBorderColor": "#333333", "secondaryColor": "#f6f8fa", "tertiaryColor": "#ffffff", "lineColor": "#444444", "edgeLabelBackground": "#ffffff", "clusterBkg": "#f6f8fa", "clusterBorder": "#666666", "fontFamily": "Helvetica"}}}%%
 flowchart TD
     subgraph S1["Mac iHome (改配置)"]
         M1[改 intranet.yaml]
@@ -961,7 +961,7 @@ sub-hxn01 下（家人）:
 <div style="background: #ffffff !important; background-color: #ffffff !important; border: 1px solid #d0d7de; border-radius: 8px; padding: 16px; margin: 16px 0; overflow-x: auto;" bgcolor="#ffffff">
 
 ```mermaid
-%%{init: {'theme':'base', 'themeVariables':{'background':'#ffffff','primaryColor':'#ffffff','primaryTextColor':'#000000','primaryBorderColor':'#333333','lineColor':'#444444','actorBkg':'#f6f8fa','actorBorder':'#666666','noteBkgColor':'#fff8c5','noteBorderColor':'#888888'}}}%%
+%%{init: {"theme": "base", "themeCSS": "svg { background: #ffffff !important; } .label, .messageText, .loopText, .noteText, text { color: #000000 !important; fill: #000000 !important; }", "themeVariables": {"background": "#ffffff", "mainBkg": "#ffffff", "primaryColor": "#ffffff", "primaryTextColor": "#000000", "primaryBorderColor": "#333333", "lineColor": "#444444", "actorBkg": "#f6f8fa", "actorBorder": "#666666", "actorTextColor": "#000000", "activationBkgColor": "#ffffff", "activationBorderColor": "#333333", "noteBkgColor": "#fff8c5", "noteBorderColor": "#888888", "noteTextColor": "#000000", "signalColor": "#444444", "signalTextColor": "#000000"}}}%%
 sequenceDiagram
     participant Mac
     participant Sync as sync-intranet.sh
