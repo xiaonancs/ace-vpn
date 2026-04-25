@@ -44,6 +44,7 @@
 | [`ip-check.sh`](ip-check.sh) | 测当前出口 IP 在 Google / OpenAI / Anthropic 眼里是哪国 + 哪些 AI 服务能用 | 怀疑出口 IP 被某 AI 服务封了 |
 | [`check-xui-panel.sh`](check-xui-panel.sh) | 从本机 `curl -vk` 探测 3x-ui 面板 URL（TCP/TLS/HTTP 层） | 面板突然打不开，先区分是端口/路径/服务还是本地网络 |
 | [`vps-watch-urls.sh`](vps-watch-urls.sh) | SSH 到各 VPS，默认合并 `speed-test-endpoints.txt` + 可选 `private/vps-watch-urls.txt`，curl 指标与 `speed-test.sh` 一致；`--log` 写入单文件 | 每 30 分钟对比两台 VPS 出站（LaunchAgent 模板见 `scripts/launchd/`） |
+| [`vps-watch-summary.py`](vps-watch-summary.py) | 汇总 `vps-watch-urls.sh` 的 TSV 日志，输出全部记录、各 URL 成功率、median/p95/平均耗时、HH/Vultr 对比 | 跑 20 天后生成最终对比 |
 | [`test-route.sh`](test-route.sh) | 给一个 URL，输出命中哪条规则 + 命中哪个组 + 实测延时 + 出口 IP | 想知道某站到底走的什么路径 |
 
 ### D. 仓库辅助
@@ -143,6 +144,68 @@ sudo mtr -rwzbc 30 <VPS_IP>        # 换成你当前节点的公网 IP
 `scripts/launchd/ace-vpn.vps-watch-urls.example.plist` →  
 `~/Library/LaunchAgents/com.xiaonancs.ace-vpn.vps-watch-urls.plist`，  
 把 `__REPO_ROOT__` 换成本机 `ace-vpn` 路径后 `launchctl load`。
+
+### HH / Vultr 连续 20 天网速对比
+
+这个方案从**本地 Mac 定时触发**，每 30 分钟 SSH 到 `VPS_NODES` 里的 HostHatch / Vultr，
+让两台 VPS 对同一批海外站点跑 `curl`。测到的是「VPS → 目标站」出站质量，适合长期比较两家 VPS
+到 AI / YouTube / X / Discord / Telegram / GitHub / Google 等服务的稳定性。
+
+前置：
+
+```bash
+cd ~/workspace/cursor-base/ace-vpn
+source private/env.sh
+
+# 确认这两个变量已设，且两台都能免密 SSH
+echo "$VPS_NODES"
+echo "$VPS_SSH_KEY"
+ssh -i "$VPS_SSH_KEY" root@"$VPS_IP_HOSTHATCH" 'echo hosthatch-ok'
+ssh -i "$VPS_SSH_KEY" root@"$VPS_IP_VULTR" 'echo vultr-ok'
+```
+
+手动试跑一次：
+
+```bash
+bash scripts/vps-watch-urls.sh --log
+```
+
+安装 30 分钟定时：
+
+```bash
+cp scripts/launchd/ace-vpn.vps-watch-urls.example.plist \
+  ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.vps-watch-urls.plist
+
+sed -i '' "s#__REPO_ROOT__#$(pwd)#g" \
+  ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.vps-watch-urls.plist
+
+launchctl load ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.vps-watch-urls.plist
+launchctl start com.xiaonancs.ace-vpn.vps-watch-urls
+```
+
+看实时日志：
+
+```bash
+tail -f ~/Library/Logs/ace-vpn/vps-watch.log
+```
+
+随时汇总最近 20 天（默认 20 天）：
+
+```bash
+python3 scripts/vps-watch-summary.py
+```
+
+打印最近 20 天的**全部原始记录 + 汇总对比**：
+
+```bash
+python3 scripts/vps-watch-summary.py --records
+```
+
+20 天结束后停止定时：
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.vps-watch-urls.plist
+```
 
 ---
 

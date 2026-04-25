@@ -1,18 +1,44 @@
-# 与 scripts/speed-test.sh 中 scenes() 探测地址保持一致（每行一个 URL）
-# vps-watch-urls.sh 默认会合并本文件 + private/vps-watch-urls.txt（去重）
+# 与 scripts/speed-test.sh 中 scenes() 探测地址保持大体一致（每行一个 URL）。
+# vps-watch-urls.sh 默认会合并本文件 + private/vps-watch-urls.txt（去重）。
+# 用于长期对比 HH / Vultr 时，控制在 20-30 个 URL：每 30 分钟 × 2 台 VPS × 20 天
+# 约 4-6 万条记录，足够判断稳定性，同时不会把单轮探测拖过 30 分钟。
 
+# AI / LLM
 https://gemini.google.com/
 https://aistudio.google.com/
+https://generativelanguage.googleapis.com/
+https://notebooklm.google.com/
 https://claude.ai/
 https://chatgpt.com/
 https://api.anthropic.com/
 https://api.openai.com/
+https://copilot.microsoft.com/
+https://www.perplexity.ai/
+
+# Cursor IDE
 https://api2.cursor.sh/
 https://api3.cursor.sh/
 https://repo42.cursor.sh/
 https://cursor.com/
+
+# Media / video
 https://www.youtube.com/
+https://www.googlevideo.com/
+https://www.netflix.com/
+https://www.twitch.tv/
+
+# Social / chat
+https://x.com/
+https://discord.com/
+https://telegram.org/
+https://t.me/
+
+# Developer / common overseas
 https://github.com/
+https://raw.githubusercontent.com/
 https://www.google.com/
+https://www.cloudflare.com/cdn-cgi/trace
+
+# 国内对照
 https://www.baidu.com/
 https://www.qq.com/
