@@ -2,7 +2,7 @@
 # ace-vpn · 在每台 VPS 上对你关心的 URL 跑 curl 延迟（与 speed-test 同指标：code / total / tcp / ssl / ip）
 #
 # URL 来源（默认合并，去重）：
-#   1. scripts/speed-test-endpoints.txt（与 speed-test.sh scenes() 一致，仓库内维护）
+#   1. scripts/test/speed-test-endpoints.txt（与 speed-test.sh scenes() 一致，仓库内维护）
 #   2. private/vps-watch-urls.txt（可选，额外监控地址）
 #   环境变量 VPS_WATCH_INCLUDE_SPEED_TEST=0 可关闭合并 speed-test 列表；或命令行 --no-speed-merge
 #
@@ -13,20 +13,20 @@
 #
 # 用法：
 #   cd ~/workspace/publish/ace-vpn && source private/env.sh
-#   bash scripts/vps-watch-urls.sh                    # 终端输出
-#   bash scripts/vps-watch-urls.sh --log              # 追加到日志（默认 ~/Library/Logs/ace-vpn/vps-watch.log）
-#   bash scripts/vps-watch-urls.sh --log --no-speed-merge   # 仅 private/vps-watch-urls.txt
+#   bash scripts/test/vps-watch-urls.sh                    # 终端输出
+#   bash scripts/test/vps-watch-urls.sh --log              # 追加到日志（默认 ~/Library/Logs/ace-vpn/vps-watch.log）
+#   bash scripts/test/vps-watch-urls.sh --log --no-speed-merge   # 仅 private/vps-watch-urls.txt
 #   VPS_WATCH_LOG_FILE=~/logs/vps.tsv bash ... --log  # 自定义单一日志文件
 #
 # 定时每 30 分钟：scripts/launchd/ace-vpn.vps-watch-urls.example.plist（带 --log）
 #
 # ── 怎么跑 ─────────────────────────────────────────────────
 # 手跑（结果打终端）：
-#   cd ~/workspace/publish/ace-vpn && source private/env.sh && bash scripts/vps-watch-urls.sh
+#   cd ~/workspace/publish/ace-vpn && source private/env.sh && bash scripts/test/vps-watch-urls.sh
 # 手跑并追加到日志文件（默认 ~/Library/Logs/ace-vpn/vps-watch.log）：
-#   bash scripts/vps-watch-urls.sh --log
+#   bash scripts/test/vps-watch-urls.sh --log
 # 自定义日志路径：
-#   VPS_WATCH_LOG_FILE=~/Desktop/vps-watch.tsv bash scripts/vps-watch-urls.sh --log
+#   VPS_WATCH_LOG_FILE=~/Desktop/vps-watch.tsv bash scripts/test/vps-watch-urls.sh --log
 # 定时：复制 scripts/launchd/ace-vpn.vps-watch-urls.example.plist 到 ~/Library/LaunchAgents/，
 #       替换 __REPO_ROOT__ 后 launchctl load，详见 plist 内注释。
 #
@@ -45,7 +45,7 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-ROOT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
+ROOT_DIR=$(cd "$SCRIPT_DIR/../.." && pwd)
 
 USE_LOG=0
 USE_SCP=1

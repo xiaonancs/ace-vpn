@@ -5,10 +5,10 @@
 # 在不同节点对比时：手动在 GUI 切换节点，再跑一次。
 #
 # 用法：
-#   bash scripts/speed-test.sh             # 完整测试（含带宽）
-#   bash scripts/speed-test.sh --quick     # 只测延迟，跳过带宽
-#   bash scripts/speed-test.sh --bw        # 只测带宽
-#   bash scripts/speed-test.sh --mtr       # 加跑 mtr 路由质量诊断（需 brew install mtr）
+#   bash scripts/test/speed-test.sh             # 完整测试（含带宽）
+#   bash scripts/test/speed-test.sh --quick     # 只测延迟，跳过带宽
+#   bash scripts/test/speed-test.sh --bw        # 只测带宽
+#   bash scripts/test/speed-test.sh --mtr       # 加跑 mtr 路由质量诊断（需 brew install mtr）
 set +e
 
 QUICK=0; BWONLY=0; MTR=0
@@ -70,7 +70,7 @@ ep() {
     "$(fmt_t $total)" "$(fmt_t $connect)" "$(fmt_t $ssl)" "$ip"
 }
 
-# 下列 URL 与 scripts/speed-test-endpoints.txt 保持同步（供 vps-watch-urls 定时合并）
+# 下列 URL 与 scripts/test/speed-test-endpoints.txt 保持同步（供 vps-watch-urls 定时合并）
 scenes() {
   echo
   echo "${c}━━ AI 服务（看你最关心的）━━${o}"

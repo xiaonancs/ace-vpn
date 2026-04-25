@@ -6,7 +6,7 @@
 #       自动完成：系统初始化 → 防火墙 → 3x-ui 安装
 #
 # 使用：
-#   sudo bash scripts/install.sh
+#   sudo bash scripts/deploy/install.sh
 #
 # 可选环境变量：
 #   TCP_PORT=443       主代理 TCP 端口（默认 443）
@@ -24,7 +24,8 @@ set -euo pipefail
 # ---------- 引入工具函数 ----------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
-source "${SCRIPT_DIR}/lib/common.sh"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+source "${ROOT_DIR}/scripts/lib/common.sh"
 
 # ---------- 参数 ----------
 TCP_PORT="${TCP_PORT:-443}"
@@ -69,10 +70,10 @@ if [[ "${AUTO_CONFIGURE:-0}" == "1" ]]; then
   PANEL_PORT="${PANEL_PORT}" \
   bash "${SCRIPT_DIR}/configure-3xui.sh" || {
     log_warn "自动配置失败，请手动在面板里添加入站"
-    log_warn "详见 docs/dev-skill.md（3x-ui 入站与订阅）"
+    log_warn "详见 docs/开发者日志.md（3x-ui 入站与订阅）"
   }
 else
-  log_info "跳过自动化配置（可单独运行 bash scripts/configure-3xui.sh）"
+  log_info "跳过自动化配置（可单独运行 bash scripts/deploy/configure-3xui.sh）"
 fi
 
 # ---------- 完成提示 ----------
@@ -100,12 +101,12 @@ ${COLOR_YELLOW}下一步（手动）${COLOR_RESET}
        - 密码（≥ 16 位）
        - 面板路径（改成 /随机路径/）
 
-  3. 添加入站（按 docs/dev-skill.md 中 3x-ui / Reality 说明）：
+  3. 添加入站（按 docs/开发者日志.md 中 3x-ui / Reality 说明）：
        - VLESS + Reality（TCP ${TCP_PORT}）
        - Hysteria2        （UDP ${UDP_PORT}）
 
   4. 开启订阅（§4.3），把生成的 URL 导入客户端
 
-  详细步骤见：docs/dev-skill.md
+  详细步骤见：docs/开发者日志.md
 
 EOF

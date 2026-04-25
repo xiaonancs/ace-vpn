@@ -10,17 +10,17 @@
 #   4. 重新渲染 Mihomo override（本地池清空了那部分，规则下沉到订阅）
 #
 # 用法：
-#   bash scripts/promote-to-vps.sh             # 标准流程（推 $VPS_IP 那一台）
-#   bash scripts/promote-to-vps.sh --all-vps   # 推 $VPS_NODES 所有节点
-#   bash scripts/promote-to-vps.sh --vps NAME  # 只推某一台（按 name 或 ip）
-#   bash scripts/promote-to-vps.sh --dry-run   # 只预览，不改文件
-#   bash scripts/promote-to-vps.sh --keep      # 推 VPS 后不清空本地池（debug 用）
-#   bash scripts/promote-to-vps.sh --no-sync   # 只改本地 intranet.yaml + 清池，不推 VPS
-#   bash scripts/promote-to-vps.sh --continue-on-error  # 多 VPS 时单台失败继续
+#   bash scripts/rules/promote-to-vps.sh             # 标准流程（推 $VPS_IP 那一台）
+#   bash scripts/rules/promote-to-vps.sh --all-vps   # 推 $VPS_NODES 所有节点
+#   bash scripts/rules/promote-to-vps.sh --vps NAME  # 只推某一台（按 name 或 ip）
+#   bash scripts/rules/promote-to-vps.sh --dry-run   # 只预览，不改文件
+#   bash scripts/rules/promote-to-vps.sh --keep      # 推 VPS 后不清空本地池（debug 用）
+#   bash scripts/rules/promote-to-vps.sh --no-sync   # 只改本地 intranet.yaml + 清池，不推 VPS
+#   bash scripts/rules/promote-to-vps.sh --continue-on-error  # 多 VPS 时单台失败继续
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-ROOT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
+ROOT_DIR=$(cd "$SCRIPT_DIR/../.." && pwd)
 
 color_red=$'\033[31m'; color_grn=$'\033[32m'; color_ylw=$'\033[33m'; color_off=$'\033[0m'
 die()  { echo "${color_red}ERROR${color_off} $*" >&2; exit 1; }
@@ -53,7 +53,7 @@ done
 [[ $EXPECT_VPS_VALUE -eq 1 ]] && die "--vps 后面要跟节点 name 或 ip"
 
 info "扫描本地池（合并策略：本地优先，intranet 冲突则覆盖）..."
-PLAN=$(PYTHONPATH="$SCRIPT_DIR" python3 - <<'PY'
+PLAN=$(PYTHONPATH="$ROOT_DIR/scripts" python3 - <<'PY'
 import json
 from lib import local_rules as lr
 
@@ -76,7 +76,7 @@ TOTAL=$(echo "$PLAN" | python3 -c 'import json,sys;d=json.load(sys.stdin);print(
 echo
 echo "📋 计划（enabled profile: ${ACTIVE}）"
 echo
-echo "$PLAN" | PYTHONPATH="$SCRIPT_DIR" python3 -c '
+echo "$PLAN" | PYTHONPATH="$ROOT_DIR/scripts" python3 -c '
 import json, sys
 d = json.load(sys.stdin)
 for line in d.get("conflict_log") or []:
@@ -102,7 +102,7 @@ if [[ $DRY_RUN -eq 1 ]]; then
 fi
 
 info "写入 intranet.yaml（本地优先合并）..."
-PYTHONPATH="$SCRIPT_DIR" python3 - <<'PY' || die "intranet.yaml 修改失败"
+PYTHONPATH="$ROOT_DIR/scripts" python3 - <<'PY' || die "intranet.yaml 修改失败"
 from lib import local_rules as lr
 plan = lr.promote_to_intranet()
 lr.apply_promote(plan)
@@ -119,12 +119,12 @@ if [[ $NO_SYNC -eq 0 ]]; then
     bash "$SCRIPT_DIR/sync-intranet.sh"
   fi
 else
-  warn "--no-sync，没推 VPS。手动跑：bash scripts/sync-intranet.sh${SYNC_PASSTHROUGH[*]:+ }${SYNC_PASSTHROUGH[*]:-}"
+  warn "--no-sync，没推 VPS。手动跑：bash scripts/rules/sync-intranet.sh${SYNC_PASSTHROUGH[*]:+ }${SYNC_PASSTHROUGH[*]:-}"
 fi
 
 if [[ $KEEP -eq 0 ]]; then
   info "从本地池移除已 promote 的规则..."
-  echo "$PLAN" | PYTHONPATH="$SCRIPT_DIR" python3 -c '
+  echo "$PLAN" | PYTHONPATH="$ROOT_DIR/scripts" python3 -c '
 import json, sys
 from lib import local_rules as lr
 plan = json.load(sys.stdin)

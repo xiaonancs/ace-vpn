@@ -28,7 +28,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
-source "${SCRIPT_DIR}/lib/common.sh"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+source "${ROOT_DIR}/scripts/lib/common.sh"
 
 require_root
 
@@ -458,7 +459,7 @@ PYFETCH
   else
     log_error "无法创建也无法读取 VLESS 入站。"
     log_error "请在 3x-ui 面板删除占用端口 ${TCP_PORT} 的旧入站（或改 TCP_PORT），然后重新运行："
-    log_error "  sudo bash scripts/configure-3xui.sh"
+    log_error "  sudo bash scripts/deploy/configure-3xui.sh"
     exit 1
   fi
 fi

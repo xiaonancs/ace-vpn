@@ -2,7 +2,7 @@
 # 把 private/local-rules.yaml 渲染成 Mihomo Party 的覆写文件，并触发 reload。
 #
 # 用法：
-#   bash scripts/apply-local-overrides.sh
+#   bash scripts/rules/apply-local-overrides.sh
 #
 # 副作用：
 #   - 写 ~/Library/Application Support/mihomo-party/override/ace-vpn-local.yaml
@@ -13,6 +13,7 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+ROOT_DIR=$(cd "$SCRIPT_DIR/../.." && pwd)
 
 color_red=$'\033[31m'; color_grn=$'\033[32m'; color_ylw=$'\033[33m'; color_off=$'\033[0m'
 die()  { echo "${color_red}ERROR${color_off} $*" >&2; exit 1; }
@@ -20,7 +21,7 @@ info() { echo "${color_grn}→${color_off} $*"; }
 warn() { echo "${color_ylw}!${color_off}  $*" >&2; }
 
 set +e
-PYTHONPATH="$SCRIPT_DIR" python3 - <<'PY'
+PYTHONPATH="$ROOT_DIR/scripts" python3 - <<'PY'
 import sys
 from lib import local_rules as lr
 

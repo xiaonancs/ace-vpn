@@ -6,7 +6,7 @@
 #   全程只读 / 只 ssh 拉信息，不改 VPS 任何文件。
 #
 # 用法：
-#   bash scripts/preflight-multi-vps.sh
+#   bash scripts/test/preflight-multi-vps.sh
 #
 # 输出：
 #   每台 VPS 的：
@@ -18,7 +18,7 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-ROOT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
+ROOT_DIR=$(cd "$SCRIPT_DIR/../.." && pwd)
 
 if [[ -t 1 ]]; then
   BOLD=$'\033[1m'; DIM=$'\033[2m'; RED=$'\033[31m'; GRN=$'\033[32m'
@@ -265,12 +265,12 @@ echo "${BOLD}下一步（按出现的状况）${RST}："
 echo
 echo "${CYN}如果两台都 SSH 通 + sub-converter 健康：${RST}"
 echo "  ✅ 可以放心同步规则（intranet.yaml）"
-echo "  → 跑：bash scripts/sync-intranet.sh --all-vps"
+echo "  → 跑：bash scripts/rules/sync-intranet.sh --all-vps"
 echo "    （此命令会先 dry-run 列表，再让你确认，再 scp 推送）"
 echo
 echo "${CYN}如果某台 sub-converter 没装：${RST}"
 echo "  ⚠ 那台不能用规则同步，需要先在它上面装："
-echo "  → 见 scripts/install-sub-converter.sh 用法"
+echo "  → 见 scripts/deploy/install-sub-converter.sh 用法"
 echo
 echo "${CYN}关于 warp outbound：${RST}"
 echo "  规则同步只动 /etc/ace-vpn/intranet.yaml，"

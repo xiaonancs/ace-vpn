@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Summarize ace-vpn vps-watch TSV logs.
 
-Input rows are produced by scripts/vps-watch-urls.sh:
+Input rows are produced by scripts/test/vps-watch-urls.sh:
   ts node ip http_code total tcp ssl remote_ip url
 """
 

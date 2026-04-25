@@ -19,7 +19,8 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck disable=SC1091
-source "$SCRIPT_DIR/lib/common.sh"
+ROOT_DIR=$(cd "$SCRIPT_DIR/../.." && pwd)
+source "$ROOT_DIR/scripts/lib/common.sh"
 
 require_root
 require_ubuntu
@@ -58,19 +59,19 @@ apt_install python3 python3-yaml
 
 INSTALL_DIR=/opt/ace-vpn-sub
 mkdir -p "$INSTALL_DIR"
-install -m 0755 "$SCRIPT_DIR/sub-converter.py" "$INSTALL_DIR/sub-converter.py"
+install -m 0755 "$ROOT_DIR/scripts/server/sub-converter.py" "$INSTALL_DIR/sub-converter.py"
 
 log_step "初始化内网规则文件 $INTRANET_FILE（热加载，改完无需重启）"
 install -d -m 0755 "$(dirname "$INTRANET_FILE")"
 if [[ ! -f "$INTRANET_FILE" ]]; then
   cat >"$INTRANET_FILE" <<'EOF'
 # ace-vpn 内网直连规则（sub-converter 每次 HTTP 请求时热加载）
-# 本地编辑 private/intranet.yaml 后用 scripts/sync-intranet.sh 上传
+# 本地编辑 private/intranet.yaml 后用 scripts/rules/sync-intranet.sh 上传
 # 格式详见 private/intranet.yaml.example
 profiles: {}
 EOF
   chmod 0644 "$INTRANET_FILE"
-  log_info "  已生成空配置；之后用 scripts/sync-intranet.sh 覆盖"
+  log_info "  已生成空配置；之后用 scripts/rules/sync-intranet.sh 覆盖"
 else
   log_info "  已存在，保留不动"
 fi

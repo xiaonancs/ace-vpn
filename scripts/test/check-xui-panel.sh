@@ -11,13 +11,13 @@
 #   5. 证书是自签 IP 证书：浏览器会拦截，需「继续访问」或用 curl -k 看 HTTP 层
 #
 # 用法：
-#   bash scripts/check-xui-panel.sh 'https://<VPS_IP>:<面板端口>/<webBasePath>/panel/'
-#   source private/env.sh && bash scripts/check-xui-panel.sh "$PANEL_URL"   # 若 env 里有 PANEL_URL
+#   bash scripts/test/check-xui-panel.sh 'https://<VPS_IP>:<面板端口>/<webBasePath>/panel/'
+#   source private/env.sh && bash scripts/test/check-xui-panel.sh "$PANEL_URL"   # 若 env 里有 PANEL_URL
 set +e
 
 URL="${1:-${PANEL_URL:-}}"
 if [[ -z "$URL" ]]; then
-  echo "用法: bash scripts/check-xui-panel.sh 'https://IP:PORT/随机path/panel/'" >&2
+  echo "用法: bash scripts/test/check-xui-panel.sh 'https://IP:PORT/随机path/panel/'" >&2
   exit 1
 fi
 

@@ -34,7 +34,7 @@
   <array>
     <string>/bin/bash</string>
     <string>-lc</string>
-    <string>source private/env.sh &amp;&amp; exec bash scripts/vps-watch-urls.sh --log</string>
+    <string>source private/env.sh &amp;&amp; exec bash scripts/test/vps-watch-urls.sh --log</string>
   </array>
 
   <!-- 1800 秒 = 30 分钟 -->

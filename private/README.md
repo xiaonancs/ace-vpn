@@ -58,7 +58,7 @@ python3 -c "import yaml; print(len(yaml.safe_load(open('private/intranet.yaml'))
 ```bash
 cd ~/workspace/publish/ace-vpn
 $EDITOR private/intranet.yaml          # 实际编辑 private 仓库文件（透过 symlink）
-bash scripts/sync-intranet.sh          # scp 推到 VPS 热加载，家人客户端刷新即生效
+bash scripts/rules/sync-intranet.sh          # scp 推到 VPS 热加载，家人客户端刷新即生效
 
 cd ~/workspace/publish/ace-vpn-private # 把真实改动提交到 private 仓库（备份）
 git add intranet.yaml
@@ -71,12 +71,12 @@ git push
 ```bash
 cd ~/workspace/publish/ace-vpn
 # TARGET = IN | DIRECT | VPS（大小写无关）
-bash scripts/add-rule.sh https://gitlab.corp-a.example/ IN  --note "内网 GitLab"
-bash scripts/add-rule.sh https://claude-foo.example     VPS --note "新 AI 走 VPS 出去"
+bash scripts/rules/add-rule.sh https://gitlab.corp-a.example/ IN  --note "内网 GitLab"
+bash scripts/rules/add-rule.sh https://claude-foo.example     VPS --note "新 AI 走 VPS 出去"
 # ↑ 写入 private/local-rules.yaml + 渲染 Mihomo override + GUI 秒级 reload
 #   家人 / VPS 不动；攒一段时间后跑 promote-to-vps.sh 批量 sync
-bash scripts/list-rules.sh             # 看本地池现状
-bash scripts/promote-to-vps.sh         # 批量 promote → 推 VPS → 清空本地池
+bash scripts/rules/list-rules.sh             # 看本地池现状
+bash scripts/rules/promote-to-vps.sh         # 批量 promote → 推 VPS → 清空本地池
 ```
 
 详细工作流见 [`docs/用户手册 user-guide.md` §7.9](../docs/用户手册%20user-guide.md#79仅管理员本地规则池单机即时加规则积累后批量推-vps)。

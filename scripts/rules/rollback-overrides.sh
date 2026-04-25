@@ -2,13 +2,13 @@
 # 应急回退本地 override —— 让 Mac 立即恢复网络。
 #
 # 用法：
-#   bash scripts/rollback-overrides.sh                # 交互：列出备份让你选
-#   bash scripts/rollback-overrides.sh --last         # 自动回退到最近一个备份
-#   bash scripts/rollback-overrides.sh --list         # 只列备份不改动
-#   bash scripts/rollback-overrides.sh --disable      # 应急核选项：禁用整个本地 override
+#   bash scripts/rules/rollback-overrides.sh                # 交互：列出备份让你选
+#   bash scripts/rules/rollback-overrides.sh --last         # 自动回退到最近一个备份
+#   bash scripts/rules/rollback-overrides.sh --list         # 只列备份不改动
+#   bash scripts/rules/rollback-overrides.sh --disable      # 应急核选项：禁用整个本地 override
 #                                                       订阅原样加载，本地池"暂时不参与"
-#   bash scripts/rollback-overrides.sh --enable       # 启用本地 override（与 --disable 配对）
-#   bash scripts/rollback-overrides.sh --clear        # 清空 override 文件（写入空规则占位）
+#   bash scripts/rules/rollback-overrides.sh --enable       # 启用本地 override（与 --disable 配对）
+#   bash scripts/rules/rollback-overrides.sh --clear        # 清空 override 文件（写入空规则占位）
 #
 # 触发场景：
 #   - 加完一条规则发现 Mihomo Party 报 "proxy not found" / 规则不合法 / 整个 profile 加载失败
@@ -22,6 +22,7 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+ROOT_DIR=$(cd "$SCRIPT_DIR/../.." && pwd)
 
 color_red=$'\033[31m'; color_grn=$'\033[32m'; color_ylw=$'\033[33m'; color_off=$'\033[0m'
 die()  { echo "${color_red}ERROR${color_off} $*" >&2; exit 1; }
@@ -40,7 +41,7 @@ case "${1:-}" in
   *) die "未知参数：$1（用 --help 看用法）" ;;
 esac
 
-PYTHONPATH="$SCRIPT_DIR" python3 - "$MODE" <<'PY'
+PYTHONPATH="$ROOT_DIR/scripts" python3 - "$MODE" <<'PY'
 import sys
 from pathlib import Path
 from lib import local_rules as lr
@@ -68,7 +69,7 @@ if mode == "disable":
     if ok:
         print("✅ 已把 ace-vpn-local 在 Mihomo Party 注册表里 enabled=false")
         print("   订阅会按原样加载，本地池所有规则暂时不参与。")
-        print("   恢复：bash scripts/rollback-overrides.sh --enable")
+        print("   恢复：bash scripts/rules/rollback-overrides.sh --enable")
     else:
         print("ℹ 注册表里没找到 ace-vpn-local（你可能还没 apply 过）。")
     sys.exit(0)
@@ -92,7 +93,7 @@ if mode == "clear":
     lr.OVERRIDE_DIR.mkdir(parents=True, exist_ok=True)
     lr._atomic_write(lr.OVERRIDE_FILE, content)
     print(f"✅ 已清空 override 内容（保留注册）：{lr.OVERRIDE_FILE}")
-    print(f"   想完全脱离 override：bash scripts/rollback-overrides.sh --disable")
+    print(f"   想完全脱离 override：bash scripts/rules/rollback-overrides.sh --disable")
     sys.exit(0)
 
 if not baks:

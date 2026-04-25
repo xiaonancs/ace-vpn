@@ -12,9 +12,9 @@
 #   3. CF 边缘节点拿到的国家跟 IP 数据库国家不一致 → 看具体哪个服务用哪个数据源
 #
 # 用法：
-#   bash scripts/ip-check.sh                    # 测当前 Mihomo Party 选中节点的出口
-#   bash scripts/ip-check.sh --no-proxy         # 测裸机出口（不走代理）
-#   bash scripts/ip-check.sh --proxy 127.0.0.1:7890   # 显式指定代理
+#   bash scripts/test/ip-check.sh                    # 测当前 Mihomo Party 选中节点的出口
+#   bash scripts/test/ip-check.sh --no-proxy         # 测裸机出口（不走代理）
+#   bash scripts/test/ip-check.sh --proxy 127.0.0.1:7890   # 显式指定代理
 #
 # 流程：
 #   [1] 拿当前出口 IP（curl ifconfig.me）
@@ -273,7 +273,7 @@ if [[ -n "$PROBLEM_COUNTRY" ]]; then
   echo
   echo "  ${BOLD}建议（按性价比）${RST}："
   echo "  1) ${GRN}立刻换节点${RST}：在 Mihomo Party / Clash Party 左侧 Proxies → ⚡ AUTO 或 🚀 PROXY"
-  echo "     选一个明确标 US/JP/SG 的节点，再跑一次 bash scripts/ip-check.sh 验证"
+  echo "     选一个明确标 US/JP/SG 的节点，再跑一次 bash scripts/test/ip-check.sh 验证"
   echo "  2) 如果你的 VPS 全是 HK 出口，去 hosthatch / racknerd 加一台 US/JP 小机器（\$2-5/月）"
   echo "  3) VPS 上装 Cloudflare WARP (wgcf) 把出口转给 CF，国家会变成 WARP 出口的国家"
 elif echo "$combined_org" | grep -qiE "$HOSTING_KEYWORDS"; then

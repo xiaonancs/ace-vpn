@@ -6,11 +6,11 @@
 #   2. private/intranet.yaml 存在（从 intranet.yaml.example 复制并编辑）
 #
 # 用法：
-#   bash scripts/sync-intranet.sh                  # 默认推 $VPS_IP 那一台（向后兼容）
-#   bash scripts/sync-intranet.sh --all-vps        # 推 $VPS_NODES 列表里所有节点
-#   bash scripts/sync-intranet.sh --vps name|ip    # 只推某一台（按 name 或 ip 匹配）
-#   bash scripts/sync-intranet.sh --dry-run        # 校验 + 打印计划，不真推
-#   bash scripts/sync-intranet.sh --continue-on-error  # 多 VPS 时单台失败继续下一台
+#   bash scripts/rules/sync-intranet.sh                  # 默认推 $VPS_IP 那一台（向后兼容）
+#   bash scripts/rules/sync-intranet.sh --all-vps        # 推 $VPS_NODES 列表里所有节点
+#   bash scripts/rules/sync-intranet.sh --vps name|ip    # 只推某一台（按 name 或 ip 匹配）
+#   bash scripts/rules/sync-intranet.sh --dry-run        # 校验 + 打印计划，不真推
+#   bash scripts/rules/sync-intranet.sh --continue-on-error  # 多 VPS 时单台失败继续下一台
 #
 # 流程（每台 VPS 独立执行）：
 #   - 本地用 python3 yaml.safe_load 校验一次（共用）
@@ -28,7 +28,7 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-ROOT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
+ROOT_DIR=$(cd "$SCRIPT_DIR/../.." && pwd)
 LOCAL_FILE=${LOCAL_INTRANET_FILE:-"$ROOT_DIR/private/intranet.yaml"}
 REMOTE_FILE=${REMOTE_INTRANET_FILE:-"/etc/ace-vpn/intranet.yaml"}
 SUB_PORT=${SUB_PORT_CLASH:-25500}
@@ -221,7 +221,7 @@ EOF
     code=$(curl -sS --max-time 15 -o /dev/null -w "%{http_code}" "http://${ip}:${SUB_PORT}/clash/${tok}" 2>/dev/null || echo 000)
     if [[ "$code" == "200" ]]; then
       warn "[$name] 无 /healthz（旧版 sub-converter），但 http://${ip}:${SUB_PORT}/clash/${tok} 返回 200，热加载仍可用"
-      warn "  可选：scp scripts/sub-converter.py 到 VPS 后 systemctl restart ace-vpn-sub，即获得 /healthz"
+      warn "  可选：scp scripts/server/sub-converter.py 到 VPS 后 systemctl restart ace-vpn-sub，即获得 /healthz"
     else
       warn "[$name] /healthz 失败且 /clash/${tok} 返回 ${code}（服务或端口 ${SUB_PORT} 异常）"
       warn "  文件已同步，需要时重启：ssh ${VPS_SSH_USER}@${ip} 'systemctl restart ace-vpn-sub'"

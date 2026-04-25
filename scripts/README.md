@@ -1,6 +1,6 @@
 # 🚀 ace-vpn · scripts 目录说明
 
-> 所有脚本按用途分四类。先看分类表知道每个脚本干啥，再看具体使用。
+> `scripts/` 已按用途拆成子目录。日常只需要记住四类：`deploy/` 部署、`rules/` 规则、`test/` 诊断测速、`common-tools/` 小工具。
 
 ---
 
@@ -12,13 +12,13 @@
 
 | 脚本 | 作用 | 何时跑 |
 |------|------|--------|
-| [`install.sh`](install.sh) | **入口**：依次调用 setup-system / setup-firewall / install-3xui | 新机第一次部署 |
-| [`setup-system.sh`](setup-system.sh) | apt 更新 + 时区 + BBR + IP 转发 + 句柄上限 | install.sh 内部 |
-| [`setup-firewall.sh`](setup-firewall.sh) | UFW 默认策略 + 放行必要端口 | install.sh 内部 |
-| [`install-3xui.sh`](install-3xui.sh) | 安装 3x-ui 面板 | install.sh 内部 |
-| [`configure-3xui.sh`](configure-3xui.sh) | 自动登录 3x-ui + 生成 Reality 密钥 / UUID + 建入站 + 输出分享链接 | 部署 3x-ui 后 |
-| [`install-sub-converter.sh`](install-sub-converter.sh) | 部署 Clash 订阅转换器 + 初始化 `/etc/ace-vpn/intranet.yaml` | 部署 sub-converter 后 |
-| [`sub-converter.py`](sub-converter.py) | **运行时**：订阅生成 / 热加载 intranet.yaml / `/match` 规则查询 / `/healthz` | 由 systemd 启动，不直接跑 |
+| [`deploy/install.sh`](deploy/install.sh) | **入口**：依次调用 setup-system / setup-firewall / install-3xui | 新机第一次部署 |
+| [`deploy/setup-system.sh`](deploy/setup-system.sh) | apt 更新 + 时区 + BBR + IP 转发 + 句柄上限 | install.sh 内部 |
+| [`deploy/setup-firewall.sh`](deploy/setup-firewall.sh) | UFW 默认策略 + 放行必要端口 | install.sh 内部 |
+| [`deploy/install-3xui.sh`](deploy/install-3xui.sh) | 安装 3x-ui 面板 | install.sh 内部 |
+| [`deploy/configure-3xui.sh`](deploy/configure-3xui.sh) | 自动登录 3x-ui + 生成 Reality 密钥 / UUID + 建入站 + 输出分享链接 | 部署 3x-ui 后 |
+| [`deploy/install-sub-converter.sh`](deploy/install-sub-converter.sh) | 部署 Clash 订阅转换器 + 初始化 `/etc/ace-vpn/intranet.yaml` | 部署 sub-converter 后 |
+| [`server/sub-converter.py`](server/sub-converter.py) | **运行时**：订阅生成 / 热加载 intranet.yaml / `/match` 规则查询 / `/healthz` | 由 systemd 启动，不直接跑 |
 
 ### B. 日常运维（在 **Mac** 上跑，高频）
 
@@ -26,12 +26,12 @@
 
 | 脚本 | 作用 | 何时跑 |
 |------|------|--------|
-| [`add-rule.sh`](add-rule.sh) | 加一条规则到本地池 + 自动 reload mihomo | 发现某个站走错路了想纠正时 |
-| [`list-rules.sh`](list-rules.sh) | 看本地池里积累了哪些规则 | 想知道还没 promote 的规则有啥 |
-| [`apply-local-overrides.sh`](apply-local-overrides.sh) | 把 `local-rules.yaml` 渲染成 mihomo override + 触发 reload | 手动改了 local-rules.yaml 后；add-rule 内部也调它 |
-| [`promote-to-vps.sh`](promote-to-vps.sh) | 把本地池合并进 `intranet.yaml`（**本地优先**，与已有 intranet 冲突则覆盖并打印前后对比）+ `sync-intranet` + 清池 | 积累几天后批量同步给家人/手机 |
-| [`sync-intranet.sh`](sync-intranet.sh) | 把 `private/intranet.yaml` scp 到 VPS；**推送前远端自动备份** `backups/intranet-*.yaml`（保留最近 5 份） | 直接编辑了 intranet.yaml 想推上去时；promote-to-vps 内部也调它 |
-| [`rollback-overrides.sh`](rollback-overrides.sh) | **应急**：回退 mihomo override 到上一个备份 / 禁用本地池 | 加了坏规则导致 mac 上不了网时 |
+| [`rules/add-rule.sh`](rules/add-rule.sh) | 加一条规则到本地池 + 自动 reload mihomo | 发现某个站走错路了想纠正时 |
+| [`rules/list-rules.sh`](rules/list-rules.sh) | 看本地池里积累了哪些规则 | 想知道还没 promote 的规则有啥 |
+| [`rules/apply-local-overrides.sh`](rules/apply-local-overrides.sh) | 把 `local-rules.yaml` 渲染成 mihomo override + 触发 reload | 手动改了 local-rules.yaml 后；add-rule 内部也调它 |
+| [`rules/promote-to-vps.sh`](rules/promote-to-vps.sh) | 把本地池合并进 `intranet.yaml`（**本地优先**，与已有 intranet 冲突则覆盖并打印前后对比）+ `sync-intranet` + 清池 | 积累几天后批量同步给家人/手机 |
+| [`rules/sync-intranet.sh`](rules/sync-intranet.sh) | 把 `private/intranet.yaml` scp 到 VPS；**推送前远端自动备份** `backups/intranet-*.yaml`（保留最近 5 份） | 直接编辑了 intranet.yaml 想推上去时；promote-to-vps 内部也调它 |
+| [`rules/rollback-overrides.sh`](rules/rollback-overrides.sh) | **应急**：回退 mihomo override 到上一个备份 / 禁用本地池 | 加了坏规则导致 mac 上不了网时 |
 
 ### C. 诊断 / 调试（**Mac** 或 **VPS**，按需）
 
@@ -39,13 +39,13 @@
 
 | 脚本 | 作用 | 何时跑 |
 |------|------|--------|
-| [`speed-test.sh`](speed-test.sh) | 测当前网络对 AI / cursor / youtube 等关键服务的延迟 + 带宽 | 怀疑网速慢、对比节点速度 |
-| [`diagnose.sh`](diagnose.sh) | 一次性收集 mihomo 状态 + 出口 IP + cursor 后端可达性 + cursor IDE 日志 | cursor / gemini 突然不能用，要把诊断信息整包发出去看 |
-| [`ip-check.sh`](ip-check.sh) | 测当前出口 IP 在 Google / OpenAI / Anthropic 眼里是哪国 + 哪些 AI 服务能用 | 怀疑出口 IP 被某 AI 服务封了 |
-| [`check-xui-panel.sh`](check-xui-panel.sh) | 从本机 `curl -vk` 探测 3x-ui 面板 URL（TCP/TLS/HTTP 层） | 面板突然打不开，先区分是端口/路径/服务还是本地网络 |
-| [`vps-watch-urls.sh`](vps-watch-urls.sh) | SSH 到各 VPS，默认合并 `speed-test-endpoints.txt` + 可选 `private/vps-watch-urls.txt`，curl 指标与 `speed-test.sh` 一致；`--log` 写入单文件 | 每 30 分钟对比两台 VPS 出站（LaunchAgent 模板见 `scripts/launchd/`） |
-| [`vps-watch-summary.py`](vps-watch-summary.py) | 汇总 `vps-watch-urls.sh` 的 TSV 日志，输出全部记录、各 URL 成功率、median/p95/平均耗时、HH/Vultr 对比 | 跑 20 天后生成最终对比 |
-| [`test-route.sh`](test-route.sh) | 给一个 URL，输出命中哪条规则 + 命中哪个组 + 实测延时 + 出口 IP | 想知道某站到底走的什么路径 |
+| [`test/speed-test.sh`](test/speed-test.sh) | 测当前网络对 AI / cursor / youtube 等关键服务的延迟 + 带宽 | 怀疑网速慢、对比节点速度 |
+| [`test/diagnose.sh`](test/diagnose.sh) | 一次性收集 mihomo 状态 + 出口 IP + cursor 后端可达性 + cursor IDE 日志 | cursor / gemini 突然不能用，要把诊断信息整包发出去看 |
+| [`test/ip-check.sh`](test/ip-check.sh) | 测当前出口 IP 在 Google / OpenAI / Anthropic 眼里是哪国 + 哪些 AI 服务能用 | 怀疑出口 IP 被某 AI 服务封了 |
+| [`test/check-xui-panel.sh`](test/check-xui-panel.sh) | 从本机 `curl -vk` 探测 3x-ui 面板 URL（TCP/TLS/HTTP 层） | 面板突然打不开，先区分是端口/路径/服务还是本地网络 |
+| [`test/vps-watch-urls.sh`](test/vps-watch-urls.sh) | SSH 到各 VPS，默认合并 `test/speed-test-endpoints.txt` + 可选 `private/vps-watch-urls.txt`，curl 指标与 `test/speed-test.sh` 一致；`--log` 写入单文件 | 每 30 分钟对比两台 VPS 出站（LaunchAgent 模板见 `scripts/launchd/`） |
+| [`test/vps-watch-summary.py`](test/vps-watch-summary.py) | 汇总 `vps-watch-urls.sh` 的 TSV 日志，输出全部记录、各 URL 成功率、median/p95/平均耗时、HH/Vultr 对比 | 跑 20 天后生成最终对比 |
+| [`test/test-route.sh`](test/test-route.sh) | 给一个 URL，输出命中哪条规则 + 命中哪个组 + 实测延时 + 出口 IP | 想知道某站到底走的什么路径 |
 
 ### D. 仓库辅助
 
@@ -54,12 +54,25 @@
 | [`lib/common.sh`](lib/common.sh) | shell 共享工具（日志、apt 锁等待、root 检查） |
 | [`lib/local_rules.py`](lib/local_rules.py) | python 库：本地规则池的读 / 写 / 渲染 / promote / mihomo reload。被 add-rule / list-rules / apply-local-overrides / promote-to-vps / rollback-overrides 共用 |
 | [`git-hooks/`](git-hooks/) | pre-commit hook，防止 private/ 下敏感文件误推到 GitHub |
+| [`common-tools/sg-tunnel.sh`](common-tools/sg-tunnel.sh) | 临时 SOCKS5 跳板（例如注册 Oracle Cloud 时用新加坡出口） |
 
 ---
 
 ## 🧹 可以删除的 / 重复的
 
-**目前没有真正"没用"的脚本**，每个都有明确用途。但有几个"功能有重叠"的，按使用频率取舍：
+**结论：目前不建议删除任何脚本。** 这些脚本看起来多，是因为它们分属三条不同生命周期：新 VPS 部署、日常规则运维、出问题时诊断。真正高频只需要 `rules/` 下 3-4 个脚本；`deploy/` 和大部分 `test/` 都是低频但关键的应急工具。
+
+可以按这个标准判断：
+
+| 类型 | 处理 |
+|---|---|
+| `deploy/` | 低频，但换 VPS / 重装 / 灾备恢复时必须保留 |
+| `rules/` | 高频核心链路，必须保留 |
+| `test/` | 看似重叠，但定位的问题不同，保留 |
+| `server/` / `lib/` | 被服务和入口脚本依赖，必须保留 |
+| `common-tools/` | 临时场景工具，只有确认长期不用时再删 |
+
+有几个"功能有重叠"的，按使用频率取舍：
 
 | 脚本 | 状态 | 说明 |
 |------|------|------|
@@ -88,41 +101,41 @@ rm -rf scripts/__pycache__ scripts/lib/__pycache__
 
 ```bash
 # 1. 测一下当前走哪
-bash scripts/test-route.sh https://some-site.com/
+bash scripts/test/test-route.sh https://some-site.com/
 
 # 2. 加规则（VPS = 走 VPS 代理 / DIRECT = 直连 / IN = 公司内网）
-bash scripts/add-rule.sh https://some-site.com/  VPS  --note "GPT-5 工具"
+bash scripts/rules/add-rule.sh https://some-site.com/  VPS  --note "GPT-5 工具"
 
 # 3. 几秒内本机生效。攒够几条后批量推 VPS（家人也获益）
-bash scripts/promote-to-vps.sh
+bash scripts/rules/promote-to-vps.sh
 ```
 
 ### 工作流 2：cursor / gemini 突然连不上
 
 ```bash
 # 1. 收集"灾难现场"全景
-bash scripts/diagnose.sh
+bash scripts/test/diagnose.sh
 # 输出 /tmp/ace-vpn-diag-*.txt，把内容贴给会看的人
 
 # 2. 怀疑 IP 被某服务封了？专项测
-bash scripts/ip-check.sh
+bash scripts/test/ip-check.sh
 
 # 3. 怀疑加的规则把自己卡死了？立刻回退
-bash scripts/rollback-overrides.sh --last
+bash scripts/rules/rollback-overrides.sh --last
 # 或者更狠
-bash scripts/rollback-overrides.sh --disable
+bash scripts/rules/rollback-overrides.sh --disable
 ```
 
 ### 工作流 3：怀疑节点速度慢
 
 ```bash
 # 测当前节点
-bash scripts/speed-test.sh --quick
+bash scripts/test/speed-test.sh --quick
 
 # 在 Clash Party GUI 里手动切到另一个节点
 
 # 再测一次对比
-bash scripts/speed-test.sh --quick
+bash scripts/test/speed-test.sh --quick
 
 # 如果想看路由质量（哪一段丢包）
 brew install mtr   # 一次性
@@ -135,10 +148,10 @@ sudo mtr -rwzbc 30 <VPS_IP>        # 换成你当前节点的公网 IP
 
 在 `private/env.sh` 里配置 `VPS_NODES="name1:ip1 name2:ip2"` 后：
 
-- `bash scripts/sync-intranet.sh --all-vps`：把 `intranet.yaml` 推到列表里每一台。
-- `bash scripts/promote-to-vps.sh --all-vps`：promote 后同样推多台（与上共用 SSH 配置）。
-- `bash scripts/preflight-multi-vps.sh`：只读体检各节点 SSH / sub-converter / xray 摘要。
-- `bash scripts/vps-watch-urls.sh`：对各节点上的 `private/vps-watch-urls.txt` 跑出站延迟（需 **`export VPS_SSH_KEY=...` + `ssh-copy-id`** 才能免密定时跑）。
+- `bash scripts/rules/sync-intranet.sh --all-vps`：把 `intranet.yaml` 推到列表里每一台。
+- `bash scripts/rules/promote-to-vps.sh --all-vps`：promote 后同样推多台（与上共用 SSH 配置）。
+- `bash scripts/test/preflight-multi-vps.sh`：只读体检各节点 SSH / sub-converter / xray 摘要。
+- `bash scripts/test/vps-watch-urls.sh`：对各节点上的 `private/vps-watch-urls.txt` 跑出站延迟（需 **`export VPS_SSH_KEY=...` + `ssh-copy-id`** 才能免密定时跑）。
 
 **定时每 30 分钟（macOS）**：复制并按注释编辑  
 `scripts/launchd/ace-vpn.vps-watch-urls.example.plist` →  
@@ -167,7 +180,7 @@ ssh -i "$VPS_SSH_KEY" root@"$VPS_IP_VULTR" 'echo vultr-ok'
 手动试跑一次：
 
 ```bash
-bash scripts/vps-watch-urls.sh --log
+bash scripts/test/vps-watch-urls.sh --log
 ```
 
 安装 30 分钟定时：
@@ -192,13 +205,13 @@ tail -f ~/Library/Logs/ace-vpn/vps-watch.log
 随时汇总最近 20 天（默认 20 天）：
 
 ```bash
-python3 scripts/vps-watch-summary.py
+python3 scripts/test/vps-watch-summary.py
 ```
 
 打印最近 20 天的**全部原始记录 + 汇总对比**：
 
 ```bash
-python3 scripts/vps-watch-summary.py --records
+python3 scripts/test/vps-watch-summary.py --records
 ```
 
 20 天结束后停止定时：
@@ -235,13 +248,13 @@ launchctl unload ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.vps-watch-urls.pli
 ### 脚本报 "apt 被占用"
 新装 VPS cloud-init 还在跑，等 2-3 分钟，或：
 ```bash
-sudo systemctl stop unattended-upgrades && sudo bash scripts/install.sh
+sudo systemctl stop unattended-upgrades && sudo bash scripts/deploy/install.sh
 ```
 
 ### `add-rule.sh` 加完后 mihomo 报 "proxy not found"
 local-rules.yaml 写错了。立刻：
 ```bash
-bash scripts/rollback-overrides.sh --last
+bash scripts/rules/rollback-overrides.sh --last
 ```
 
 ### `promote-to-vps.sh` SCP 超时
@@ -282,7 +295,7 @@ journalctl -u ace-vpn-sub -n 50
   scp /root/x-ui-backup.db local:/safe/place/
 
 新机：
-  sudo bash scripts/install.sh
+  sudo bash scripts/deploy/install.sh
   systemctl stop x-ui
   scp local:/safe/place/x-ui-backup.db /etc/x-ui/x-ui.db
   systemctl start x-ui

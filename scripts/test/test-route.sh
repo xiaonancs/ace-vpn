@@ -2,13 +2,13 @@
 # ace-vpn · 分流链路诊断工具
 #
 # 用法：
-#   bash scripts/test-route.sh <URL 或 host>
+#   bash scripts/test/test-route.sh <URL 或 host>
 #
 # 例：
-#   bash scripts/test-route.sh https://portal.corp-a.example/       # 公司内网
-#   bash scripts/test-route.sh claude.ai                            # 海外 AI
-#   bash scripts/test-route.sh youtube.com                          # 海外视频
-#   bash scripts/test-route.sh 10.0.0.53                            # 内网 IP
+#   bash scripts/test/test-route.sh https://portal.corp-a.example/       # 公司内网
+#   bash scripts/test/test-route.sh claude.ai                            # 海外 AI
+#   bash scripts/test/test-route.sh youtube.com                          # 海外视频
+#   bash scripts/test/test-route.sh 10.0.0.53                            # 内网 IP
 #
 # 前置：
 #   source private/env.sh       # 需要 $VPS_IP（或显式设 VPS_IP 环境变量）
@@ -21,7 +21,7 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-ROOT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
+ROOT_DIR=$(cd "$SCRIPT_DIR/../.." && pwd)
 
 # 颜色
 if [[ -t 1 ]]; then
@@ -76,7 +76,7 @@ MATCH_URL="http://$VPS_IP:$SUB_PORT/match?url=$URLENC"
 if ! MATCH_JSON=$(curl -fsS --max-time 8 "$MATCH_URL" 2>&1); then
   warn "调 /match 失败：$MATCH_JSON"
   warn "旧版 sub-converter 没有这个接口，先升级："
-  echo "    scp scripts/sub-converter.py root@$VPS_IP:/opt/ace-vpn-sub/sub-converter.py"
+  echo "    scp scripts/server/sub-converter.py root@$VPS_IP:/opt/ace-vpn-sub/sub-converter.py"
   echo "    ssh root@$VPS_IP 'systemctl restart ace-vpn-sub'"
   MATCH_JSON=""
 fi

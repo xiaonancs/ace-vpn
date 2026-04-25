@@ -477,7 +477,7 @@ sudo -i
 
 # 5. 按 ace-vpn README 跑一键部署
 git clone https://github.com/xiaonancs/ace-vpn.git && cd ace-vpn
-AUTO_CONFIGURE=1 bash scripts/install.sh
+AUTO_CONFIGURE=1 bash scripts/deploy/install.sh
 
 # 6. 剩下按 README → "新 VPS 到手" 小节继续
 ```

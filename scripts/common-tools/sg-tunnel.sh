@@ -4,12 +4,12 @@
 #
 # 用法（先 export 跳板 IP）：
 #   export SG_VPS=<你的跳板机公网_IP>
-#   bash scripts/sg-tunnel.sh           # 前台（Ctrl+C 停）
-#   bash scripts/sg-tunnel.sh bg        # 后台
-#   bash scripts/sg-tunnel.sh stop      # 停后台
-#   bash scripts/sg-tunnel.sh status    # 状态
+#   bash scripts/common-tools/sg-tunnel.sh           # 前台（Ctrl+C 停）
+#   bash scripts/common-tools/sg-tunnel.sh bg        # 后台
+#   bash scripts/common-tools/sg-tunnel.sh stop      # 停后台
+#   bash scripts/common-tools/sg-tunnel.sh status    # 状态
 #
-# 也可一行：SG_VPS=<IP> bash scripts/sg-tunnel.sh bg
+# 也可一行：SG_VPS=<IP> bash scripts/common-tools/sg-tunnel.sh bg
 
 SG_VPS="${SG_VPS:-}"
 SG_USER="${SG_USER:-root}"
@@ -31,7 +31,7 @@ _require_vps() {
   if [[ -z "$SG_VPS" ]]; then
     echo "未设置 SG_VPS。请先指定跳板机公网 IP，例如：" >&2
     echo "  export SG_VPS=203.0.113.1   # 仅为语法示例，请换成你的真实跳板 IP" >&2
-    echo "  bash scripts/sg-tunnel.sh bg" >&2
+    echo "  bash scripts/common-tools/sg-tunnel.sh bg" >&2
     exit 1
   fi
 }

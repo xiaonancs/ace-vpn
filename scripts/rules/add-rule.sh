@@ -2,25 +2,25 @@
 # 加一条规则到本地池 + 自动应用到 Mihomo Party。
 #
 # 用法：
-#   bash scripts/add-rule.sh <URL_OR_HOST> <TARGET> [HOST_OVERRIDE] [--note "备注"]
+#   bash scripts/rules/add-rule.sh <URL_OR_HOST> <TARGET> [HOST_OVERRIDE] [--note "备注"]
 #
 # 三种典型用法：
 #
 #   1) 最常见：传 URL，自动解析 host
-#        bash scripts/add-rule.sh https://gitlab.corp-a.example/  IN
+#        bash scripts/rules/add-rule.sh https://gitlab.corp-a.example/  IN
 #
 #   2) 直接传裸 host（最干净；想加宽到 *.foo.com 段时推荐）
-#        bash scripts/add-rule.sh api.corp-a.example  IN
+#        bash scripts/rules/add-rule.sh api.corp-a.example  IN
 #
 #   3) 传 URL + 自定义 HOST：丢一长串 URL 进来，但用第 3 个参数手动指定
 #      最终落到规则里的 host，覆盖自动解析结果。适合"懒得手敲域名但又想
 #      加宽匹配范围"的场景。
-#        bash scripts/add-rule.sh https://aaa.bbb.api.corp-a.example/x.dmg  IN  api.corp-a.example
+#        bash scripts/rules/add-rule.sh https://aaa.bbb.api.corp-a.example/x.dmg  IN  api.corp-a.example
 #                                  └─ 只用来读，不写规则     └─ 真正写到 yaml 里的 host
 #
 # 备注用 --note 选填（可在任意位置）：
-#   bash scripts/add-rule.sh https://gitlab.corp-a.example/ IN --note "内网 GitLab"
-#   bash scripts/add-rule.sh https://aaa.api.corp-a.example/x IN api.corp-a.example --note "公司 API（含所有 region）"
+#   bash scripts/rules/add-rule.sh https://gitlab.corp-a.example/ IN --note "内网 GitLab"
+#   bash scripts/rules/add-rule.sh https://aaa.api.corp-a.example/x IN api.corp-a.example --note "公司 API（含所有 region）"
 #
 # TARGET（大小写无关；老名 intranet/cn/overseas 也兼容）：
 #   IN      → 公司内网 DIRECT + 走内网 DNS（fake-ip-filter + nameserver-policy）
@@ -36,6 +36,7 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+ROOT_DIR=$(cd "$SCRIPT_DIR/../.." && pwd)
 
 color_red=$'\033[31m'; color_grn=$'\033[32m'; color_off=$'\033[0m'
 die()  { echo "${color_red}ERROR${color_off} $*" >&2; exit 1; }
@@ -64,7 +65,7 @@ INPUT=${POSITIONAL[0]}
 TARGET=${POSITIONAL[1]}
 HOST_OVERRIDE=${POSITIONAL[2]:-}
 
-PYTHONPATH="$SCRIPT_DIR" python3 - "$INPUT" "$TARGET" "$HOST_OVERRIDE" "$NOTE" <<'PY' || die "加规则失败"
+PYTHONPATH="$ROOT_DIR/scripts" python3 - "$INPUT" "$TARGET" "$HOST_OVERRIDE" "$NOTE" <<'PY' || die "加规则失败"
 import sys
 import urllib.parse
 from lib import local_rules as lr
@@ -111,11 +112,11 @@ if raw_was_url and not host_override and len(parts) >= 3:
     print(f"💡 当前规则按 DOMAIN-SUFFIX 只匹配 *.{host}（精确这条后缀）")
     print(f"   想加宽？两种办法：")
     print(f"   A) 下次直接传裸 host：")
-    print(f"        bash scripts/add-rule.sh {suggested_n1:<33} {target}   # 覆盖 *.{suggested_n1}")
+    print(f"        bash scripts/rules/add-rule.sh {suggested_n1:<33} {target}   # 覆盖 *.{suggested_n1}")
     if suggested_sld != suggested_n1:
-        print(f"        bash scripts/add-rule.sh {suggested_sld:<33} {target}   # 覆盖整个 SLD")
+        print(f"        bash scripts/rules/add-rule.sh {suggested_sld:<33} {target}   # 覆盖整个 SLD")
     print(f"   B) 保留长 URL 不动，第 3 个参数手动指定要的 host：")
-    print(f"        bash scripts/add-rule.sh '{raw}' {target} {suggested_n1}")
+    print(f"        bash scripts/rules/add-rule.sh '{raw}' {target} {suggested_n1}")
 PY
 
 echo

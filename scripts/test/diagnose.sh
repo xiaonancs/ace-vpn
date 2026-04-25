@@ -5,7 +5,7 @@
 #   1. 关掉其他 VPN（避免双 VPN 抢路由）
 #   2. mihomo 切到 ace-vpn 任一节点
 #   3. 复现 cursor reconnection（让 cursor 在前台尝试连接）
-#   4. 跑：bash scripts/diagnose.sh
+#   4. 跑：bash scripts/test/diagnose.sh
 #   5. 跑完把生成的 /tmp/ace-vpn-diag-*.txt 内容发给我
 #   6. 需要时再切回你平时的网络环境
 #

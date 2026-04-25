@@ -47,6 +47,7 @@ import socket
 import socketserver
 import ssl
 import sys
+import threading
 import urllib.parse
 import urllib.request
 import yaml
@@ -80,8 +81,43 @@ SERVER_OVERRIDE = os.environ.get("SERVER_OVERRIDE", "").strip()
 # Mihomo 把它们当成 DIRECT 直连解析（绕过 PROXY 节点），永远拿到国内视角的 IP。
 CN_PUBLIC_DNS = ["119.29.29.29", "223.5.5.5"]
 
+_SSL_CONTEXT = ssl.create_default_context()
+_SSL_CONTEXT.check_hostname = False
+_SSL_CONTEXT.verify_mode = ssl.CERT_NONE
+
+_INTRANET_CACHE_LOCK = threading.Lock()
+_INTRANET_CACHE_KEY = None
+_INTRANET_CACHE: Optional[Dict[str, Any]] = None
+
 
 def load_intranet_config() -> Dict[str, Any]:
+    """按 intranet.yaml mtime/size 缓存配置，文件变化时自动热加载。"""
+    global _INTRANET_CACHE_KEY, _INTRANET_CACHE
+
+    try:
+        stat = os.stat(INTRANET_FILE) if INTRANET_FILE else None
+        cache_key = (
+            INTRANET_FILE,
+            stat.st_mtime_ns if stat else None,
+            stat.st_size if stat else None,
+            tuple(COMPANY_SFX),
+            tuple(COMPANY_CIDRS),
+        )
+    except OSError:
+        cache_key = (INTRANET_FILE, None, None, tuple(COMPANY_SFX), tuple(COMPANY_CIDRS))
+
+    with _INTRANET_CACHE_LOCK:
+        if _INTRANET_CACHE is not None and _INTRANET_CACHE_KEY == cache_key:
+            return _INTRANET_CACHE
+
+    parsed = _load_intranet_config_uncached()
+    with _INTRANET_CACHE_LOCK:
+        _INTRANET_CACHE_KEY = cache_key
+        _INTRANET_CACHE = parsed
+    return parsed
+
+
+def _load_intranet_config_uncached() -> Dict[str, Any]:
     """热加载内网规则。每次 HTTP 请求调用一次，改 YAML 无需重启服务。
 
     合并来源（按顺序，去重保留顺序）：
@@ -177,9 +213,10 @@ def load_intranet_config() -> Dict[str, Any]:
         seen = set()
         out = []
         for x in xs:
-            if x not in seen:
-                seen.add(x)
-                out.append(x)
+            key = x.strip().lower()
+            if key and key not in seen:
+                seen.add(key)
+                out.append(x.strip())
         return out
 
     return {
@@ -206,11 +243,8 @@ def resolve_upstream(token: str) -> Optional[str]:
 
 
 def fetch_sub(url: str) -> str:
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
     req = urllib.request.Request(url, headers={"User-Agent": "ace-vpn/1.0"})
-    with urllib.request.urlopen(req, context=ctx, timeout=10) as r:
+    with urllib.request.urlopen(req, context=_SSL_CONTEXT, timeout=10) as r:
         return r.read().decode("utf-8", errors="replace").strip()
 
 
@@ -366,12 +400,20 @@ CHINA_DIRECT = [
 
 def build_rules(proxy_names: List[str], intranet: Dict[str, Any]) -> List[str]:
     rules: List[str] = []
+    seen_suffix: set[str] = set()
+
+    def add_suffix_rule(domain: str, target: str) -> None:
+        key = str(domain).strip().lower()
+        if not key or key in seen_suffix:
+            return
+        seen_suffix.add(key)
+        rules.append(f"DOMAIN-SUFFIX,{key},{target}")
 
     # 1. 公司内网最优先（CIDR + 域名）
     for cidr in intranet["cidrs"]:
         rules.append(f"IP-CIDR,{cidr},DIRECT,no-resolve")
     for sfx in intranet["domains"]:
-        rules.append(f"DOMAIN-SUFFIX,{sfx},DIRECT")
+        add_suffix_rule(sfx, "DIRECT")
 
     # 2. 私有网段兜底
     rules += [
@@ -385,31 +427,28 @@ def build_rules(proxy_names: List[str], intranet: Dict[str, Any]) -> List[str]:
     # 3. extra.overseas（用户在 Mac 上 promote 上来的代理域名）
     #    放在 AI / SOCIAL_PROXY 之前，让用户手加规则赢内置默认
     for d in intranet.get("extra_overseas") or []:
-        rules.append(f"DOMAIN-SUFFIX,{d},🚀 PROXY")
+        add_suffix_rule(d, "🚀 PROXY")
 
     # 4. extra.cn（用户 promote 上来的强制直连域名）
     #    放在 AI / SOCIAL_PROXY 之前，让"国内被误判"的修正生效
     for d in intranet.get("extra_cn") or []:
-        rules.append(f"DOMAIN-SUFFIX,{d},DIRECT")
+        add_suffix_rule(d, "DIRECT")
 
     # 5. AI（内置）
     for d in AI_DOMAINS:
-        rules.append(f"DOMAIN-SUFFIX,{d},🤖 AI")
+        add_suffix_rule(d, "🤖 AI")
 
     # 6. 社交/工具（强制走代理，内置）
     for d in SOCIAL_PROXY:
-        rules.append(f"DOMAIN-SUFFIX,{d},🚀 PROXY")
+        add_suffix_rule(d, "🚀 PROXY")
 
     # 7. 流媒体（内置）
     for d in MEDIA_PROXY:
-        rules.append(f"DOMAIN-SUFFIX,{d},📺 MEDIA")
+        add_suffix_rule(d, "📺 MEDIA")
 
     # 8. 国内直连（抖音/淘宝/B 站等，内置）
     for d in CHINA_DIRECT:
-        if len(d) <= 2:
-            rules.append(f"DOMAIN-SUFFIX,{d},DIRECT")
-        else:
-            rules.append(f"DOMAIN-SUFFIX,{d},DIRECT")
+        add_suffix_rule(d, "DIRECT")
 
     # 9. GEOIP 兜底
     rules += [
@@ -702,6 +741,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         sys.stderr.write(f"[{self.log_date_time_string()}] {self.address_string()} {fmt % args}\n")
 
 
+class ReusableThreadingTCPServer(socketserver.ThreadingTCPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+
 def main() -> int:
     if not UPSTREAM_BASE and not UPSTREAM_SUB:
         print("ERROR: Set either UPSTREAM_BASE+SUB_TOKENS (multi) or UPSTREAM_SUB+SUB_TOKEN (single)",
@@ -731,8 +775,7 @@ def main() -> int:
         flush=True,
     )
 
-    with socketserver.ThreadingTCPServer(("0.0.0.0", LISTEN_PORT), Handler) as httpd:
-        httpd.allow_reuse_address = True
+    with ReusableThreadingTCPServer(("0.0.0.0", LISTEN_PORT), Handler) as httpd:
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:

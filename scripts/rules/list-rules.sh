@@ -2,16 +2,17 @@
 # 看本地规则池里都有啥（按 target 分组）。
 #
 # 用法：
-#   bash scripts/list-rules.sh
-#   bash scripts/list-rules.sh IN          # 只看 IN 类
-#   bash scripts/list-rules.sh DIRECT      # 只看 DIRECT 类
-#   bash scripts/list-rules.sh VPS         # 只看 VPS 类
+#   bash scripts/rules/list-rules.sh
+#   bash scripts/rules/list-rules.sh IN          # 只看 IN 类
+#   bash scripts/rules/list-rules.sh DIRECT      # 只看 DIRECT 类
+#   bash scripts/rules/list-rules.sh VPS         # 只看 VPS 类
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+ROOT_DIR=$(cd "$SCRIPT_DIR/../.." && pwd)
 FILTER=${1:-}
 
-PYTHONPATH="$SCRIPT_DIR" python3 - "$FILTER" <<'PY'
+PYTHONPATH="$ROOT_DIR/scripts" python3 - "$FILTER" <<'PY'
 import sys
 from collections import defaultdict
 from lib import local_rules as lr
@@ -22,7 +23,7 @@ filter_target = lr.normalize_target(raw_filter) if raw_filter else None
 pool = lr.load_pool()
 
 if not pool:
-    print("本地池为空。用 `bash scripts/add-rule.sh <URL> <IN|DIRECT|VPS>` 加规则。")
+    print("本地池为空。用 `bash scripts/rules/add-rule.sh <URL> <IN|DIRECT|VPS>` 加规则。")
     sys.exit(0)
 
 groups = defaultdict(list)
@@ -64,5 +65,5 @@ for tgt in ORDER + [t for t in groups if t not in ORDER]:
 
 print("提示：")
 print("  · 这些规则当前已在本机 Mihomo Party 生效（本地优先级最高）")
-print("  · VPS 上还没同步；要全设备生效跑 `bash scripts/promote-to-vps.sh`")
+print("  · VPS 上还没同步；要全设备生效跑 `bash scripts/rules/promote-to-vps.sh`")
 PY
