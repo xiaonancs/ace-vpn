@@ -203,9 +203,11 @@ while IFS= read -r raw || [[ -n "$raw" ]]; do
     *) continue ;;
   esac
   # 与 speed-test.sh ep() 相同 write-out 字段（超时 25s）
-  out=$(curl -gLsS --max-time 25 -o /dev/null -A "$UA" \
+  if ! out=$(curl -gLsS --max-time 25 -o /dev/null -A "$UA" \
     -w '%{http_code}\t%{time_total}\t%{time_connect}\t%{time_appconnect}\t%{remote_ip}' \
-    "$line" 2>/dev/null || echo "000	na	na	na	-")
+    "$line" 2>/dev/null); then
+    out="000	na	na	na	-"
+  fi
   printf '%s\t%s\n' "$out" "$line"
 done < "$f"
 EOS
