@@ -1,7 +1,7 @@
 # 与 scripts/speed-test.sh 中 scenes() 探测地址保持大体一致（每行一个 URL）。
 # vps-watch-urls.sh 默认会合并本文件 + private/vps-watch-urls.txt（去重）。
-# 用于长期对比 HH / Vultr 时，控制在 20-30 个 URL：每 30 分钟 × 2 台 VPS × 20 天
-# 约 4-6 万条记录，足够判断稳定性，同时不会把单轮探测拖过 30 分钟。
+# 用于长期对比 HH / Vultr：每 30 分钟 × VPS 数量 × URL 数持续追加日志。
+# 列表尽量覆盖常用 Web / 手机 App API / CDN，同时避免把单轮探测拖过 30 分钟。
 
 # AI / LLM
 https://gemini.google.com/
@@ -32,6 +32,34 @@ https://x.com/
 https://discord.com/
 https://telegram.org/
 https://t.me/
+
+# Meta / Facebook（Web + mobile API/CDN）
+https://www.facebook.com/
+https://m.facebook.com/
+https://graph.facebook.com/
+https://b-graph.facebook.com/
+https://graph-fallback.facebook.com/
+https://connect.facebook.net/
+https://static.xx.fbcdn.net/
+https://scontent.xx.fbcdn.net/
+https://edge-mqtt.facebook.com/
+
+# Instagram（Web + mobile API/CDN）
+https://www.instagram.com/
+https://i.instagram.com/
+https://graph.instagram.com/
+https://gateway.instagram.com/
+https://static.cdninstagram.com/
+https://scontent.cdninstagram.com/
+https://lookaside.instagram.com/
+
+# WhatsApp（Web + mobile API/CDN）
+https://www.whatsapp.com/
+https://web.whatsapp.com/
+https://api.whatsapp.com/
+https://static.whatsapp.net/
+https://mmg.whatsapp.net/
+https://media.whatsapp.net/
 
 # Developer / common overseas
 https://github.com/
