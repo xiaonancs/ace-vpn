@@ -41,10 +41,11 @@
 |------|------|--------|
 | [`test/speed-test.sh`](test/speed-test.sh) | 测当前网络对 AI / cursor / youtube 等关键服务的延迟 + 带宽 | 怀疑网速慢、对比节点速度 |
 | [`test/diagnose.sh`](test/diagnose.sh) | 一次性收集 mihomo 状态 + 出口 IP + cursor 后端可达性 + cursor IDE 日志 | cursor / gemini 突然不能用，要把诊断信息整包发出去看 |
+| [`test/cursor-stability-probe.sh`](test/cursor-stability-probe.sh) | 从各 VPS 低频探测 Cursor 公开端点，统计失败率、慢请求、p95/p99、连续失败次数 | Cursor 在某个 VPS 上容易任务中断，怀疑长链路稳定性不好 |
 | [`test/ip-check.sh`](test/ip-check.sh) | 测当前出口 IP 在 Google / OpenAI / Anthropic 眼里是哪国 + 哪些 AI 服务能用 | 怀疑出口 IP 被某 AI 服务封了 |
 | [`test/check-xui-panel.sh`](test/check-xui-panel.sh) | 从本机 `curl -vk` 探测 3x-ui 面板 URL（TCP/TLS/HTTP 层） | 面板突然打不开，先区分是端口/路径/服务还是本地网络 |
 | [`test/vps-watch-urls.sh`](test/vps-watch-urls.sh) | SSH 到各 VPS，默认合并 `test/speed-test-endpoints.txt` + 可选 `private/vps-watch-urls.txt`，curl 指标与 `test/speed-test.sh` 一致；`--log` 写入单文件 | 每 30 分钟对比两台 VPS 出站（LaunchAgent 模板见 `scripts/launchd/`） |
-| [`test/vps-watch-summary.py`](test/vps-watch-summary.py) | 汇总 `vps-watch-urls.sh` 的 TSV 日志，输出全部记录、各 URL 成功率、median/p95/平均耗时、HH/Vultr 对比 | 长期运行后生成阶段性对比 |
+| [`test/vps-watch-summary.py`](test/vps-watch-summary.py) | 汇总 `vps-watch-urls.sh` 的 TSV 日志，输出整体 win/loss、成功率、超时率、2s+ 慢请求、平均耗时、median、p90/p95/p99、耗时分布、各 URL 对比 | 长期运行后生成阶段性对比 |
 | [`test/test-route.sh`](test/test-route.sh) | 给一个 URL，输出命中哪条规则 + 命中哪个组 + 实测延时 + 出口 IP | 想知道某站到底走的什么路径 |
 
 ### D. 仓库辅助
@@ -120,7 +121,11 @@ bash scripts/test/diagnose.sh
 # 2. 怀疑 IP 被某服务封了？专项测
 bash scripts/test/ip-check.sh
 
-# 3. 怀疑加的规则把自己卡死了？立刻回退
+# 3. 怀疑 Cursor 在某个 VPS 上偶发中断？低频专项探针
+bash scripts/test/cursor-stability-probe.sh --rounds 1 --log       # 先烟测
+bash scripts/test/cursor-stability-probe.sh --log                  # 默认 30 分钟，每 60 秒一轮
+
+# 4. 怀疑加的规则把自己卡死了？立刻回退
 bash scripts/rules/rollback-overrides.sh --last
 # 或者更狠
 bash scripts/rules/rollback-overrides.sh --disable
@@ -208,6 +213,8 @@ tail -f ~/Library/Logs/ace-vpn/vps-watch.log
 ```bash
 python3 scripts/test/vps-watch-summary.py
 ```
+
+重点看 `node_overview` 的 `win_loss`、`ok_rate`、`timeout_rate`、`slow_ge_2s`、`pain_rate`、`median`、`p95`、`p99`，以及 `node_latency_distribution` 里低延时区间占比。
 
 打印默认窗口内的**全部原始记录 + 汇总对比**：
 

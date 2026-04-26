@@ -17,6 +17,14 @@ from pathlib import Path
 
 
 DEFAULT_LOG = Path.home() / "Library" / "Logs" / "ace-vpn" / "vps-watch.log"
+SLOW_SECONDS = 2.0
+LATENCY_BUCKETS = (
+    ("lt_100ms", 0.1),
+    ("100_300ms", 0.3),
+    ("300_800ms", 0.8),
+    ("800ms_2s", 2.0),
+    ("ge_2s", None),
+)
 
 
 def parse_float(value: str) -> float | None:
@@ -56,6 +64,18 @@ def fmt_sec(value: float | None) -> str:
     if value < 1:
         return f"{value * 1000:.0f}ms"
     return f"{value:.2f}s"
+
+
+def fmt_pct(value: float | None) -> str:
+    if value is None:
+        return "-"
+    return f"{value * 100:.1f}%"
+
+
+def fmt_ratio(value: float | None) -> str:
+    if value is None:
+        return "-"
+    return f"{value:.1f}x"
 
 
 def read_rows(path: Path, since: dt.datetime | None) -> list[dict[str, object]]:
@@ -122,6 +142,145 @@ def summarize(rows: list[dict[str, object]]) -> list[dict[str, object]]:
     return summary
 
 
+def compare_by_url(summary: list[dict[str, object]]) -> list[dict[str, object]]:
+    by_url: dict[str, list[dict[str, object]]] = defaultdict(list)
+    for s in summary:
+        by_url[str(s["url"])].append(s)
+
+    comparisons: list[dict[str, object]] = []
+    for url, items in sorted(by_url.items()):
+        valid = [i for i in items if isinstance(i["median"], float)]
+        if not valid:
+            comparisons.append(
+                {
+                    "url": url,
+                    "winner": "-",
+                    "best_median": None,
+                    "second_median": None,
+                    "delta": None,
+                    "ok_winner": "-",
+                    "ok_winner_rate": None,
+                }
+            )
+            continue
+        valid.sort(key=lambda i: (float(i["median"]), -float(i["ok_rate"])))
+        best = valid[0]
+        second = valid[1] if len(valid) > 1 else None
+        best_ok_rate = max(float(i["ok_rate"]) for i in items)
+        ok_best_nodes = sorted(str(i["node"]) for i in items if float(i["ok_rate"]) == best_ok_rate)
+        ok_winner = ok_best_nodes[0] if len(ok_best_nodes) == 1 else "tie:" + ",".join(ok_best_nodes)
+        delta = None
+        if second and isinstance(second["median"], float):
+            delta = float(second["median"]) - float(best["median"])
+        comparisons.append(
+            {
+                "url": url,
+                "winner": str(best["node"]),
+                "best_median": best["median"],
+                "second_median": second["median"] if second else None,
+                "delta": delta,
+                "ok_winner": ok_winner,
+                "ok_winner_rate": best_ok_rate,
+            }
+        )
+    return comparisons
+
+
+def latency_bucket_name(value: float) -> str:
+    floor = 0.0
+    for name, upper in LATENCY_BUCKETS:
+        if upper is None or floor <= value < upper:
+            return name
+        floor = upper
+    return LATENCY_BUCKETS[-1][0]
+
+
+def node_overview(rows: list[dict[str, object]], comparisons: list[dict[str, object]]) -> list[dict[str, object]]:
+    nodes = sorted({str(r["node"]) for r in rows})
+    wins = {node: 0 for node in nodes}
+    losses = {node: 0 for node in nodes}
+    no_winner = 0
+
+    for cmp in comparisons:
+        winner = str(cmp["winner"])
+        if winner == "-":
+            no_winner += 1
+            continue
+        for node in nodes:
+            if node == winner:
+                wins[node] += 1
+            else:
+                losses[node] += 1
+
+    grouped: dict[str, list[dict[str, object]]] = defaultdict(list)
+    for row in rows:
+        grouped[str(row["node"])].append(row)
+
+    overview: list[dict[str, object]] = []
+    for node in nodes:
+        items = grouped[node]
+        totals = [r["total"] for r in items if isinstance(r["total"], float) and str(r["code"]) != "000"]
+        timeouts = sum(1 for r in items if str(r["code"]) == "000")
+        slow = sum(1 for total in totals if total >= SLOW_SECONDS)
+        median = statistics.median(totals) if totals else None
+        p99 = percentile(totals, 0.99)
+        p99_median_ratio = p99 / median if isinstance(p99, float) and isinstance(median, float) and median > 0 else None
+        overview.append(
+            {
+                "node": node,
+                "records": len(items),
+                "ok": len(totals),
+                "ok_rate": len(totals) / len(items) if items else 0,
+                "timeouts": timeouts,
+                "timeout_rate": timeouts / len(items) if items else 0,
+                "slow_ge_2s": slow,
+                "slow_rate": slow / len(items) if items else 0,
+                "pain_events": timeouts + slow,
+                "pain_rate": (timeouts + slow) / len(items) if items else 0,
+                "avg": statistics.mean(totals) if totals else None,
+                "median": median,
+                "p90": percentile(totals, 0.90),
+                "p95": percentile(totals, 0.95),
+                "p99": p99,
+                "p99_median_ratio": p99_median_ratio,
+                "best": min(totals) if totals else None,
+                "worst": max(totals) if totals else None,
+                "wins": wins[node],
+                "losses": losses[node],
+                "no_winner": no_winner,
+            }
+        )
+    return overview
+
+
+def node_latency_distribution(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    grouped: dict[str, list[dict[str, object]]] = defaultdict(list)
+    for row in rows:
+        grouped[str(row["node"])].append(row)
+
+    distributions: list[dict[str, object]] = []
+    for node, items in sorted(grouped.items()):
+        counts = {name: 0 for name, _ in LATENCY_BUCKETS}
+        timeouts = 0
+        total_ok = 0
+        for row in items:
+            total = row["total"]
+            if str(row["code"]) == "000" or not isinstance(total, float):
+                timeouts += 1
+                continue
+            total_ok += 1
+            counts[latency_bucket_name(total)] += 1
+        distributions.append(
+            {
+                "node": node,
+                "ok": total_ok,
+                "timeouts": timeouts,
+                **counts,
+            }
+        )
+    return distributions
+
+
 def print_records(rows: list[dict[str, object]]) -> None:
     print("# records")
     print("ts\tnode\tip\tcode\ttotal\ttcp\tssl\tremote_ip\turl")
@@ -160,6 +319,64 @@ def print_summary(rows: list[dict[str, object]], summary: list[dict[str, object]
     print(f"records: {len(rows)}")
     print()
 
+
+def print_node_overview(overview: list[dict[str, object]]) -> None:
+    print("# node_overview")
+    print(
+        "node\trecords\tok_rate\ttimeouts\ttimeout_rate\tslow_ge_2s\tpain_rate\tavg\tmedian\tp90\tp95\tp99\tp99/median\tbest\tworst\twin_loss"
+    )
+    for item in overview:
+        print(
+            "\t".join(
+                [
+                    str(item["node"]),
+                    str(item["records"]),
+                    fmt_pct(float(item["ok_rate"])),
+                    str(item["timeouts"]),
+                    fmt_pct(float(item["timeout_rate"])),
+                    str(item["slow_ge_2s"]),
+                    fmt_pct(float(item["pain_rate"])),
+                    fmt_sec(item["avg"] if isinstance(item["avg"], float) else None),
+                    fmt_sec(item["median"] if isinstance(item["median"], float) else None),
+                    fmt_sec(item["p90"] if isinstance(item["p90"], float) else None),
+                    fmt_sec(item["p95"] if isinstance(item["p95"], float) else None),
+                    fmt_sec(item["p99"] if isinstance(item["p99"], float) else None),
+                    fmt_ratio(item["p99_median_ratio"] if isinstance(item["p99_median_ratio"], float) else None),
+                    fmt_sec(item["best"] if isinstance(item["best"], float) else None),
+                    fmt_sec(item["worst"] if isinstance(item["worst"], float) else None),
+                    f"{item['wins']}:{item['losses']}",
+                ]
+            )
+        )
+    print()
+
+
+def print_latency_distribution(distributions: list[dict[str, object]]) -> None:
+    bucket_names = [name for name, _ in LATENCY_BUCKETS]
+    print("# node_latency_distribution")
+    print("\t".join(["node", "ok", "timeouts", *bucket_names]))
+    for item in distributions:
+        total_ok = int(item["ok"])
+        values = []
+        for name in bucket_names:
+            count = int(item[name])
+            pct = count / total_ok if total_ok else 0
+            values.append(f"{count} ({fmt_pct(pct)})")
+        print(
+            "\t".join(
+                [
+                    str(item["node"]),
+                    str(item["ok"]),
+                    str(item["timeouts"]),
+                    *values,
+                ]
+            )
+        )
+    print()
+
+
+def print_url_summary(summary: list[dict[str, object]]) -> None:
+    print("# url_summary")
     print("node\turl\tcount\tok_rate\ttimeouts\tmedian\tp95\tavg\tbest\tworst\tcodes")
     for s in summary:
         print(
@@ -168,7 +385,7 @@ def print_summary(rows: list[dict[str, object]], summary: list[dict[str, object]
                     str(s["node"]),
                     str(s["url"]),
                     str(s["count"]),
-                    f"{float(s['ok_rate']) * 100:.1f}%",
+                    fmt_pct(float(s["ok_rate"])),
                     str(s["timeouts"]),
                     fmt_sec(s["median"] if isinstance(s["median"], float) else None),
                     fmt_sec(s["p95"] if isinstance(s["p95"], float) else None),
@@ -179,37 +396,25 @@ def print_summary(rows: list[dict[str, object]], summary: list[dict[str, object]
                 ]
             )
         )
-
-
-def print_comparison(summary: list[dict[str, object]]) -> None:
-    by_url: dict[str, list[dict[str, object]]] = defaultdict(list)
-    for s in summary:
-        by_url[str(s["url"])].append(s)
-
     print()
+
+
+def print_comparison(comparisons: list[dict[str, object]]) -> None:
     print("# comparison_by_url")
     print("url\twinner_by_median\tbest_median\tsecond_median\tdelta\twinner_by_ok_rate")
-    for url, items in sorted(by_url.items()):
-        valid = [i for i in items if isinstance(i["median"], float)]
-        if not valid:
-            print(f"{url}\t-\t-\t-\t-\t-")
-            continue
-        valid.sort(key=lambda i: (float(i["median"]), -float(i["ok_rate"])))
-        best = valid[0]
-        second = valid[1] if len(valid) > 1 else None
-        ok_best = max(items, key=lambda i: float(i["ok_rate"]))
-        delta = None
-        if second and isinstance(second["median"], float):
-            delta = float(second["median"]) - float(best["median"])
+    for cmp in comparisons:
+        ok_rate = cmp["ok_winner_rate"]
+        ok_winner = str(cmp["ok_winner"])
+        ok_text = "-" if ok_rate is None else f"{ok_winner} ({fmt_pct(float(ok_rate))})"
         print(
             "\t".join(
                 [
-                    url,
-                    str(best["node"]),
-                    fmt_sec(best["median"] if isinstance(best["median"], float) else None),
-                    fmt_sec(second["median"] if second and isinstance(second["median"], float) else None),
-                    fmt_sec(delta),
-                    f"{ok_best['node']} ({float(ok_best['ok_rate']) * 100:.1f}%)",
+                    str(cmp["url"]),
+                    str(cmp["winner"]),
+                    fmt_sec(cmp["best_median"] if isinstance(cmp["best_median"], float) else None),
+                    fmt_sec(cmp["second_median"] if isinstance(cmp["second_median"], float) else None),
+                    fmt_sec(cmp["delta"] if isinstance(cmp["delta"], float) else None),
+                    ok_text,
                 ]
             )
         )
@@ -228,8 +433,12 @@ def main() -> int:
     if args.records:
         print_records(rows)
     summary = summarize(rows)
+    comparisons = compare_by_url(summary)
     print_summary(rows, summary)
-    print_comparison(summary)
+    print_node_overview(node_overview(rows, comparisons))
+    print_latency_distribution(node_latency_distribution(rows))
+    print_url_summary(summary)
+    print_comparison(comparisons)
     return 0
 
 

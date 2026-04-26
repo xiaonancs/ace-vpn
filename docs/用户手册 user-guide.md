@@ -1156,11 +1156,22 @@ cd ~/workspace/cursor-base/ace-vpn
 python3 scripts/test/vps-watch-summary.py
 ```
 
-输出会包含三块：
+输出会包含几块：
 
 - `summary`：总体范围、节点、URL 数、记录数；
-- 按 `node + url` 聚合的成功率、超时次数、median、p95、平均耗时；
+- `node_overview`：每台 VPS 的整体成功率、超时率、`slow_ge_2s`、`pain_rate`、平均耗时、median、p90/p95/p99、最好/最差耗时，以及 `win_loss`；
+- `node_latency_distribution`：每台 VPS 的耗时分布，例如 `<100ms`、`100-300ms`、`300-800ms`、`800ms-2s`、`>=2s`；
+- `url_summary`：按 `node + url` 聚合的成功率、超时次数、median、p95、平均耗时；
 - `comparison_by_url`：每个 URL 上 HH / Vultr 谁的 median 更低，以及谁成功率更高。
+
+看哪个 VPS 更适合当默认节点，优先看：
+
+- `win_loss`：赢的 URL 越多越好；
+- `ok_rate` / `timeouts`：成功率越高、超时越少越好；
+- `median` / `p95` / `p99`：日常体感看 median，卡顿风险看 p95/p99；
+- `slow_ge_2s` / `pain_rate`：衡量偶发慢请求和超时，越低越稳定；
+- `p99/median`：尾延迟放大倍数，越高说明越容易偶发卡顿；
+- `node_latency_distribution`：`lt_100ms`、`100_300ms` 占比越高越好，`ge_2s` 越少越好。
 
 如果想把最近 30 天的**所有原始记录**也一起打印出来：
 
@@ -1242,6 +1253,38 @@ rm ~/Library/Logs/ace-vpn/vps-watch.log
 - `total` 是否明显偏高；
 - HH / Vultr 谁的 median / p95 更低；
 - 哪台成功率更高。
+
+### 13.8 Cursor 专项稳定性探针
+
+如果普通测速看起来 HH 比 Vultr 快，但实际用 Cursor 时 HH 更容易任务中断，可以单独跑 Cursor 探针：
+
+```bash
+cd ~/workspace/cursor-base/ace-vpn
+source private/env.sh
+bash scripts/test/cursor-stability-probe.sh --rounds 1 --log
+```
+
+确认能跑通后，再跑默认 30 分钟版本：
+
+```bash
+bash scripts/test/cursor-stability-probe.sh --log
+```
+
+这个探针默认每 60 秒一轮，每轮每台 VPS 只探测 4 个 Cursor 公开端点：`cursor.com`、`api2.cursor.sh`、`api3.cursor.sh`、`repo42.cursor.sh`。它默认用 `HEAD` 请求，只取响应头；不带 Cookie、不带 API Key、不发模型请求，只测 DNS/TCP/TLS/TTFB/总耗时、curl 退出码、慢请求和连续失败次数，避免给 Cursor 账号或服务造成压力。
+
+重点看输出里的：
+
+- `fail_rate`：curl 连接失败 / 超时 / reset 比例；
+- `slow_rate`：超过慢请求阈值的比例，默认阈值是 10 秒；
+- `p95` / `p99` / `worst`：尾延迟，越高越容易出现体感卡顿；
+- `max_consecutive_failures`：连续失败次数，这个最接近“任务中断”的风险；
+- `exit_codes`：`0` 是 curl 成功；`28` 常见为超时，`35/56` 常见为 TLS 或连接中途断开。
+
+日志默认写到：
+
+```bash
+~/Library/Logs/ace-vpn/cursor-stability-probe.log
+```
 
 ---
 
