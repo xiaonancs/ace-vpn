@@ -72,6 +72,31 @@ bash scripts/test/test-route.sh https://portal.corp-a.example/
 - **VPS 热加载**：每次 HTTP 订阅请求自动重读 YAML，不用重启 systemd
 - 客户端刷新订阅即生效（Mac / iPhone / Windows / Android）
 
+### 🛡️ 更新服务端代码（`sub-converter.py`）— 带 validator、滚动备份、自动回滚
+
+改完本地 `scripts/server/sub-converter.py` 别直接 scp，用**安全推送脚本**（推前 3 关 + 推后 3 关 + 5 份滚动备份 + 失败自动回滚）：
+
+```bash
+# 本地三层预校验（py_compile + dry import + 语义 validator），不推远端
+bash scripts/rules/sync-subconverter.sh --dry-run
+
+# 推全部 VPS（每台备份当前版 → 原子替换 → restart → healthz → 拉真实 YAML 再校验）
+bash scripts/rules/sync-subconverter.sh
+
+# 只推某一台
+bash scripts/rules/sync-subconverter.sh --vps hosthatch
+
+# 改坏了从备份一键回滚（不用 git 不用 scp）
+bash scripts/rules/sync-subconverter.sh --rollback
+
+# 独立跑 validator，校验任意一份 mihomo YAML 配置
+python3 scripts/server/validate-config.py <yaml-file>          # 文件模式
+curl -s http://<VPS>:25500/clash/<tok> | python3 \
+  scripts/server/validate-config.py -                           # pipe 模式
+```
+
+validator 覆盖的 mihomo 字段联动硬校验（截至 2026-04-28）：`respect-rules ↔ proxy-server-nameserver` / `fake-ip ↔ fake-ip-range` / `default-nameserver 必须是 IP` / `proxy-groups & rules 引用的 target 存在` / `MATCH 兜底` 等 —— 专门拦"语法对但语义错"的组合，详见 [开发者日志 §2.-1](docs/开发者日志.md#2-1-2026-04-28-晚-安全推送工具链validate-configpy--sync-subconvertersh5-份滚动备份--自动回滚) + [§4.C.5](docs/开发者日志.md#4c5-2026-04-28-sub-converterpy-推送无备份无校验--改坏--全军覆没-)。
+
 ### ⚡ 本地规则池（Mac 即时加规则，攒后批量推 VPS）
 
 日常发现某个域名要走代理 / 直连 / 内网，不想每条都立刻惊动 VPS 和家人客户端：
@@ -145,6 +170,7 @@ DNS / 凭据都不会进本仓库 git 历史**。详见 [private/README.md](priv
 - **2026-04-24** intranet schema 重构：明确"真·内网 / SaaS / 零信任网关"三类域名分类，`profiles.<>.domains` 只放公网解不到的内网域名，公网公司域名（SaaS 应用、零信任网关后挂的内部服务）改放 `extra.cn`。`sub-converter.py` 给 `extra.cn` 强制配国内 UDP 公网 DNS（`119.29.29.29` + `223.5.5.5`），并加进 `fake-ip-filter`，避免默认 DoH 经海外 PROXY 解析到海外 CDN 节点 IP 导致 TLS 握手卡死。`promote-to-vps.sh` 默认 local-wins + 冲突日志，`sync-intranet.sh` VPS 端自动滚动备份最近 5 份 `intranet.yaml`。详见 [ACE 架构设计 §7 DNS 设计](docs/ACE架构设计.md#7-dns-设计) + [开发者日志 §4.A.6/4.A.7/4.A.8](docs/开发者日志.md#4a6-2026-04-24-把零信任--saas-公网域名误当成真内网域名-)
 - **2026-04-25** 文档体系重构：`开发者日志.md` 改为"开发者日志"（按"新增功能 / 性能优化 / 踩坑分类"组织 14 个功能时间线 + 7 项性能优化 + 16 个踩坑按 DNS / 部署 / 客户端三类归档）；`ACE架构设计.md` 改为"ACE 架构设计"（吸收 VPS 选型 / 部署 / sub-converter / 客户端分发 / DNS / 规则系统 / 多设备同步等系统级章节，新增「规则系统：更新/同步/冲突」「多设备/多云端同步」两节专门讲 add-rule → promote → sync 流水线和多 Mac / 多 VPS 协作）
 - **2026-04-28** AI 长流式响应稳定性修复：`sub-converter.py` 新增 `OVERSEAS_DOH` + `AI_STREAMING_DOMAINS` 常量，覆盖 Cursor / Claude Code / Codex / OpenCode / Gemini / Copilot / Perplexity / Mistral / DeepSeek 等主流 AI 域名，强制 DNS 走境外 DoH（`1.1.1.1` / `8.8.8.8` / `dns.cloudflare.com`）+ 加入 `fake-ip-filter` 防假 IP 缓存；新增顶层 `sniffer` 段（HTTP/TLS/QUIC `override-destination: true`），修复 fake-ip 模式下 Cursor agent 长流偶发的 "SNI mismatch → RST" 断连；`dns.respect-rules: true` 让 DNS 解析遵从 rules 分流决策。所有 mihomo 端（Mac / iPhone / 家人端）刷订阅即生效，不依赖客户端 override。详见 [开发者日志 §4.A.9](docs/开发者日志.md#4a9-2026-04-28-cursor--claude-code--codex-等-ai-长流式响应被-dns-污染断连-)
+- **2026-04-28 晚** 安全推送工具链：新增 `scripts/server/validate-config.py`（独立的 mihomo YAML 语义校验器，拦 `respect-rules` ↔ `proxy-server-nameserver` 等联动问题）+ `scripts/rules/sync-subconverter.sh`（推前本地三关校验 + 远端 5 份滚动备份 + 原子替换 + 推后 healthz + YAML 二次校验 + 任一失败自动回滚 + `--rollback` 独立模式）。新增 `PROXY_SERVER_DNS` 常量修复 `respect-rules: true` 下缺 `proxy-server-nameserver` 导致客户端 `Profile Check Failed` 的 bug。从此 `sub-converter.py` 推送永远不会留下"改坏了、回不去了"的 VPS。详见 [开发者日志 §2.-1](docs/开发者日志.md#2-1-2026-04-28-晚-安全推送工具链validate-configpy--sync-subconvertersh5-份滚动备份--自动回滚) + [§4.A.10](docs/开发者日志.md#4a10-2026-04-28-respect-rules-true-必须配-proxy-server-nameserver4a9-的后续坑-) + [§4.C.5](docs/开发者日志.md#4c5-2026-04-28-sub-converterpy-推送无备份无校验--改坏--全军覆没-)
 
 ## 📄 许可
 

@@ -97,6 +97,33 @@ OVERSEAS_DOH = [
     "https://dns.cloudflare.com/dns-query",
 ]
 
+# proxy-server-nameserver 专用 DNS：解析 PROXY 节点的 server 字段（域名 → IP）。
+#
+# mihomo 强制要求：`dns.respect-rules: true` 开启时此字段必须非空，否则
+# Clash Party 会报 "if respect-rules is turned on, proxy-server-nameserver
+# cannot be empty" → 订阅 profile check failed。原因：开 respect-rules 后普通
+# DNS 解析要经过 rules 分流，但 proxy server 自己的解析不能经过 rules（否则
+# 鸡生蛋：要走 proxy 必须先解析它，但解析又要经过 rules，而 rules 最终又指向
+# proxy），所以 mihomo 需要一个独立的 bootstrap nameserver。
+#
+# 特别约束：主机部分必须是 IP（不能是 dns.google / dns.cloudflare.com 这样的
+# 域名，否则 bootstrap 阶段没法递归解析，会死锁）。这也是为什么不能直接复用
+# OVERSEAS_DOH（它里面 2/3 是域名型 DoH）。
+#
+# 组合策略（按优先级）：
+#   1. https://1.1.1.1/dns-query      境外加密，主机 IP 化，不被污染
+#   2. https://8.8.8.8/dns-query      境外加密，主机 IP 化，备线路
+#   3. 223.5.5.5                      国内明文 UDP，bootstrap 兜底（防境外 DoH
+#                                     首包丢失时连不上 proxy）
+#
+# 对用 SERVER_OVERRIDE（IP 直连）的部署，这个字段只是满足校验，实际不被用到；
+# 对 server 字段是域名的部署（动态 DDNS / 托管解析），这个字段是真正必要的。
+PROXY_SERVER_DNS = [
+    "https://1.1.1.1/dns-query",
+    "https://8.8.8.8/dns-query",
+    "223.5.5.5",
+]
+
 # AI 长流式响应域名白名单：DNS 强制境外 DoH + 加入 fake-ip-filter。
 # 这些域名的共同点是「agent/chat 模式的长连接流式输出」，对 DNS 污染和
 # RST 注入最敏感。路由层走 🚀 PROXY 即可（保持既有）；DNS 层单独强化。
@@ -598,6 +625,9 @@ def build_clash_yaml(proxies: List[Dict[str, Any]], intranet: Dict[str, Any]) ->
                 "https://dns.google/dns-query",
             ],
             "fallback-filter": {"geoip": True, "geoip-code": "CN"},
+            # 解析 PROXY 节点 server 字段用的 bootstrap DNS，respect-rules:true
+            # 必配（见 PROXY_SERVER_DNS 注释）。主机必须是 IP。
+            "proxy-server-nameserver": list(PROXY_SERVER_DNS),
         },
         # sniffer：fake-ip 模式下嗅探 TLS SNI / HTTP Host / QUIC，拿到真实域名后
         # 按 nameserver-policy 重新选择 DNS 服务器。不开的话 AI 域名虽然有 policy
