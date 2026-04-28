@@ -81,6 +81,57 @@ SERVER_OVERRIDE = os.environ.get("SERVER_OVERRIDE", "").strip()
 # Mihomo 把它们当成 DIRECT 直连解析（绕过 PROXY 节点），永远拿到国内视角的 IP。
 CN_PUBLIC_DNS = ["119.29.29.29", "223.5.5.5"]
 
+# AI / 境外流式域名强制使用的"境外 DoH"，对称于 CN_PUBLIC_DNS（见 §4.A.9）。
+#
+# 为什么必须强制？Mihomo 默认 nameserver 是国内 DoH（doh.pub / dns.alidns.com）。
+# 解析境外 AI 域名（Cursor / Anthropic / OpenAI / Gemini 等）时：
+#   1. 国内 DoH 有时命中污染记录 → getaddrinfo ENOTFOUND（今天 Cursor log 里的那种）
+#   2. 或返回 CDN 边缘的国内节点 → 被 RST 注入 / TLS 握手卡死
+#   3. fallback-filter 需要整轮 RT 才能纠正 → 首次连接多 100-500ms 延迟
+# 境外域名直接用境外 DoH 解析，一次成、无污染、延迟稳定。
+#
+# DoH 走代理节点出去（mihomo 默认行为），跨境加密，不会被中间设备看到解析内容。
+OVERSEAS_DOH = [
+    "https://1.1.1.1/dns-query",
+    "https://dns.google/dns-query",
+    "https://dns.cloudflare.com/dns-query",
+]
+
+# AI 长流式响应域名白名单：DNS 强制境外 DoH + 加入 fake-ip-filter。
+# 这些域名的共同点是「agent/chat 模式的长连接流式输出」，对 DNS 污染和
+# RST 注入最敏感。路由层走 🚀 PROXY 即可（保持既有）；DNS 层单独强化。
+#
+# 按平台分类，便于后续增减：
+AI_STREAMING_DOMAINS = [
+    # Cursor
+    "cursor.sh", "cursor.com", "cursorapi.com", "cursor-cdn.com",
+    # Anthropic / Claude (Claude.ai / Claude Code CLI)
+    "anthropic.com", "claude.ai", "claudeusercontent.com",
+    # OpenAI (ChatGPT / Codex CLI / API)
+    "openai.com", "chatgpt.com", "oaistatic.com", "oaiusercontent.com",
+    "auth0.openai.com",
+    # Google AI (Gemini / AI Studio)
+    "gemini.google.com", "bard.google.com", "aistudio.google.com",
+    "generativelanguage.googleapis.com", "makersuite.google.com",
+    "notebooklm.google.com", "labs.google",
+    # GitHub Copilot
+    "githubcopilot.com", "copilot-proxy.githubusercontent.com",
+    # xAI / Grok
+    "x.ai", "grok.com",
+    # Perplexity
+    "perplexity.ai", "pplx.ai",
+    # 开源 / 轻量 AI 平台
+    "mistral.ai", "cohere.com", "cohere.ai",
+    "huggingface.co", "hf.co",
+    "replicate.com", "replicate.delivery",
+    "groq.com",
+    "together.ai", "together.xyz",
+    "fireworks.ai",
+    "deepseek.com",
+    # OpenCode / 其他 AI 编码工具
+    "opencode.ai",
+]
+
 _SSL_CONTEXT = ssl.create_default_context()
 _SSL_CONTEXT.check_hostname = False
 _SSL_CONTEXT.verify_mode = ssl.CERT_NONE
@@ -484,6 +535,8 @@ def build_clash_yaml(proxies: List[Dict[str, Any]], intranet: Dict[str, Any]) ->
             "listen": "0.0.0.0:1053",
             "enhanced-mode": "fake-ip",
             "fake-ip-range": "198.18.0.1/16",
+            # 让 DNS 解析遵从 rules 分流决策（和下面 sniffer 配合最精确）
+            "respect-rules": True,
             # 关键：内网域名必须跳过 fake-ip，否则 Clash 会给它们发 198.18.x.x 假 IP，
             # 导致 DIRECT 规则命中后拿不到真实 IP，连接被 RST。
             # *.lan / *.local 是默认黑名单，+ 开头表示匹配该域名及其所有子域
@@ -496,6 +549,11 @@ def build_clash_yaml(proxies: List[Dict[str, Any]], intranet: Dict[str, Any]) ->
                 # extra.cn 也跳过 fake-ip：避免 Mihomo fake-ip 反查路径上某些客户端
                 # 实现把 nameserver-policy 绕过去，导致 DIRECT 真实解析仍走默认 DoH
                 *[f"+.{sfx}" for sfx in (intranet.get("extra_cn") or [])],
+                # AI 流式域名跳过 fake-ip：避免 agent/CLI 客户端把 198.18.x.x 缓存到磁盘，
+                # 订阅换节点 / 网络变化后这些假 IP 不会自动失效（见 §4.A.9）
+                *[f"+.{sfx}" for sfx in AI_STREAMING_DOMAINS],
+                # extra.overseas 同理：用户手加的代理域名大多是 AI / 长连接类
+                *[f"+.{sfx}" for sfx in (intranet.get("extra_overseas") or [])],
             ],
             # 关键：内网域名用 profile 里配的 dns_servers（例如公司 VPN 下发的
             # 10.x.x.x 内网 DNS），回落到 "system"。用具体 DNS 能绕过 Mihomo /
@@ -505,6 +563,9 @@ def build_clash_yaml(proxies: List[Dict[str, Any]], intranet: Dict[str, Any]) ->
             #
             # extra.cn 域名强制走 CN_PUBLIC_DNS（国内 UDP 公网 DNS）：
             # 见 CN_PUBLIC_DNS 注释，避免 default DoH 经 PROXY 拿到海外 IP。
+            #
+            # AI_STREAMING_DOMAINS + extra.overseas 强制走 OVERSEAS_DOH（境外 DoH）：
+            # 见 OVERSEAS_DOH 注释（§4.A.9），避免国内 DoH 污染境外 AI 域名。
             "nameserver-policy": {
                 **{
                     f"+.{sfx}": (
@@ -518,6 +579,15 @@ def build_clash_yaml(proxies: List[Dict[str, Any]], intranet: Dict[str, Any]) ->
                     f"+.{sfx}": list(CN_PUBLIC_DNS)
                     for sfx in (intranet.get("extra_cn") or [])
                 },
+                **{
+                    f"+.{sfx}": list(OVERSEAS_DOH)
+                    for sfx in AI_STREAMING_DOMAINS
+                },
+                **{
+                    f"+.{sfx}": list(OVERSEAS_DOH)
+                    for sfx in (intranet.get("extra_overseas") or [])
+                    if sfx not in AI_STREAMING_DOMAINS  # 去重，AI 内置优先
+                },
             },
             "nameserver": [
                 "https://doh.pub/dns-query",
@@ -528,6 +598,32 @@ def build_clash_yaml(proxies: List[Dict[str, Any]], intranet: Dict[str, Any]) ->
                 "https://dns.google/dns-query",
             ],
             "fallback-filter": {"geoip": True, "geoip-code": "CN"},
+        },
+        # sniffer：fake-ip 模式下嗅探 TLS SNI / HTTP Host / QUIC，拿到真实域名后
+        # 按 nameserver-policy 重新选择 DNS 服务器。不开的话 AI 域名虽然有 policy
+        # 也生效不了（因为流量进来时只有 fake-IP、没有域名信息）（见 §4.A.9）。
+        #
+        # override-destination: true 让 mihomo 用嗅探到的真实 SNI 作为目标域名
+        # 重写连接目的地，修复 Cursor / Anthropic 长流偶发的 "SNI mismatch → RST"。
+        "sniffer": {
+            "enable": True,
+            "parse-pure-ip": True,
+            "force-dns-mapping": True,
+            "override-destination": True,
+            "sniff": {
+                "HTTP": {
+                    "ports": [80, 443, 8080, 8443],
+                    "override-destination": True,
+                },
+                "TLS": {
+                    "ports": [443, 8443],
+                    "override-destination": True,
+                },
+                "QUIC": {
+                    "ports": [443, 8443],
+                    "override-destination": True,
+                },
+            },
         },
         "tun": {
             "enable": False,

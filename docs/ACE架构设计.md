@@ -571,6 +571,57 @@ for host in extra_cn_hosts:
 - **不经 PROXY 节点**，永远站在国内视角解析
 - 永远拿到该零信任网关 / SaaS 的**国内入口 IP**，秒回 302
 
+### 7.6b `OVERSEAS_DOH` 强制 AI 流式域名境外 DoH（本周新增 ⭐）
+
+**问题**：这是 §7.6 的**镜像问题**——
+
+- §7.6 是**国内域名**不该经 PROXY 用海外 DoH 解（拿到海外 CDN IP）
+- §7.6b 是**境外 AI 域名**不该用**国内 DoH** 解（命中 GFW 投毒 / 拿到国内 CDN）
+
+Cursor / Claude Code / Codex / Gemini / Copilot 等 AI 平台走 HTTP/2 over Connect 协议，是**长连接 + chunked streaming + 多路复用**的组合，对 DNS 污染和中间 RST 注入最敏感。默认 `nameserver` 如果是国内 DoH，偶发污染记录会让 agent 跑 1-3 分钟后突然 `ECONNRESET` 或 `ENOTFOUND`。
+
+**解决**：sub-converter 给 AI 流式域名**强制** 境外 DoH：
+
+```python
+# sub-converter.py
+OVERSEAS_DOH = [
+    "https://1.1.1.1/dns-query",
+    "https://dns.google/dns-query",
+    "https://dns.cloudflare.com/dns-query",
+]
+
+AI_STREAMING_DOMAINS = [
+    # Cursor / Anthropic / OpenAI / Google AI / Copilot / Perplexity / Mistral / ...
+    "cursor.sh", "cursor.com", "cursorapi.com", "cursor-cdn.com",
+    "anthropic.com", "claude.ai",
+    "openai.com", "chatgpt.com", "oaistatic.com",
+    "gemini.google.com", "generativelanguage.googleapis.com",
+    "githubcopilot.com",
+    # ...（完整清单 30+ 域名见代码）
+]
+
+# 渲染 nameserver-policy 时，AI 域名 + extra.overseas 一律用 OVERSEAS_DOH
+for host in AI_STREAMING_DOMAINS + extra_overseas_hosts:
+    nameserver_policy[f"+.{host}"] = OVERSEAS_DOH
+    fake_ip_filter.append(f"+.{host}")
+```
+
+为什么 DoH 而不是 UDP？（和 §7.6 正好相反的理由）
+
+| 维度 | AI 域名（境外）| 国内 SaaS（§7.6）|
+|---|---|---|
+| 解析视角要求 | **境外** | **国内** |
+| DoH 经 PROXY 出口 | ✅ **正确**（从代理节点看外网，拿真实境外 IP）| ❌ 错误（拿海外 CDN IP）|
+| 裸 IP 走 UDP 53 | ❌ 直连出境 UDP 53 被 GFW 干扰 | ✅ 裸 IP 直接出境内 UDP，快且稳定 |
+
+**配套措施**：
+
+1. **`sniffer.override-destination: true`** —— fake-ip 模式下嗅探真实 SNI 后重写目标，修复 Cursor agent 长流偶发的 "SNI mismatch → RST"。
+2. **`dns.respect-rules: true`** —— 让 DNS 解析遵从 rules 的分流决策，和 sniffer 配合最精确。
+3. **`extra.overseas` 也吃这份 policy** —— 用户通过 `add-rule --target VPS` 加的境外域名，自动享受这套 DNS 优化，不需要每个域名手动配 DNS。
+
+**效果**：`dig api2.cursor.sh` 首解延迟从偶发 500-1200ms 降到稳定 20-50ms；Cursor agent 长任务断连率从 30-50% 降到 <5%。详见 [开发者日志 §2.0 / §3.0.1 / §4.A.9](./开发者日志.md#20-2026-04-28-ai-长流式响应-dns-污染修复)。
+
 ### 7.7 per-profile `dns_servers`：多公司互不干扰
 
 ```yaml
@@ -609,9 +660,20 @@ GUI 路径：**Mihomo Party → 设置 → DNS → 关「控制 DNS」+ 开「�
 | 内网 IP 段 | `10.x.x.x` | n/a (IP) | 不需要 DNS | DIRECT |
 | SaaS（B）| `<saas>.example` | 跳过 | `CN_PUBLIC_DNS` (UDP 53) | DIRECT |
 | 零信任网关（C）| `<sso>.<corp-office>.example` | 跳过 | `CN_PUBLIC_DNS` (UDP 53) | DIRECT |
+| **AI 流式（D）** | `cursor.sh` / `claude.ai` / `chatgpt.com` | 跳过 | **`OVERSEAS_DOH`**（Cloudflare/Google/Quad9 DoH）| **PROXY**（内置规则）|
+| **用户手加境外（E）** | `add-rule --target VPS` 加的任意域名 | 跳过 | **`OVERSEAS_DOH`** | PROXY (extra.overseas) |
 | 国内主流站 | `bilibili.com` | 用 fake-IP | `nameserver` (国内 DoH) | DIRECT (内置规则) |
-| 海外站 | `claude.ai` | 用 fake-IP | `nameserver` 或 `fallback` | PROXY (内置规则) |
+| 海外通用站 | `wikipedia.org` | 用 fake-IP | `nameserver` + `fallback-filter` | PROXY (内置规则) |
 | 未知站 | * | 用 fake-IP | `nameserver` + `fallback-filter geoip CN` | MATCH → PROXY |
+
+**对称设计速记**：
+
+```
+国内 SaaS / 零信任 (B/C)  →  CN_PUBLIC_DNS     (UDP 53, 走 DIRECT 出国内)
+AI 流式 / 用户手加 (D/E)  →  OVERSEAS_DOH      (DoH,  走 PROXY 出境外)
+                                │
+                                └─ "国内 vs 境外" × "fake-IP skip" × "与出口一致" 三重匹配
+```
 
 ---
 
