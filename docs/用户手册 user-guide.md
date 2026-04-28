@@ -13,6 +13,7 @@ ace-vpn 不是普通 VPN，是一套"自己当运营商"的家庭网络分流系
 | 能力 | 一句话 | 详细 |
 |------|--------|------|
 | 🌐 **三网段智能分流** | 公司内网（IN）/ 国内（DIRECT）/ 海外（VPS）三种链路自动选 | [§7 三选一速查](#7-如何自定义新增-url-和规则) · [§9.3 规则优先级](#sub-converter-规则优先级) |
+| 🤖 **AI 长流式响应稳定** | Cursor agent / Claude Code / Codex / Gemini / Copilot 等 HTTP/2 长流式 AI 自动走境外 DoH + sniffer 改写 SNI，不再偶发 ECONNRESET / ENOTFOUND，30+ AI 域名开箱即用 | 订阅即享，无需配置 · [开发者日志 §4.A.9](./开发者日志.md) |
 | 📱 **跨四端零差异** | Mac / Windows / iPhone / iPad / Android 同一份订阅 URL，规则全自动同步 | [§3](#3-mac-配置) / [§4](#4-iphone-与-ipad) / [§5](#5-windows-配置家人版) / [§6](#6-android-手机与平板) |
 | ⚡ **一条命令加规则** | `bash scripts/rules/add-rule.sh <URL_OR_HOST> <IN\|DIRECT\|VPS> [HOST] [--note "..."]` 秒级生效 | [§7](#7-如何自定义新增-url-和规则) |
 | 🔄 **本地优先 + 全设备同步** | Mac 本地池立即生效，攒一周一键 promote 到 VPS，全家人订阅自动刷新 | [§9.3 设计原则](#设计原则) |
