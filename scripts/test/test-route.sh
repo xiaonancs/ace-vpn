@@ -146,7 +146,7 @@ else
 fi
 
 # ─────────────── [3/3] 代理实测 ───────────────
-hdr "[3/3] 通过本机代理实测延时（$LOCAL_PROXY）"
+hdr "[3/3] 通过本机代理实测延时（${LOCAL_PROXY}）"
 
 # 先检查代理是否在跑
 if ! curl -sS --max-time 2 -o /dev/null -x "$LOCAL_PROXY" "http://captive.apple.com/" 2>/dev/null; then
