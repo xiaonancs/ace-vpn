@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  ace-vpn · Mihomo Party runtime config self-healing patch.
+
+  Mihomo Party may regenerate work/config.yaml on app start / profile switch /
+  core reload and force:
+    tcp-concurrent: false
+    find-process-mode: strict
+
+  This LaunchAgent watches the Party runtime config and base template, then
+  runs scripts/common-tools/patch-mihomo-party.sh to set:
+    tcp-concurrent: true
+    find-process-mode: off
+
+  Install:
+    cp scripts/launchd/ace-vpn.patch-mihomo-party.example.plist \
+      ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.patch-mihomo-party.plist
+    sed -i '' -e "s#__REPO_ROOT__#$(pwd)#g" -e "s#__HOME__#$HOME#g" \
+      ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.patch-mihomo-party.plist
+    launchctl load ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.patch-mihomo-party.plist
+    launchctl start com.xiaonancs.ace-vpn.patch-mihomo-party
+
+  Uninstall:
+    launchctl unload ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.patch-mihomo-party.plist
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.xiaonancs.ace-vpn.patch-mihomo-party</string>
+
+  <key>WorkingDirectory</key>
+  <string>__REPO_ROOT__</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>scripts/common-tools/patch-mihomo-party.sh</string>
+  </array>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>WatchPaths</key>
+  <array>
+    <string>__HOME__/Library/Application Support/mihomo-party/mihomo.yaml</string>
+    <string>__HOME__/Library/Application Support/mihomo-party/work/config.yaml</string>
+  </array>
+
+  <!-- Backstop in case WatchPaths misses an atomic rewrite. -->
+  <key>StartInterval</key>
+  <integer>60</integer>
+
+  <key>StandardOutPath</key>
+  <string>__HOME__/Library/Logs/ace-vpn/mihomo-party-patch.launchd.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>__HOME__/Library/Logs/ace-vpn/mihomo-party-patch.launchd.err</string>
+</dict>
+</plist>

@@ -56,6 +56,7 @@
 | [`lib/local_rules.py`](lib/local_rules.py) | python 库：本地规则池的读 / 写 / 渲染 / promote / mihomo reload。被 add-rule / list-rules / apply-local-overrides / promote-to-vps / rollback-overrides 共用 |
 | [`git-hooks/`](git-hooks/) | pre-commit hook，防止 private/ 下敏感文件误推到 GitHub |
 | [`common-tools/sg-tunnel.sh`](common-tools/sg-tunnel.sh) | 临时 SOCKS5 跳板（例如注册 Oracle Cloud 时用新加坡出口） |
+| [`common-tools/patch-mihomo-party.sh`](common-tools/patch-mihomo-party.sh) | 修复 Clash/Mihomo Party 重生成 `work/config.yaml` 时把 `tcp-concurrent` / `find-process-mode` 改坏的问题 |
 
 ---
 
@@ -206,6 +207,41 @@ launchctl start com.xiaonancs.ace-vpn.vps-watch-urls
 
 ```bash
 tail -f ~/Library/Logs/ace-vpn/vps-watch.log
+```
+
+### Mihomo Party 重载后自愈补丁
+
+如果 Rule + TUN 下 GitHub clone / Cursor 明显慢，而 Global + TUN 同节点很快，先看：
+
+```bash
+grep -nE '^tcp-concurrent:|^find-process-mode:' \
+  ~/Library/Application\ Support/mihomo-party/work/config.yaml
+```
+
+期望是：
+
+```text
+tcp-concurrent: true
+find-process-mode: off
+```
+
+Mihomo Party 有时会在启动 / 切 profile / reload 时把运行配置重生成成 `tcp-concurrent: false`、`find-process-mode: strict`。安装自愈 LaunchAgent：
+
+```bash
+cp scripts/launchd/ace-vpn.patch-mihomo-party.example.plist \
+  ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.patch-mihomo-party.plist
+
+sed -i '' -e "s#__REPO_ROOT__#$(pwd)#g" -e "s#__HOME__#$HOME#g" \
+  ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.patch-mihomo-party.plist
+
+launchctl load ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.patch-mihomo-party.plist
+launchctl start com.xiaonancs.ace-vpn.patch-mihomo-party
+```
+
+它会监听 Party 的 `mihomo.yaml` / `work/config.yaml`，发现被改坏就自动 patch 并 reload mihomo core。日志：
+
+```bash
+tail -f ~/Library/Logs/ace-vpn/mihomo-party-patch.log
 ```
 
 随时汇总最近 30 天（默认窗口为 30 天）：
