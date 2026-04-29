@@ -36,6 +36,37 @@
   - 境内常用（抖音/淘宝/B 站/微博/QQ/百度，内置）→ DIRECT
   - GEOIP CN → DIRECT
   - MATCH → 🐟 FINAL（默认代理，可手动切直连）
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DNS 层决策矩阵（source of truth）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+背景：enhanced-mode: fake-ip 是全局默认，**所有未进 fake-ip-filter
+的域名都返回 198.18.x.x 假 IP**。这张表决定谁进 filter、谁用什么 DNS。
+
+┌──────────────────────────┬──────────┬──────────────┬──────────────────────┐
+│ 域名类别                 │ routing  │ fake-ip 策略 │ nameserver-policy    │
+├──────────────────────────┼──────────┼──────────────┼──────────────────────┤
+│ intranet.domains         │ DIRECT   │ ✅ 跳过      │ 公司内网 DNS (10.x)  │
+│ extra.cn                 │ DIRECT   │ ✅ 跳过      │ CN_PUBLIC_DNS (UDP)  │
+│ CHINA_DIRECT             │ DIRECT   │ ✅ 跳过      │ 无 (默认国内 DoH)    │
+│ AI_STREAMING_DOMAINS     │ PROXY    │ ✅ 跳过*     │ OVERSEAS_DOH         │
+│ extra.overseas           │ PROXY    │ ✅ 跳过*     │ OVERSEAS_DOH         │
+│ SOCIAL_PROXY             │ PROXY    │ ❌ 保留      │ (无 policy，不需要)  │
+│ MEDIA_PROXY              │ PROXY    │ ❌ 保留      │ (无 policy，不需要)  │
+│ MATCH (fallback)         │ FINAL    │ ❌ 保留      │ -                    │
+└──────────────────────────┴──────────┴──────────────┴──────────────────────┘
+
+核心不变式（记 3 条就够）：
+  1. 走 **DIRECT** 的域名 **必须** 跳过 fake-ip
+     浏览器最终要本地直连，fake-IP 没法连，走 sniff 重解析链路偶发死锁
+  2. 走 **PROXY** 的普通域名 **保留** fake-ip（Clash 默认就是这样用的）
+     本地不解析，域名原样送 PROXY 节点，由节点所在地 DNS 解析
+     → 规避国内 DoH 污染、规避 DoH 首包鸡生蛋、性能最优
+  3. 走 **PROXY 但 CLI/agent 会用** 的域名 **例外跳过** fake-ip (*)
+     Cursor/Claude Code/Codex 会把 DNS 结果缓存到磁盘，fake-IP 池洗牌
+     后假 IP 指向别的域名 → agent 崩溃且不自愈
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 import base64
 import http.server
@@ -564,23 +595,26 @@ def build_clash_yaml(proxies: List[Dict[str, Any]], intranet: Dict[str, Any]) ->
             "fake-ip-range": "198.18.0.1/16",
             # 让 DNS 解析遵从 rules 分流决策（和下面 sniffer 配合最精确）
             "respect-rules": True,
-            # 关键：内网域名必须跳过 fake-ip，否则 Clash 会给它们发 198.18.x.x 假 IP，
-            # 导致 DIRECT 规则命中后拿不到真实 IP，连接被 RST。
-            # *.lan / *.local 是默认黑名单，+ 开头表示匹配该域名及其所有子域
+            # fake-ip-filter：列在这里的域名走真实 DNS，其他域名返回 198.18.x.x 假 IP。
+            # 决策规则见本文件顶部"DNS 层决策矩阵"：走 DIRECT 必须跳过，走 PROXY 但被
+            # CLI/agent 使用的域名例外跳过，其他走 PROXY 的默认保留 fake-ip。
+            # *.lan / *.local 是 Mihomo 默认黑名单保留项；"+." 前缀 = 匹配该域名及所有子域。
             "fake-ip-filter": [
+                # — 系统/局域网必需 —
                 "*.lan",
                 "*.local",
-                "+.msftconnecttest.com",
-                "+.msftncsi.com",
-                *[f"+.{sfx}" for sfx in intranet["domains"]],
-                # extra.cn 也跳过 fake-ip：避免 Mihomo fake-ip 反查路径上某些客户端
-                # 实现把 nameserver-policy 绕过去，导致 DIRECT 真实解析仍走默认 DoH
-                *[f"+.{sfx}" for sfx in (intranet.get("extra_cn") or [])],
-                # AI 流式域名跳过 fake-ip：避免 agent/CLI 客户端把 198.18.x.x 缓存到磁盘，
-                # 订阅换节点 / 网络变化后这些假 IP 不会自动失效（见 §4.A.9）
-                *[f"+.{sfx}" for sfx in AI_STREAMING_DOMAINS],
-                # extra.overseas 同理：用户手加的代理域名大多是 AI / 长连接类
-                *[f"+.{sfx}" for sfx in (intranet.get("extra_overseas") or [])],
+                "+.msftconnecttest.com",  # Windows 网络连通性检测（走系统默认 DNS）
+                "+.msftncsi.com",          # 同上
+                # — DIRECT 类（必须跳过，见不变式 #1） —
+                *[f"+.{sfx}" for sfx in intranet["domains"]],          # 公司内网
+                *[f"+.{sfx}" for sfx in (intranet.get("extra_cn") or [])],  # 用户 promote 强制直连
+                *[f"+.{sfx}" for sfx in CHINA_DIRECT],                 # 国内大站 (baidu/taobao/...)
+                # — PROXY 类例外（CLI 缓存坑，见不变式 #3） —
+                *[f"+.{sfx}" for sfx in AI_STREAMING_DOMAINS],         # Cursor / Claude Code / Codex / Gemini 等
+                *[f"+.{sfx}" for sfx in (intranet.get("extra_overseas") or [])],  # 用户 promote 走代理（多半也是 CLI）
+                # — 其他走 PROXY 的域名（SOCIAL_PROXY / MEDIA_PROXY）不在这里 —
+                #   保留 fake-ip 是 Clash 经典设计：本地不解析，域名原样送节点，
+                #   由节点所在地 DNS 解析，规避国内 DoH 污染 + 规避 DoH 鸡生蛋。
             ],
             # 关键：内网域名用 profile 里配的 dns_servers（例如公司 VPN 下发的
             # 10.x.x.x 内网 DNS），回落到 "system"。用具体 DNS 能绕过 Mihomo /
