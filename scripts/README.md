@@ -42,6 +42,8 @@
 | [`test/speed-test.sh`](test/speed-test.sh) | 测当前网络对 AI / cursor / youtube 等关键服务的延迟 + 带宽 | 怀疑网速慢、对比节点速度 |
 | [`test/diagnose.sh`](test/diagnose.sh) | 一次性收集 mihomo 状态 + 出口 IP + cursor 后端可达性 + cursor IDE 日志 | cursor / gemini 突然不能用，要把诊断信息整包发出去看 |
 | [`test/cursor-stability-probe.sh`](test/cursor-stability-probe.sh) | 从各 VPS 低频探测 Cursor 公开端点，统计失败率、慢请求、p95/p99、连续失败次数 | Cursor 在某个 VPS 上容易任务中断，怀疑长链路稳定性不好 |
+| [`test/ai-stability-probe.sh`](test/ai-stability-probe.sh) | 从各 VPS 低频探测 Gemini/Google AI、Claude/Claude Code、OpenAI/ChatGPT/Codex、Cursor、出口 IP 地理库；可选启用 API Key 鉴权与真实流式调用测试 | HH / Vultr 必须二选一，或评估是否要换更贵但更稳的厂商 |
+| [`test/ai-stability-summary.py`](test/ai-stability-summary.py) | 汇总 `ai-stability-probe.sh` 日志，输出节点稳定性评分与各 AI 服务明细 | AI 专项稳定性测试跑完后生成决策依据 |
 | [`test/ip-check.sh`](test/ip-check.sh) | 测当前出口 IP 在 Google / OpenAI / Anthropic 眼里是哪国 + 哪些 AI 服务能用 | 怀疑出口 IP 被某 AI 服务封了 |
 | [`test/check-xui-panel.sh`](test/check-xui-panel.sh) | 从本机 `curl -vk` 探测 3x-ui 面板 URL（TCP/TLS/HTTP 层） | 面板突然打不开，先区分是端口/路径/服务还是本地网络 |
 | [`test/vps-watch-urls.sh`](test/vps-watch-urls.sh) | SSH 到各 VPS，默认合并 `test/speed-test-endpoints.txt` + 可选 `private/vps-watch-urls.txt`，curl 指标与 `test/speed-test.sh` 一致；`--log` 写入单文件 | 每 30 分钟对比两台 VPS 出站（LaunchAgent 模板见 `scripts/launchd/`） |
@@ -126,11 +128,53 @@ bash scripts/test/ip-check.sh
 bash scripts/test/cursor-stability-probe.sh --rounds 1 --log       # 先烟测
 bash scripts/test/cursor-stability-probe.sh --log                  # 默认 30 分钟，每 60 秒一轮
 
-# 4. 怀疑加的规则把自己卡死了？立刻回退
+# 4. HH / Vultr 只能二选一？看 AI 业务稳定性而不是普通延迟
+bash scripts/test/ai-stability-probe.sh --rounds 1 --log           # 先烟测
+bash scripts/test/ai-stability-probe.sh --duration-hours 24 --interval-sec 900 --log  # 建议 15 分钟一轮
+python3 scripts/test/ai-stability-summary.py
+
+# 可选：测试真实 API Key 鉴权；如再打开 REAL_CALLS，会做 max token/output=1 的最小调用与 SSE 流式返回
+export AI_PROBE_ENABLE_KEY_TESTS=1
+# export AI_PROBE_ENABLE_REAL_CALLS=1
+# export OPENAI_API_KEY=...
+# export ANTHROPIC_API_KEY=...
+# export GEMINI_API_KEY=...
+bash scripts/test/ai-stability-probe.sh --rounds 1 --log
+
+# macOS 长跑模板（默认 72 小时，每 15 分钟一轮）
+cp scripts/launchd/ace-vpn.ai-stability-probe.example.plist \
+  ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.ai-stability-probe.plist
+sed -i '' "s#__REPO_ROOT__#$(pwd)#g" \
+  ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.ai-stability-probe.plist
+launchctl load ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.ai-stability-probe.plist
+launchctl start com.xiaonancs.ace-vpn.ai-stability-probe
+
+# 5. 怀疑加的规则把自己卡死了？立刻回退
 bash scripts/rules/rollback-overrides.sh --last
 # 或者更狠
 bash scripts/rules/rollback-overrides.sh --disable
 ```
+
+AI 稳定性测试和普通延时测试的目标不同。普通延时测试主要回答“平时快不快”：记录
+`total/connect/tls/ttfb`，看中位数、p95/p99 和慢请求，适合比较节点速度。AI 稳定性测试
+回答“关键 AI 服务会不会突然不可用”：它从每台 VPS 直接探测 Gemini/Google AI、Claude/
+Claude Code、OpenAI/ChatGPT/Codex、Cursor 后端，以及 `ip.sb` / `ipwho.is` / `ipapi.is` /
+Cloudflare trace 等 IP 地理库。
+
+`ai-stability-probe.sh` 每条记录会保留：
+
+- `curl_exit`：连接、DNS、TLS、超时等传输层失败。
+- `http_code` + `expected_ok`：是否命中预期状态码。例如未带 token 的 OpenAI
+  `/v1/models` 返回 `401` 是正常的，不算失败。
+- `slow`：是否超过慢请求阈值，默认 5 秒。
+- `block_hint`：响应内容是否出现地区限制、验证码、风控、限流等提示。
+- `geo_*`：IP 地理库是否和预期国家不一致。例如日本节点被 `ip.sb` 标成 `US` 会记为
+  `geo_US_expected_JP`。
+- 连续坏样本：用于判断是否是持续性不稳定，而不是单次抖动。
+
+最终 `ai-stability-summary.py` 计算 `stability_score`，分数越低越好。评分对失败、非预期
+状态码、风控提示、国家库错判的权重高于普通延时；延时只作为次要因素。因此“平均更快”的
+节点不一定更适合作 AI 主节点，长期 `bad_rate=0`、没有风控和地理库漂移更重要。
 
 ### 工作流 3：怀疑节点速度慢
 

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  ace-vpn · AI stability probe.
+
+  Runs one long low-rate AI stability test from each VPS in VPS_IP_LIST.
+  Default here: 72 hours, one round every 900 seconds.
+
+  Install:
+    cp scripts/launchd/ace-vpn.ai-stability-probe.example.plist \
+      ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.ai-stability-probe.plist
+    sed -i '' "s#__REPO_ROOT__#$(pwd)#g" \
+      ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.ai-stability-probe.plist
+    launchctl load ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.ai-stability-probe.plist
+    launchctl start com.xiaonancs.ace-vpn.ai-stability-probe
+
+  Report:
+    python3 scripts/test/ai-stability-summary.py
+
+  Stop:
+    launchctl unload ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.ai-stability-probe.plist
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.xiaonancs.ace-vpn.ai-stability-probe</string>
+
+  <key>WorkingDirectory</key>
+  <string>__REPO_ROOT__</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>AI_PROBE_DURATION_HOURS</key>
+    <string>72</string>
+    <key>AI_PROBE_INTERVAL_SEC</key>
+    <string>900</string>
+    <key>AI_PROBE_EXPECTED_COUNTRY_HOSTHATCH</key>
+    <string>JP</string>
+    <key>AI_PROBE_EXPECTED_COUNTRY_VULTR</key>
+    <string>JP</string>
+  </dict>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>-lc</string>
+    <string>source private/env.sh &amp;&amp; exec bash scripts/test/ai-stability-probe.sh --log</string>
+  </array>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/hexiaonan/Library/Logs/ace-vpn/ai-stability-probe.launchd.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/hexiaonan/Library/Logs/ace-vpn/ai-stability-probe.launchd.err</string>
+</dict>
+</plist>
