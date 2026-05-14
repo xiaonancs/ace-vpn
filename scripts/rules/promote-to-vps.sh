@@ -83,7 +83,7 @@ for line in d.get("conflict_log") or []:
 unk = d.get("unknown") or []
 if unk:
     print()
-    print("   ⚠ 以下条目 target 无法识别，已跳过（请用 IN / DIRECT / VPS）：")
+    print("   ⚠ 以下条目 target 无法识别，已跳过（请用 IN / DIRECT / EXTRA_CN / VPS）：")
     for host, tgt in unk:
         print("      · %s ← %r" % (host, tgt))
 '

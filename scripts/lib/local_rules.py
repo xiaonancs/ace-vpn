@@ -6,16 +6,18 @@
 local-rules.yaml schema:
     rules:
       - host: foo.com
-        target: IN | DIRECT | VPS         # IN=内网, DIRECT=普通直连, VPS=走 VPS 代理出去
+        target: IN | DIRECT | EXTRA_CN | VPS   # EXTRA_CN＝同订阅 extra.cn（国内公网 UDP DNS）
         note: "..."
         added: "2026-04-21 16:00"
 
 target 语义：
-    IN      → 公司内网 DOMAIN-SUFFIX,host,DIRECT + nameserver-policy 走内网 DNS
-    DIRECT  → DOMAIN-SUFFIX,host,DIRECT（普通直连，国内站误判修正用）
-    VPS     → DOMAIN-SUFFIX,host,🚀 PROXY（走 VPS 代理出去；新 AI / 新海外站）
+    IN       → 公司内网 DOMAIN-SUFFIX,host,DIRECT + nameserver-policy 走内网 DNS
+    DIRECT   → DOMAIN-SUFFIX,host,DIRECT（普通直连，国内站误判修正用）
+    EXTRA_CN → 同 sub-converter extra.cn：DIRECT + fake-ip-filter + 119.29.29.29 / 223.5.5.5
+    VPS      → DOMAIN-SUFFIX,host,🚀 PROXY（走 VPS 代理出去；新 AI / 新海外站）
 
 为兼容老数据，加载时会把 intranet→IN / cn→DIRECT / overseas→VPS 自动 normalize。
+（「cn」仍是 DIRECT；要用 extra.cn DNS 语义请写 EXTRA_CN 或 extra_cn。）
 
 Mihomo Party override 渲染目标：
     ~/Library/Application Support/mihomo-party/override.yaml         # 注册表
@@ -60,23 +62,31 @@ BUILTIN_TARGETS = {"DIRECT", "REJECT", "REJECT-DROP", "PASS", "COMPATIBLE", "GLO
 # 三种 target 对应的 proxy group 名（与 sub-converter.py 输出保持一致）
 PROXY_GROUP_VPS = "🚀 PROXY"  # 必须与 sub-converter.py 输出的 group name 一致！
 
-# 用户面向的 target 名（命令行 / yaml 字段值 / UI 输出 一律这三个）
+# 与 scripts/server/sub-converter.py 的 CN_PUBLIC_DNS 保持一致（extra.cn 域名）。
+CN_PUBLIC_DNS = ["119.29.29.29", "223.5.5.5"]
+
+# 用户面向的 target 名（命令行 / yaml 字段值 / UI 输出）
 TARGET_IN = "IN"          # 公司内网
 TARGET_DIRECT = "DIRECT"  # 普通直连
+# 同订阅 extra.cn：国内 UDP DNS，覆盖父域 IN 的「+.父域 → 10.x DNS」。
+# 注意：勿用单字母 target「cn」表达此类——「cn」老语义是 DIRECT（与国内直连混淆）。
+TARGET_EXTRA_CN = "EXTRA_CN"
 TARGET_VPS = "VPS"        # 走 VPS 代理出去
 
-VALID_TARGETS = {TARGET_IN, TARGET_DIRECT, TARGET_VPS}
+VALID_TARGETS = {TARGET_IN, TARGET_DIRECT, TARGET_EXTRA_CN, TARGET_VPS}
 
 # 兼容老数据 + 大小写无关。用户输入 / 老 yaml 文件全部归一化到大写
 _TARGET_ALIASES = {
     "in": TARGET_IN, "intranet": TARGET_IN, "internal": TARGET_IN,
     "direct": TARGET_DIRECT, "cn": TARGET_DIRECT, "china": TARGET_DIRECT,
+    "extra_cn": TARGET_EXTRA_CN, "extra-cn": TARGET_EXTRA_CN, "extracn": TARGET_EXTRA_CN,
+    "public_cn": TARGET_EXTRA_CN, "cn_dns": TARGET_EXTRA_CN,
     "vps": TARGET_VPS, "overseas": TARGET_VPS, "proxy": TARGET_VPS, "oversea": TARGET_VPS,
 }
 
 
 def normalize_target(raw: str | None) -> str | None:
-    """把用户输入 / 老 yaml 的 target 字符串归一到 IN/DIRECT/VPS。
+    """把用户输入 / 老 yaml 的 target 字符串归一到 IN/DIRECT/EXTRA_CN/VPS。
     无法识别返回 None。"""
     if not raw:
         return None
@@ -122,7 +132,7 @@ def _atomic_write(path: Path, content: str) -> None:
 # ─────────────────────────────────────────────────────────────────
 
 def load_pool() -> list[dict]:
-    """读取本地池。同时把老的 target 字符串（intranet/cn/overseas）归一到 IN/DIRECT/VPS。"""
+    """读取本地池。同时把老的 target 字符串（intranet/cn/overseas）归一到 IN/DIRECT/EXTRA_CN/VPS。"""
     data = _load_yaml(LOCAL_RULES_PATH, default={}) or {}
     rules = data.get("rules") or []
     out = []
@@ -161,8 +171,8 @@ def save_pool(rules: list[dict]) -> None:
 
 
 def add_rule(host: str, target: str, note: str = "") -> tuple[bool, str]:
-    """加一条规则到本地池。target 接受 IN/DIRECT/VPS（大小写无关，
-    也接受老名 intranet/cn/overseas）。
+    """加一条规则到本地池。target 接受 IN/DIRECT/CN/VPS（大小写无关），
+    也接受老名 intranet/cn/overseas，以及 extra_cn 等 CN 别名。
 
     返回 (added, message)：
       - added=True 表示新增；False 表示已存在/被跳过
@@ -173,7 +183,7 @@ def add_rule(host: str, target: str, note: str = "") -> tuple[bool, str]:
 
     norm = normalize_target(target)
     if norm is None:
-        return False, f"target 必须是 IN / DIRECT / VPS，给的是 '{target}'"
+        return False, f"target 必须是 IN / DIRECT / EXTRA_CN / VPS，给的是 '{target}'"
     target = norm
 
     pool = load_pool()
@@ -242,7 +252,8 @@ def render_override_yaml(pool: list[dict]) -> str:
             - 10.x.x.x
     """
     in_hosts = []
-    other_rules = []
+    other_rules: list[tuple[str, str]] = []
+    cn_hosts: list[str] = []
 
     for r in pool:
         host = r["host"]
@@ -251,12 +262,15 @@ def render_override_yaml(pool: list[dict]) -> str:
         comment = f"  # {note}" if note else ""
 
         if target == TARGET_IN:
-            other_rules.append(f"DOMAIN-SUFFIX,{host},DIRECT{comment}")
+            other_rules.append((host, f"DOMAIN-SUFFIX,{host},DIRECT{comment}"))
             in_hosts.append(host)
+        elif target == TARGET_EXTRA_CN:
+            other_rules.append((host, f"DOMAIN-SUFFIX,{host},DIRECT{comment}"))
+            cn_hosts.append(host)
         elif target == TARGET_DIRECT:
-            other_rules.append(f"DOMAIN-SUFFIX,{host},DIRECT{comment}")
+            other_rules.append((host, f"DOMAIN-SUFFIX,{host},DIRECT{comment}"))
         elif target == TARGET_VPS:
-            other_rules.append(f"DOMAIN-SUFFIX,{host},{PROXY_GROUP_VPS}{comment}")
+            other_rules.append((host, f"DOMAIN-SUFFIX,{host},{PROXY_GROUP_VPS}{comment}"))
         # 未知 target 静默跳过
 
     lines: list[str] = [
@@ -285,27 +299,42 @@ def render_override_yaml(pool: list[dict]) -> str:
         return "\n".join(lines) + "\n"
 
     lines.append("+rules:")
-    for r in other_rules:
+    # 更具体的子域必须排在父域前面，避免父域规则抢先命中
+    # 需要专属 DNS policy 的子域例外。
+    for _, r in sorted(other_rules, key=lambda item: (item[0].count("."), len(item[0])), reverse=True):
         lines.append(f"  - {r}")
 
-    if in_hosts:
+    if in_hosts or cn_hosts:
         dns_servers = get_active_intranet_dns()
+        lines.append("")
+        lines.append("tun:")
+        lines.append("  dns-hijack:")
+        lines.append("    - any:53")
         lines.append("")
         lines.append("dns:")
         lines.append("  +fake-ip-filter:")
+        for h in cn_hosts:
+            lines.append(f'    - "+.{h}"')
         for h in in_hosts:
             lines.append(f'    - "+.{h}"')
 
-        if dns_servers:
-            lines.append("  nameserver-policy:")
-            for h in in_hosts:
-                # key 含 + 号，必须用 <> 包裹（Mihomo Party 语法）
-                lines.append(f'    "<+.{h}>":')
-                for s in dns_servers:
-                    lines.append(f"      - {s}")
-        else:
+        if in_hosts and not dns_servers:
             lines.append("  # ⚠ intranet.yaml 当前 enabled profile 没配 dns_servers")
             lines.append("  # IN 类规则只 prepend 了 fake-ip-filter，DNS 仍走系统")
+
+        if (in_hosts and dns_servers) or cn_hosts:
+            lines.append("  nameserver-policy:")
+            # 同样让子域例外策略先于父域内网策略，避免 order-sensitive 客户端误匹配。
+            for h in cn_hosts:
+                lines.append(f'    "<+.{h}>":')
+                for s in CN_PUBLIC_DNS:
+                    lines.append(f"      - {s}")
+            if in_hosts and dns_servers:
+                for h in in_hosts:
+                    # key 含 + 号，必须用 <> 包裹（Mihomo Party 语法）
+                    lines.append(f'    "<+.{h}>":')
+                    for s in dns_servers:
+                        lines.append(f"      - {s}")
 
     return "\n".join(lines) + "\n"
 
@@ -707,7 +736,7 @@ def merge_local_pool_into_intranet_object(intra: dict, pool: list[dict]) -> tupl
             _append_unique_ci(ov, host)
             extra["overseas"] = ov
             after_str = "extra.overseas (VPS)"
-        else:
+        elif target in (TARGET_DIRECT, TARGET_EXTRA_CN):
             extra = intra.get("extra")
             if not isinstance(extra, dict):
                 intra["extra"] = {}
@@ -715,7 +744,9 @@ def merge_local_pool_into_intranet_object(intra: dict, pool: list[dict]) -> tupl
             cn = list(extra.get("cn") or [])
             _append_unique_ci(cn, host)
             extra["cn"] = cn
-            after_str = "extra.cn (DIRECT)"
+            after_str = "extra.cn (DIRECT / EXTRA_CN)"
+        else:
+            raise ValueError(f"unexpected target {target!r}")
 
         if not before_locs:
             conflict_log.append(f"  · 新增 {host} → {after_str}")
