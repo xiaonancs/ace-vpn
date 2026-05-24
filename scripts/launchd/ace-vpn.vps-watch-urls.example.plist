@@ -11,7 +11,7 @@
             ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.vps-watch-urls.plist
     2. 编辑 plist，把 __REPO_ROOT__ 换成你本机 ace-vpn 路径，例如：
          /Users/hexiaonan/workspace/publish/ace-vpn
-    3. 确保 private/env.sh 已设 VPS_SSH_KEY，且两台 VPS 已 ssh-copy-id 免密
+    3. 确保 private/env.sh 已设 VPS_SSH_KEY，且 VPS_IP_LIST 内各节点已 ssh-copy-id 免密
     4. private/vps-watch-urls.txt 可选（仅额外 URL）；不建则只测 speed-test-endpoints.txt
     5. 加载定时任务：
          launchctl load ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.vps-watch-urls.plist

@@ -2,7 +2,8 @@
 # ace-vpn · 多 VPS 同步前置检查（只读，绝对不改任何东西）
 #
 # 用途：
-#   在动手把 hosthatch 的设置同步到 vultr 之前，先确认两台机器的真实状态。
+#   在 sync/promote 到多台 VPS 之前，先确认 env.sh 里 VPS_IP_LIST 各节点 SSH / 服务状态。
+#   （2026-05-21 起 Vultr 已 Destroy，通常仅 hosthatch 一项。）
 #   全程只读 / 只 ssh 拉信息，不改 VPS 任何文件。
 #
 # 用法：
