@@ -22,6 +22,7 @@ ace-vpn 不是普通 VPN，是一套"自己当运营商"的家庭网络分流系
 | 🔍 **一键诊断** | `bash scripts/test/test-route.sh <URL>` 输出规则命中 / DNS / TCP / TLS / TTFB 全链路 | [§9.1 换机同步](#91仅管理员换机同步拉两个仓库--symlink--pre-commit) |
 | 🛡️ **公私分离 + pre-commit hook** | 真实公司域名 / VPS 凭据全在私有仓库，public 仓库 hook 拦截泄漏 | [`private/README.md`](../private/README.md) |
 | 🚨 **三层安全网，永远不会"自己把自己网砍了"** | 加规则前 pre-flight 校验 + 自动备份 + 一键 `rollback-overrides.sh` 回退 | [§9.4](#94仅管理员安全网应急回退别让一条坏规则把自己的网砍了) |
+| 🆘 **VPS IP 被 GFW 封一键换** | `bash scripts/deploy/migrate-vps.sh --from <name> --to <NEW_IP>` 自动迁 3x-ui / SubId / sub-converter，家人只改一次订阅 IP | [§9.5](#95仅管理员vps-ip-被-gfw-封紧急换-ip--反封禁硬化) |
 
 > 家人只需要看 §3-§6 装 App 粘订阅 URL，剩下全自动。  
 > 中级用户（自己想加规则）看 §7。  
@@ -536,6 +537,7 @@ Tun Mode 开着 Cursor 就能访问 Claude/OpenAI，不用额外配。如果个�
 > | 换工作 / 兼职多家 / 离职保留旧公司配置 | [§9.2](#92仅管理员换公司内网改一次-yaml全家生效) |
 > | 单机即时加规则、积累后批量推 VPS | [§9.3](#93仅管理员本地规则池单机即时加规则积累后批量推-vps) |
 > | 加规则后突然全网炸了 / 想立即"回到上一个能上网的版本" | [§9.4](#94仅管理员安全网应急回退别让一条坏规则把自己的网砍了) |
+> | VPS IP 被 GFW 封了，要紧急换 IP 而且不想让家人重装订阅 | [§9.5](#95仅管理员vps-ip-被-gfw-封紧急换-ip--反封禁硬化) |
 
 ---
 
@@ -885,6 +887,169 @@ Mihomo Party 监听到文件没了会重新只加载订阅，秒级恢复。
 - **第三保险**：`--disable` 直接绕开本地 override，等于"本地池不存在"，订阅原样工作
 
 > ⚠ **VPS 那条线还没接入这套校验**：`promote-to-vps.sh` 把规则推到 VPS 后由 sub-converter 重生成订阅。如果想加同等强度的"VPS 端 pre-flight + 自动 rollback"，需要改 `sync-intranet.sh` 在 VPS 上备份 `intranet.yaml.bak` + 推送后调 `/healthz` 验证，失败就 ssh 回滚。这个还没做，目前 VPS 端依赖 promote 时本地 sub-converter 的 dry-run（如果本地能解析就大概率 VPS 也能）。短期建议：**promote 后立即在浏览器开 `http://VPS_IP:25500/healthz` 看一眼计数对不对**，然后再让家人刷订阅。
+
+---
+
+### 9.5（仅管理员）VPS IP 被 GFW 封：紧急换 IP + 反封禁硬化
+
+> **背景故事**（也是真事）：HostHatch JP 那台 VPS 用了三个月，某天突然全家 VPN 断网。
+> 排查发现：从大陆 ping IP 完全不通、SSH 22 也不通——**这台机器在大陆完全失联**，
+> 是 GFW 把整个 IP 加了黑名单。手忙脚乱地买了新 IP、装 3x-ui、抄 SubId、改面板路径……
+> 一个下午没了。
+>
+> 这一节把这套流程压成两条命令：一条"一键换 IP"，一条"硬化新 IP 减少被封概率"。
+
+#### 一、定期备份（事前预防，必跑）
+
+VPS 被封那一刻 SSH 也连不进，**没有本地最近备份就只能从零重建**（家人全员换 SubId）。所以**先把定期备份挂起来**：
+
+```bash
+# 手动跑一次（先确认能拉到东西）：
+bash scripts/test/backup-vps-state.sh
+
+# 看一眼备份长啥样：
+ls -la private/migration-backup/hosthatch/
+# → 20260601-110203/  里面有 x-ui.db / credentials / sub.service / intranet.yaml
+```
+
+挂 cron 每 6 小时跑一次（备份落在本机 `private/migration-backup/`，公开仓库已 gitignore）：
+
+```bash
+# 编辑 crontab：crontab -e（注意 cron 环境要显式给 PATH）
+PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+0 */6 * * * cd ~/workspace/publish/ace-vpn && /bin/bash scripts/test/backup-vps-state.sh >/tmp/ace-vpn-backup.log 2>&1
+```
+
+> ⚠ `private/migration-backup/` 含 x-ui.db（含 reality 私钥）。本机备份已足够覆盖"IP 被封"场景（Mac 还活着即可重建）。
+> 想要异地 git 冷备（防 Mac 损坏），加 `--commit`，但**前提是 `private/` 整目录本身是指向 ace-vpn-private 私库的 symlink**；当前结构里只有 env.sh / intranet.yaml 等单个文件是 symlink，整目录是本地目录，所以 `--commit` 暂不生效。永远不要把它推进 ace-vpn 公开仓库（`.gitignore` 默认已禁）。
+
+#### 二、被封后：一键换 IP
+
+##### 场景 A：旧机 SSH 还能通（GFW 只封了代理协议，没封 22）
+
+```bash
+# 1. 在新 VPS 厂商那边开一台新机，配好 root SSH（你的公钥 → ~/.ssh/authorized_keys）
+# 2. 跑：
+bash scripts/deploy/migrate-vps.sh --from hosthatch --to 203.0.113.10
+
+# 脚本会：
+#   ① 自动备份旧机 x-ui.db / credentials / sub.service / intranet.yaml
+#   ② rsync ace-vpn 仓库到新机
+#   ③ 远程跑 install.sh + install-sub-converter.sh
+#   ④ 把旧机 x-ui.db 还原到新机（reality 密钥 + SubId 全部保留 → 客户端只换 IP）
+#   ⑤ 改 env.sh 的 VPS_IP_LIST：hosthatch:旧IP → hosthatch:新IP，git commit + push
+#   ⑥ 验证新机 /healthz + /clash/<token> 的 server 字段是新 IP
+
+# 演练（什么都不改）：
+bash scripts/deploy/migrate-vps.sh --from hosthatch --to NEW_IP --dry-run
+```
+
+##### 场景 B：旧机在大陆完全失联（最常见）
+
+GFW 通常**封整个 IP 的所有 TCP**，所以 22 端口也不通。这种情况下：
+
+```bash
+# 优先级 1：用最近一次自动备份（事前预防到位时；路径是 私库/migration-backup/<vps名>/<时间戳>/）
+bash scripts/deploy/migrate-vps.sh --to NEW_IP \
+     --from-backup private/migration-backup/hosthatch/20260601-120233
+
+# 优先级 2：借一台 SSH 跳板（ProxyJump）去连旧机
+# --via 跟具体厂商无关，它就是个跳板。原理：
+#     你的 Mac ──直连──▶ 跳板机 ──境外→境外（不过 GFW）──▶ 旧机
+# 跳板机可以是任何一台还活着的境外主机：另一台 VPS / 新买的那台新机 / 朋友的服务器都行。
+bash scripts/deploy/migrate-vps.sh --from hosthatch --to NEW_IP \
+     --via root@<任意能连旧机的境外主机>
+# 脚本里所有"拉旧机文件"的 ssh / scp 都自动加上 -o ProxyJump=<上面那台>
+# 两个前提：① 你的 Mac 能 SSH 到跳板机（它 IP 没被封）
+#          ② 跳板机的 ~/.ssh/authorized_keys 有你的公钥，且它能 ssh 到旧机
+
+# 优先级 3：旧机彻底完蛋 / 没有任何途径连上
+# 这种情况下 SubId 没法保留，相当于全新部署：
+#   1. 新机正常跑 install.sh + configure-3xui.sh
+#   2. 用 install-sub-converter.sh 装 sub
+#   3. 通知所有家人："订阅 URL 整条换了"，把新 URL 发过去
+```
+
+##### 客户端怎么动
+
+迁移成功后脚本会打印一行像这样的提示：
+
+```
+旧：http://OLD_IP:25500/clash/aaaaaaaaaaaaaaaa-bbbbbbbbbbbbbb
+新：http://NEW_IP:25500/clash/aaaaaaaaaaaaaaaa-bbbbbbbbbbbbbb   ← 只 IP 不一样
+```
+
+**SubId 完全不变**——家人在 App 里改一个 URL 即可：
+
+| 客户端 | 怎么改 |
+|-------|-------|
+| Mihomo Party (Mac) | Profiles → 该条配置右键 → Edit URL → 改 IP → 保存 → 刷新 |
+| FlClash (Android) | 配置详情 → 编辑订阅链接 → 改 IP → 更新 |
+| Clash Verge (Win) | 订阅 → 右键该条 → 编辑 → 改 URL → 更新 |
+| Stash (iPhone) | Profiles → 该条 → URL → 改 IP → 保存 |
+| Shadowrocket | 订阅页 → 该条 → 修改 URL → 保存 |
+
+#### 三、新 IP 上线后：一键硬化反封禁
+
+新 IP 装好的第一时间跑硬化脚本，把已知抗封措施一次性应用：
+
+```bash
+# 先看现状不动手：
+bash scripts/deploy/harden-vps.sh --vps NEW_IP --check
+
+# 真改：
+bash scripts/deploy/harden-vps.sh --vps NEW_IP
+
+# 含激进项（关 ICMP echo，从国内 ping 不通你的 IP）：
+bash scripts/deploy/harden-vps.sh --vps NEW_IP --aggressive
+```
+
+脚本会自动做：
+
+| # | 项 | 干什么 |
+|---|-----|-------|
+| 1 | UFW deny 80/tcp in | 关 HTTP 探测面（reality 在 443，80 暴露只会被扫） |
+| 2 | UFW deny 25/465/587 out | 不让 GFW 把你识别成发垃圾邮件源 |
+| 3 | fail2ban + sshd jail | 拒爆破，扫描器多次失败被封后不再来 |
+| 4 | sysctl 网络栈硬化 | BBR + 反 redirect + syncookies |
+| 5 | sshd PasswordAuth no | 已有 key 时强制 key 登录（防爆破弱口令） |
+| 7 | ICMP echo off | `--aggressive` 才开，关后 ping 你 IP 不通 |
+
+仅检查不修改：
+
+| # | 项 | 不及格会做什么 |
+|---|----|---------------|
+| A | 3x-ui 面板端口 ≥ 30000？ | 输出警告，让你登面板手改 |
+| B | 面板路径长度 ≥ 16？ | 输出警告 |
+| C | reality dest 是否伪装大站？ | 警告（建议 www.microsoft.com:443） |
+| D | IP 段是否在已知 datacenter？ | 信息性 |
+
+#### 四、长期方案：让"换 IP"变成"改 DNS"
+
+每次封 IP 都要求家人改一次订阅 URL，体验差。终极方案：
+
+1. **买个域名**（Cloudflare 上 9 美金/年）
+2. 订阅 URL 改成 `http://sub.your-domain.com:25500/clash/<token>`
+3. reality 节点 server 字段也改成域名（修改 `install-sub-converter.sh` 的 `SERVER_OVERRIDE=sub.your-domain.com`）
+4. 域名 A 记录指向当前 VPS_IP
+5. 被封时**只改 DNS A 记录**，家人客户端 0 改动（DNS TTL 设 60s）
+
+这套做完后 `migrate-vps.sh` 后面只需要再加一步 `cf-cli` 改 DNS，真正一键。
+
+未做的预留：脚本里 `--to` 强制要 IPv4 是这条假设的临时实现，将来支持域名时改这里。
+
+#### 五、防御性 checklist
+
+| 做没做 | 项 |
+|------|----|
+| ☐ | crontab 挂了 `backup-vps-state.sh --commit` 每 6 小时 |
+| ☐ | `harden-vps.sh` 在每台 VPS 都跑过 |
+| ☐ | 至少 2 台不同厂商、不同 region 的 VPS（HostHatch JP + Vultr SG，或加 BuyVM LA） |
+| ☐ | Mihomo `⚡ AUTO` 节点组延迟测试间隔 ≤ 5 分钟 |
+| ☐ | 订阅 URL 不在任何公开/多人群组里发过 |
+| ☐ | 家人的 SubId 不和你的同一个（每人独立 token，封一个少一个不影响其他） |
+| ☐ | （可选）vps-watch-urls.sh 跑 launchd 每 5min 告警 |
+| ☐ | （可选）域名替代裸 IP，DNS 切换替代 URL 替换 |
 
 ---
 
