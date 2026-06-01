@@ -925,6 +925,18 @@ PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
 
 #### 二、被封后：一键换 IP
 
+> ⚠ **先分清两种"换 IP"**：
+> - **同一台机器换 IP**（厂商给同一台 VPS 重新分配 IP，机器/数据库/凭据都没变）：
+>   **光改客户端订阅里的 IP 不够！** 还必须改 VPS 上 `ace-vpn-sub.service` 的 `SERVER_OVERRIDE`
+>   为新 IP 并重启 `ace-vpn-sub`，否则订阅生成的节点 `server:` 字段还是旧 IP（已被封）= 等于没换。
+>   ```bash
+>   ssh root@<NEW_IP> "sed -i 's|^Environment=SERVER_OVERRIDE=.*|Environment=SERVER_OVERRIDE=<NEW_IP>|' \
+>     /etc/systemd/system/ace-vpn-sub.service && systemctl daemon-reload && systemctl restart ace-vpn-sub"
+>   # 验证：curl -s http://<NEW_IP>:25500/clash/<token> | grep 'server:'  应为 <NEW_IP>
+>   ```
+>   改完客户端再刷新订阅即可。（详细复盘见 `开发者日志.md` §6.13）
+> - **开一台全新 VPS**：用下面 `migrate-vps.sh`，它会自动设对 `SERVER_OVERRIDE`，客户端只需刷新。
+
 ##### 场景 A：旧机 SSH 还能通（GFW 只封了代理协议，没封 22）
 
 ```bash
