@@ -1063,6 +1063,87 @@ bash scripts/deploy/harden-vps.sh --vps NEW_IP --aggressive
 | ☐ | （可选）vps-watch-urls.sh 跑 launchd 每 5min 告警 |
 | ☐ | （可选）域名替代裸 IP，DNS 切换替代 URL 替换 |
 
+#### 六、AI 速查：同机换 IP 完整步骤（被墙验证 + 服务端 + 本机收尾）
+
+> 这一节是给"接手的 AI / 未来的自己"看的**可直接执行的最小闭环**。场景：HostHatch 等厂商
+> 把**同一台机器**重新分配了新 IP（机器、x-ui.db、reality 密钥、SubId 都没变），旧 IP 被 GFW 封。
+> 真实案例：`103.173.179.55`（被封）→ 同机换到 `167.254.242.224`（2026-06-01）。
+> 全程把 `<NEW_IP>` 替换成新 IP、`<OLD_IP>` 替换成旧 IP、`<token>` 用你的 SubId（如 `sub-hxn`）。
+
+**Step 0 · 先确认"真的是 IP 被墙"，不要被假象骗**
+
+- 本机若开着公司 VPN / 代理，能连上 ≠ 没被墙（你走的是干净出口）。**必须用国内视角测**。
+- 用 check-host.net 的国内节点 `cn1` 做 TCP 探测；`cn1` 超时而 `hk1`（香港）秒连 = **该 IP 在大陆被封**：
+
+```bash
+IP=<OLD_IP>
+RID=$(curl -s -H "Accept: application/json" \
+  "https://check-host.net/check-tcp?host=${IP}:443&node=cn1.node.check-host.net&node=hk1.node.check-host.net" \
+  | python3 -c "import sys,json;print(json.load(sys.stdin)['request_id'])")
+sleep 10
+curl -s "https://check-host.net/check-result/$RID" \
+  | python3 -c "import sys,json;[print(k.split('.')[0],v) for k,v in json.load(sys.stdin).items()]"
+# 解读：cn1 = 'Connection timed out' 且 hk1 = {'address':...} → 整 IP 被墙。
+# 再测 :22 / :2096，若国内对多个端口都超时 = IP 级黑洞（换端口/协议无用，必须换 IP）。
+```
+
+**Step 1 · 服务端：把 sub-converter 下发的 server 改成新 IP（同机换 IP 最容易漏的一步）**
+
+> 只改客户端订阅里的 IP 不够；订阅 YAML 里每个节点的 `server:` 由 VPS 上
+> `ace-vpn-sub.service` 的 `SERVER_OVERRIDE` 决定。不改它 = 节点还是旧 IP = 等于没换。
+
+```bash
+ssh root@<NEW_IP> "sed -i 's|^Environment=SERVER_OVERRIDE=.*|Environment=SERVER_OVERRIDE=<NEW_IP>|' \
+  /etc/systemd/system/ace-vpn-sub.service && systemctl daemon-reload && systemctl restart ace-vpn-sub"
+
+# 服务端自检（应输出 server: <NEW_IP>）：
+ssh root@<NEW_IP> "curl -s http://127.0.0.1:25500/clash/<token> | grep -m1 'server:'"
+```
+
+**Step 2 · 本机收尾（这台 Mac）**
+
+```bash
+# 2a. 更新 SSH 别名指向（~/.ssh/config 里 Host ace-vpn-hh 的 HostName）
+#     否则 ssh ace-vpn-hh 还连旧 IP。改完验证：
+ssh ace-vpn-hh 'hostname'        # 应返回 ace-node
+
+# 2b. 同步 env.sh / 凭据 / inventory 里的 IP（若别的机器已改，先 git pull）
+cd ~/workspace/publish/ace-vpn-private && git pull --rebase
+grep VPS_IP_LIST env.sh          # 应为 hosthatch:<NEW_IP>
+# 若未改：把 env.sh 的 VPS_IP_LIST、ace-vpn-credentials.txt、vps-inventory.md 里的
+# <OLD_IP> 全部替换为 <NEW_IP>，然后 git commit + push。
+```
+
+**Step 3 · 验证新 IP 国内可达（确认换的不是又一个脏 IP）**
+
+```bash
+IP=<NEW_IP>
+RID=$(curl -s -H "Accept: application/json" \
+  "https://check-host.net/check-tcp?host=${IP}:443&node=cn1.node.check-host.net&node=hk1.node.check-host.net" \
+  | python3 -c "import sys,json;print(json.load(sys.stdin)['request_id'])")
+sleep 10
+curl -s "https://check-host.net/check-result/$RID" \
+  | python3 -c "import sys,json;[print(k.split('.')[0],v) for k,v in json.load(sys.stdin).items()]"
+# cn1 返回 {'address': <NEW_IP>, 'time': ...} = 国内能连 = 新 IP 干净，可用。
+```
+
+**Step 4 · 客户端刷新订阅**（SubId 不变，只是 IP 变了）
+
+- `http://<NEW_IP>:25500/clash/<token>` —— 各端在订阅里改 IP 后"更新"，见上面《客户端怎么动》表。
+
+**一眼对照表（同机换 IP 必改 4 处）**
+
+| # | 位置 | 改什么 | 不改的后果 |
+|---|------|--------|-----------|
+| 1 | VPS `ace-vpn-sub.service` `SERVER_OVERRIDE` | → `<NEW_IP>` + 重启 | 订阅节点 server 仍是旧 IP，连不上 |
+| 2 | 本机 `~/.ssh/config` Host ace-vpn-hh `HostName` | → `<NEW_IP>` | `ssh ace-vpn-hh` 连旧 IP 失败 |
+| 3 | `ace-vpn-private/env.sh` `VPS_IP_LIST` | → `hosthatch:<NEW_IP>` | sync/preflight 等脚本仍打旧 IP |
+| 4 | 客户端订阅 URL 的 IP | → `<NEW_IP>` | 拉不到订阅 / 连不上 |
+
+> 说明：本场景是"同机换 IP"，**不需要**跑 `migrate-vps.sh`（那是"换机器"用的，会迁 x-ui.db）。
+> 若是"开了一台全新 VPS"，则用 §9.5 二的 `migrate-vps.sh`，它会自动设对 `SERVER_OVERRIDE`，
+> 本机收尾仍需做 Step 2a 的 `~/.ssh/config`。
+
 ---
 
 ## 10. 日常使用小贴士
