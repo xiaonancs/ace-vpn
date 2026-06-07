@@ -1246,6 +1246,45 @@ Mac 端必须开 **TUN 模式**（不是系统代理）。`curl ipinfo.io/ip` �
 
 **不可以**。每个人的 URL 里有你专属的 SubId，分享给别人等于让他蹭流量 + 流量统计混乱。让他们找管理员单独要一条。
 
+### Q10：节点列表里总有一个 `⛔️N/A-...` 的死节点删不掉
+
+**现象**：Clash 里出现类似 `⛔️N/A-ace-vpn-reality-hxn-ihome` 的节点，连不上，Mac / iPhone 都看得到，刷订阅也还在。
+
+**原因**：这个 client 在服务端 3x-ui 里只是被**禁用（enable=False）**，并没有真删。3x-ui 会给禁用的 client 自动加 `⛔️N/A-` 前缀，并照样塞进订阅，所以客户端一直显示它。常见触发点：同机迁移时用旧的 `x-ui.db` 整库恢复，把以前停用的记录又带了回来。
+
+**彻底删除（仅管理员，服务端操作）**：
+
+> 这机器上没装 `sqlite3` 命令，用 python3 直接改库；改前先停 x-ui、备份。
+
+```bash
+ssh ace-vpn-hh
+# 1) 备份
+cp /etc/x-ui/x-ui.db /etc/x-ui/x-ui.db.bak.$(date +%Y%m%d%H%M%S)
+# 2) 停服务（避免改库时被覆盖）
+systemctl stop x-ui
+# 3) 删 client（把 TARGET 改成要删的 email，例如 hxn-ihome）
+TARGET=hxn-ihome python3 - <<'PY'
+import os, sqlite3, json
+target=os.environ["TARGET"]
+con=sqlite3.connect("/etc/x-ui/x-ui.db"); cur=con.cursor()
+for iid,settings in cur.execute("SELECT id,settings FROM inbounds").fetchall():
+    d=json.loads(settings); before=len(d.get("clients",[]))
+    d["clients"]=[c for c in d.get("clients",[]) if c.get("email")!=target]
+    if len(d["clients"])!=before:
+        cur.execute("UPDATE inbounds SET settings=? WHERE id=?", (json.dumps(d), iid))
+        print("inbound %s: %d -> %d" % (iid, before, len(d["clients"])))
+cur.execute("DELETE FROM client_traffics WHERE email=?", (target,))
+print("client_traffics 删除:", cur.rowcount)
+con.commit(); con.close()
+PY
+# 4) 起服务
+systemctl start x-ui && systemctl is-active x-ui
+# 5) 验证订阅里已无该节点（应输出 0）
+curl -s "http://<VPS_IP>:25500/clash/sub-hxn" | grep -c "hxn-ihome"
+```
+
+**客户端收尾**：服务端删干净后，Mac / iPhone Clash Party 里对应 profile **刷新订阅**即可；若仍残留，删除 profile 重新导入订阅链接最彻底。
+
 ---
 
 ## 12. 给家人的极简卡片
