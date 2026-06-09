@@ -100,6 +100,16 @@ INTRANET_FILE = os.environ.get("INTRANET_FILE", "/etc/ace-vpn/intranet.yaml").st
 # 保险丝：强制覆盖节点 server 字段（3x-ui 会根据 Host 头返回 127.0.0.1 等内网 IP，这里统一改成公网 IP）
 SERVER_OVERRIDE = os.environ.get("SERVER_OVERRIDE", "").strip()
 
+# 下发配置里 tun.enable 的默认值。
+#   - 桌面端（macOS Mihomo Party）希望订阅自带 tun.enable=true，否则每次刷新订阅
+#     都会把本地手开的 TUN 关掉 → 系统流量直连泄漏（见开发者日志 §6.16）。
+#   - 移动端（iOS/Android）由 App 自身管理 VPN，订阅里强开 TUN 可能冲突，保持 false。
+# 通过 ?tun=1 / ?tun=0 query 可按设备覆盖（见 do_GET）。
+# TUN_TOKENS 可指定哪些 SubId 默认开启 TUN，例如 TUN_TOKENS=sub-hxn；
+# 未命中的 token 使用 TUN_ENABLE 默认值。
+TUN_ENABLE_DEFAULT = os.environ.get("TUN_ENABLE", "false").strip().lower() in ("1", "true", "yes", "on")
+TUN_TOKENS = {t.strip() for t in os.environ.get("TUN_TOKENS", "").split(",") if t.strip()}
+
 # extra.cn 域名强制使用的"国内公网 DNS"。
 #
 # 为什么必须强制？因为 Mihomo 默认 nameserver 是 DoH（doh.pub / dns.alidns.com），
@@ -568,9 +578,15 @@ def build_rules(proxy_names: List[str], intranet: Dict[str, Any]) -> List[str]:
     return rules
 
 
-def build_clash_yaml(proxies: List[Dict[str, Any]], intranet: Dict[str, Any]) -> str:
+def build_clash_yaml(
+    proxies: List[Dict[str, Any]],
+    intranet: Dict[str, Any],
+    tun_enable: Optional[bool] = None,
+) -> str:
     if not proxies:
         return "# ERROR: No nodes parsed from upstream subscription.\n"
+    if tun_enable is None:
+        tun_enable = TUN_ENABLE_DEFAULT
 
     names = [p["name"] for p in proxies]
 
@@ -689,12 +705,20 @@ def build_clash_yaml(proxies: List[Dict[str, Any]], intranet: Dict[str, Any]) ->
                 },
             },
         },
+        # tun.enable 默认值由 TUN_ENABLE 环境变量 / ?tun= query 决定（见 TUN_ENABLE_DEFAULT）。
+        # 桌面端下发 true，避免订阅刷新关掉本地 TUN 造成直连泄漏（开发者日志 §6.16）。
         "tun": {
-            "enable": False,
+            "enable": tun_enable,
             "stack": "mixed",
             "auto-route": True,
+            "auto-redirect": False,
             "auto-detect-interface": True,
             "dns-hijack": ["any:53"],
+            # 公司 VPN 常占用 1.0.0.0/8（utun6），Mihomo 再加同段路由会报
+            # "add route: 1.0.0.0/8: file exists"，导致 TUN 整体启动失败。
+            # 排除此段可让 TUN 与公司 VPN 共存；1/8 少量流量仍按系统/公司 VPN 路由走。
+            "route-exclude-address": ["1.0.0.0/8"],
+            "mtu": 1500,
         },
         "proxies": proxies,
         "proxy-groups": [
@@ -860,7 +884,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self._reply(500, f'{{"error":"{e}"}}\n'.encode(), "application/json; charset=utf-8")
             return
 
-        parts = self.path.rstrip("/").split("/")
+        # 拆掉 query 再解析 path；?tun=1/0 可按设备覆盖 tun.enable 默认值
+        parsed = urllib.parse.urlparse(self.path)
+        query = dict(urllib.parse.parse_qsl(parsed.query))
+        tun_enable: Optional[bool] = None
+        if "tun" in query:
+            tun_enable = query["tun"].strip().lower() in ("1", "true", "yes", "on")
+
+        parts = parsed.path.rstrip("/").split("/")
         if len(parts) != 3 or parts[1] != "clash" or not parts[2]:
             self._reply(404, b"Not Found\n", "text/plain")
             return
@@ -869,6 +900,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if not upstream:
             self._reply(404, b"Not Found\n", "text/plain")
             return
+        if tun_enable is None and token in TUN_TOKENS:
+            tun_enable = True
         try:
             intranet = load_intranet_config()  # 每次请求热加载 → 改 YAML 立即生效
             raw = fetch_sub(upstream)
@@ -878,7 +911,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 p = parse_vless(line.strip())
                 if p:
                     proxies.append(p)
-            body = build_clash_yaml(proxies, intranet).encode("utf-8")
+            body = build_clash_yaml(proxies, intranet, tun_enable=tun_enable).encode("utf-8")
             self._reply(
                 200,
                 body,
