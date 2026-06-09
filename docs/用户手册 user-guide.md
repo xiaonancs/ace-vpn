@@ -1307,6 +1307,19 @@ curl -s "http://<VPS_IP>:25500/clash/sub-hxn" | grep -c "hxn-ihome"
 >
 > **为什么开发机要开 TUN？** TUN 能抓**绕过系统代理的流量**（命令行、Cursor / Claude Code、Docker 等），开发机离不开；而你自己能跑 `doctor.sh` 排障，扛得住 TUN 的故障面。所以「开发机开 TUN、家用机关 TUN」是按人群分配，不是技术限制。
 
+### Q12：开着公司 VPN 时，国内站能开但 Google / YouTube 打不开
+
+**现象**：节点是好的（用 doctor 看「显式 7890 出口」是东京 VPS、`curl -x 127.0.0.1:7890 google` 返回 200），但浏览器开不了 Google / YouTube；「系统/TUN 出口」却是国内 IP。
+
+**根因**：你**同时开着公司 VPN**。公司 VPN 会建多块 `utun`（`ifconfig` 能看到 `utun0~utun5`，MTU 各异）并**先占住全局路由**。mihomo 的 TUN（`utun1500`）后启动，往路由表注入全局分流路由时**冲突、静默放弃**——网卡建起来了却**一条分流路由都没抢到**（`netstat -rn | grep utun1500` 只有 `198.18.0.1` 一条）。此时若系统代理也没开，浏览器流量就**全走直连**：国内站能开，Google / YouTube 直连被 GFW 墙。
+
+**两个全局 TUN（公司 VPN + mihomo）不能可靠共存**，这是路由表层面的硬冲突，配置绕不过。按需求二选一：
+
+- **方法 A（推荐，公司 VPN 还要用）**：Clash Party → 打开**「系统代理 / System Proxy」**开关（TUN 可关）。浏览器立刻能开 Google / YouTube。系统代理不抢全局路由，和公司 VPN 共存；公司 VPN 管内网、系统代理管翻墙。不足：命令行 / Docker 等不认系统代理的程序不走代理。
+- **方法 B（要 TUN 全局，含命令行）**：先**完全退出公司 VPN**（`utun0~5` 消失）→ 重启 Clash Party（或 TUN 关再开）让 `utun1500` 重新抢路由 → 跑 `bash scripts/test/doctor.sh` 确认「✓ 系统流量已走 VPS」。
+
+> 自查命令：`ifconfig | grep utun`（看有没有多块公司 VPN 的 utun）+ `netstat -rn | grep utun1500`（看 mihomo TUN 抢到几条路由，只有 1 条 = 没生效）。
+
 ---
 
 ## 12. 给家人的极简卡片
