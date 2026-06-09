@@ -94,6 +94,7 @@ UPSTREAM_BASE = os.environ.get("UPSTREAM_BASE", "").strip().rstrip("/")
 SUB_TOKENS = [t.strip() for t in os.environ.get("SUB_TOKENS", "").split(",") if t.strip()]
 
 LISTEN_PORT = int(os.environ.get("LISTEN_PORT", "25500"))
+SUB_PATH_PREFIX = os.environ.get("SUB_PATH_PREFIX", "clash").strip().strip("/") or "clash"
 COMPANY_CIDRS = [c.strip() for c in os.environ.get("COMPANY_CIDRS", "").split(",") if c.strip()]
 COMPANY_SFX = [c.strip() for c in os.environ.get("COMPANY_SFX", "").split(",") if c.strip()]
 INTRANET_FILE = os.environ.get("INTRANET_FILE", "/etc/ace-vpn/intranet.yaml").strip()
@@ -884,7 +885,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self._reply(500, f'{{"error":"{e}"}}\n'.encode(), "application/json; charset=utf-8")
             return
 
-        # 拆掉 query 再解析 path；?tun=1/0 可按设备覆盖 tun.enable 默认值
+        # 拆掉 query 再解析 path；?tun=1/0 可按设备覆盖 tun.enable 默认值。
+        # 订阅路径默认为 /clash/<token>；若设置 SUB_PATH_PREFIX，可改成
+        # /<long-random-prefix>/<token>，降低公网订阅端口被扫到后的可识别性。
         parsed = urllib.parse.urlparse(self.path)
         query = dict(urllib.parse.parse_qsl(parsed.query))
         tun_enable: Optional[bool] = None
@@ -892,7 +895,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             tun_enable = query["tun"].strip().lower() in ("1", "true", "yes", "on")
 
         parts = parsed.path.rstrip("/").split("/")
-        if len(parts) != 3 or parts[1] != "clash" or not parts[2]:
+        if len(parts) != 3 or parts[1] != SUB_PATH_PREFIX or not parts[2]:
             self._reply(404, b"Not Found\n", "text/plain")
             return
         token = parts[2]

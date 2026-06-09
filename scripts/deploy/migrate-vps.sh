@@ -119,6 +119,7 @@ if [[ -n "${VPS_SSH_KEY:-}" ]]; then
   [[ -f "$expanded" ]] && SSH_OPTS+=(-i "$expanded")
 fi
 SUB_PORT=${SUB_PORT_CLASH:-25500}
+SUB_PATH_PREFIX=${SUB_PATH_PREFIX:-clash}
 
 # 拉旧机时专用的 SSH 选项：可能加 ProxyJump 借道另一台境外 VPS
 OLD_SSH_OPTS=("${SSH_OPTS[@]}")
@@ -366,11 +367,11 @@ info "新机 /healthz"
 if curl -fsS --max-time 8 "http://${TO_IP}:${SUB_PORT}/healthz" >/tmp/migrate-healthz.txt 2>&1; then
   ok "healthz: $(head -c 200 /tmp/migrate-healthz.txt)"
 else
-  warn "healthz 探测失败（旧版 sub-converter 无该端点），改用 /clash/$FIRST_TOKEN"
+  warn "healthz 探测失败（旧版 sub-converter 无该端点），改用 /${SUB_PATH_PREFIX}/$FIRST_TOKEN"
 fi
 
-info "新机 /clash/$FIRST_TOKEN 节点 server 字段"
-clash_out=$(curl -fsS --max-time 10 "http://${TO_IP}:${SUB_PORT}/clash/$FIRST_TOKEN" 2>/dev/null \
+info "新机 /${SUB_PATH_PREFIX}/$FIRST_TOKEN 节点 server 字段"
+clash_out=$(curl -fsS --max-time 10 "http://${TO_IP}:${SUB_PORT}/${SUB_PATH_PREFIX}/$FIRST_TOKEN" 2>/dev/null \
             | grep -E '^[[:space:]]*server:' | head -3 || true)
 echo "$clash_out" | sed 's/^/    /'
 if echo "$clash_out" | grep -q "$TO_IP"; then
@@ -481,8 +482,8 @@ echo
 echo "  每台设备（Mac / iPhone / Windows / Android）打开客户端，把订阅 URL 里的"
 echo "  IP 改成新的，然后刷新订阅："
 echo
-echo "    旧：http://${FROM_IP:-OLD_IP}:${SUB_PORT}/clash/${FIRST_TOKEN}"
-echo "    新：http://${color_grn}${TO_IP}${color_off}:${SUB_PORT}/clash/${FIRST_TOKEN}"
+echo "    旧：http://${FROM_IP:-OLD_IP}:${SUB_PORT}/${SUB_PATH_PREFIX}/${FIRST_TOKEN}"
+echo "    新：http://${color_grn}${TO_IP}${color_off}:${SUB_PORT}/${SUB_PATH_PREFIX}/${FIRST_TOKEN}"
 echo
 echo "  ${color_bld}验证${color_off}："
 echo "    bash scripts/test/preflight-multi-vps.sh"
