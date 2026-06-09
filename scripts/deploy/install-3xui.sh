@@ -49,7 +49,12 @@ fi
 chmod +x "${TMP_SCRIPT}"
 
 log_info "开始安装..."
-bash "${TMP_SCRIPT}"
+# 3x-ui v3.3.0+ 安装器带交互提示（数据库选择 / 面板端口自定义），
+# 非交互部署时通过 stdin 喂默认值：
+#   第 1 行空 → 数据库选 SQLite（read 的默认值就是 1）
+#   第 2 行 n → 面板端口用随机（我们随后会用备份 x-ui.db 覆盖，端口无所谓）
+# 管道在这两行后 EOF，其余 read 自动取默认，避免卡死。
+printf '\nn\n' | bash "${TMP_SCRIPT}"
 
 # ---------- 3. 验证 ----------
 log_step "验证 3x-ui 安装"

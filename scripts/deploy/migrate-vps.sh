@@ -313,6 +313,13 @@ step "Step 5/6  还原 3x-ui 数据库 + 凭据 + 装 sub-converter"
 info "[新机] 停 x-ui 服务"
 ssh "${SSH_OPTS[@]}" "$VPS_SSH_USER@$TO_IP" 'systemctl stop x-ui' || die "停 x-ui 失败"
 
+# 关键：x-ui 3.3.0+ 用 SQLite WAL 模式，停服后仍残留 x-ui.db-wal / -shm。
+# 若只替换 x-ui.db 而不删 WAL，下次启动会把旧 WAL 重放覆盖我们刚还原的库，
+# 导致 inbounds 丢失、端口/凭据回退到安装器默认值（踩过坑，见开发者日志 §6.15）。
+info "[新机] 清除残留 WAL/-shm（避免覆盖还原的库）"
+ssh "${SSH_OPTS[@]}" "$VPS_SSH_USER@$TO_IP" 'rm -f /etc/x-ui/x-ui.db-wal /etc/x-ui/x-ui.db-shm' \
+  || warn "清 WAL 失败（继续，但启动后请核对 inbounds）"
+
 info "[本机→新机] 推 x-ui.db"
 scp "${SSH_OPTS[@]}" "$BACKUP_DIR/x-ui.db" "$VPS_SSH_USER@$TO_IP:/etc/x-ui/x-ui.db" \
   || die "推 x-ui.db 失败"
