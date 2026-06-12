@@ -4,13 +4,13 @@
 #
 # 模式 A：单 token（老部署兼容）
 #   sudo UPSTREAM_SUB='https://127.0.0.1:2096/<sub-path>/<sub-id>' \
-#        SUB_TOKEN='sub-hxn' \
+#        SUB_TOKEN='ace-main' \
 #        bash install-sub-converter.sh
 #
 # 模式 B：多 token（推荐，一个实例服务全家）
 #   sudo UPSTREAM_BASE='https://127.0.0.1:2096/<sub-path>' \
-#        SUB_TOKENS='sub-hxn,sub-hxn01' \
-#        TUN_TOKENS='sub-hxn,sub-hxn01' \
+#        SUB_TOKENS='ace-main,ace-fork' \
+#        TUN_TOKENS='ace-main,ace-fork' \
 #        SERVER_OVERRIDE='<VPS_IP>' \
 #        bash install-sub-converter.sh
 #
@@ -56,7 +56,7 @@ if [[ -n "$UPSTREAM_INLINE" ]]; then
 elif [[ -n "$UPSTREAM_BASE" ]]; then
   if [[ -z "$SUB_TOKENS" ]]; then
     log_error "UPSTREAM_BASE 模式下必须设置 SUB_TOKENS（逗号分隔的 3x-ui SubId 白名单）"
-    log_error "例：SUB_TOKENS='sub-hxn,sub-hxn01'"
+    log_error "例：SUB_TOKENS='ace-main,ace-fork'"
     exit 1
   fi
   log_info "模式：多 token（UPSTREAM_BASE + SUB_TOKENS）"

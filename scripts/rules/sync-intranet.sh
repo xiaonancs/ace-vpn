@@ -47,7 +47,7 @@ sub_health_token() {
     echo "${SUB_TOKENS%%,*}"
     return
   fi
-  echo "sub-hxn"
+  echo "ace-main"
 }
 
 color_red=$'\033[31m'; color_grn=$'\033[32m'; color_ylw=$'\033[33m'; color_cyn=$'\033[36m'; color_off=$'\033[0m'

@@ -11,7 +11,7 @@
     UPSTREAM_BASE   3x-ui 订阅 URL 前缀（不含 SubId 那一段）
                     例：https://127.0.0.1:2096/sub_xxxxxxxx
     SUB_TOKENS      白名单，逗号分隔，每个 token = 3x-ui 里的一个 SubId
-                    例：sub-hxn,sub-hxn01,dad-home
+                    例：ace-main,ace-fork,dad-home
     客户端 URL：/clash/<任意白名单里的 token>
     实际从 $UPSTREAM_BASE/<token> 拉上游
 
@@ -115,7 +115,7 @@ SERVER_OVERRIDE = os.environ.get("SERVER_OVERRIDE", "").strip()
 #     都会把本地手开的 TUN 关掉 → 系统流量直连泄漏（见开发者日志 §6.16）。
 #   - 移动端（iOS/Android）由 App 自身管理 VPN，订阅里强开 TUN 可能冲突，保持 false。
 # 通过 ?tun=1 / ?tun=0 query 可按设备覆盖（见 do_GET）。
-# TUN_TOKENS 可指定哪些 SubId 默认开启 TUN，例如 TUN_TOKENS=sub-hxn；
+# TUN_TOKENS 可指定哪些 SubId 默认开启 TUN，例如 TUN_TOKENS=ace-main；
 # 未命中的 token 使用 TUN_ENABLE 默认值。
 TUN_ENABLE_DEFAULT = os.environ.get("TUN_ENABLE", "false").strip().lower() in ("1", "true", "yes", "on")
 TUN_TOKENS = {t.strip() for t in os.environ.get("TUN_TOKENS", "").split(",") if t.strip()}

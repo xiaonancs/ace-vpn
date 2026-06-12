@@ -14,14 +14,15 @@
 #
 # 硬化项（自动）：
 #   [1] UFW deny 80/tcp inbound       → 消除 HTTP 主动探测面
-#   [2] UFW deny 25,465,587 out       → 不让 GFW 把你识别成发垃圾邮件源
-#   [3] fail2ban 启用 + sshd jail     → 拒爆破，降低被扫描后被封的概率
-#   [4] sysctl 网络栈硬化              → 拒非常规分片 / icmp_redirect
-#   [5] BBR 已开 + tcp_max_syn_backlog 调高
-#   [6] sshd disable PasswordAuth     → 强制 key（仅在已检测到至少一个 authorized_key 时）
+#   [2] UFW deny panel/2096 inbound   → 面板和 3x-ui 原生订阅只走 localhost/SSH 隧道
+#   [3] UFW deny 25,465,587 out       → 不让 GFW 把你识别成发垃圾邮件源
+#   [4] fail2ban 启用 + sshd jail     → 拒爆破，降低被扫描后被封的概率
+#   [5] sysctl 网络栈硬化              → 拒非常规分片 / icmp_redirect
+#   [6] BBR 已开 + tcp_max_syn_backlog 调高
+#   [7] sshd disable PasswordAuth     → 强制 key（仅在已检测到至少一个 authorized_key 时）
 #   --aggressive 才做：
-#   [7] icmp_echo_ignore_all=1        → 关 ICMP 回应（部分诊断变难）
-#   [8] 改 sshd 默认端口建议（不强改）
+#   [8] icmp_echo_ignore_all=1        → 关 ICMP 回应（部分诊断变难）
+#   [9] 改 sshd 默认端口建议（不强改）
 #
 # 硬化项（仅检查 + 报告）：
 #   [A] 3x-ui 面板端口（< 30000 告警）
@@ -67,11 +68,21 @@ while [[ $# -gt 0 ]]; do
 done
 
 # source env.sh
+PRESET_VPS_SSH_KEY="${VPS_SSH_KEY:-}"
+PRESET_VPS_SSH_USER="${VPS_SSH_USER:-}"
+PRESET_PANEL_PORTS="${PANEL_PORTS:-}"
+PRESET_XUI_SUB_PORTS="${XUI_SUB_PORTS:-}"
 if [[ -z "${VPS_IP_LIST:-}" && -f "$ROOT_DIR/private/env.sh" ]]; then
   # shellcheck disable=SC1091
   source "$ROOT_DIR/private/env.sh"
 fi
+[[ -n "$PRESET_VPS_SSH_KEY" ]] && VPS_SSH_KEY="$PRESET_VPS_SSH_KEY"
+[[ -n "$PRESET_VPS_SSH_USER" ]] && VPS_SSH_USER="$PRESET_VPS_SSH_USER"
+[[ -n "$PRESET_PANEL_PORTS" ]] && PANEL_PORTS="$PRESET_PANEL_PORTS"
+[[ -n "$PRESET_XUI_SUB_PORTS" ]] && XUI_SUB_PORTS="$PRESET_XUI_SUB_PORTS"
 VPS_SSH_USER=${VPS_SSH_USER:-root}
+PANEL_PORTS="${PANEL_PORTS:-${PANEL_PORT:-52031}}"
+XUI_SUB_PORTS="${XUI_SUB_PORTS:-${SUB_PORT:-2096}}"
 SSH_OPTS=(-o StrictHostKeyChecking=accept-new -o ConnectTimeout=10)
 if [[ -n "${VPS_SSH_KEY:-}" ]]; then
   expanded=${VPS_SSH_KEY/#~/$HOME}
@@ -147,11 +158,14 @@ harden_one() {
   fi
   ok "SSH 通"
 
-  ssh "${SSH_OPTS[@]}" "$VPS_SSH_USER@$ip" "MODE=$MODE AGGRESSIVE=$AGGRESSIVE DISABLE_PASSWORD=$DISABLE_PASSWORD bash -s" <<'REMOTE_SCRIPT'
+  ssh "${SSH_OPTS[@]}" "$VPS_SSH_USER@$ip" \
+    "MODE=$MODE AGGRESSIVE=$AGGRESSIVE DISABLE_PASSWORD=$DISABLE_PASSWORD PANEL_PORTS='$PANEL_PORTS' XUI_SUB_PORTS='$XUI_SUB_PORTS' bash -s" <<'REMOTE_SCRIPT'
 set -euo pipefail
 MODE=${MODE:-check}
 AGGRESSIVE=${AGGRESSIVE:-0}
 DISABLE_PASSWORD=${DISABLE_PASSWORD:-0}
+PANEL_PORTS=${PANEL_PORTS:-52031}
+XUI_SUB_PORTS=${XUI_SUB_PORTS:-2096}
 
 c_grn=$'\033[32m'; c_red=$'\033[31m'; c_ylw=$'\033[33m'; c_off=$'\033[0m'
 yes()  { echo "    ${c_grn}✓${c_off} $*"; }
@@ -182,8 +196,23 @@ else
   note "未装 ufw，跳过（建议 apt install ufw）"
 fi
 
-# [2] UFW deny 25/465/587 out（杜绝发邮件假象）
-echo "  [2] UFW deny SMTP out (25/465/587)"
+# [2] UFW deny panel / 3x-ui native subscription inbound
+echo "  [2] UFW deny panel / 3x-ui native subscription inbound"
+if command -v ufw >/dev/null; then
+  for p in $PANEL_PORTS $XUI_SUB_PORTS; do
+    [[ -z "$p" ]] && continue
+    if ufw status | grep -qE "^${p}/tcp\s+DENY"; then
+      yes "${p}/tcp inbound 已 deny"
+    else
+      fix "ufw deny ${p}/tcp"
+      run "ufw deny ${p}/tcp >/dev/null"
+    fi
+  done
+  run "ufw reload >/dev/null"
+fi
+
+# [3] UFW deny 25/465/587 out（杜绝发邮件假象）
+echo "  [3] UFW deny SMTP out (25/465/587)"
 if command -v ufw >/dev/null; then
   for p in 25 465 587; do
     if ufw status | grep -qE "^${p}/tcp\s+DENY OUT"; then
@@ -196,8 +225,8 @@ if command -v ufw >/dev/null; then
   run "ufw reload >/dev/null"
 fi
 
-# [3] fail2ban
-echo "  [3] fail2ban"
+# [4] fail2ban
+echo "  [4] fail2ban"
 if ! dpkg -l fail2ban 2>/dev/null | grep -q ^ii; then
   fix "apt install fail2ban"
   run "DEBIAN_FRONTEND=noninteractive apt-get install -y fail2ban >/dev/null"
@@ -222,8 +251,8 @@ else
   note "fail2ban 未启动"
 fi
 
-# [4] sysctl 网络栈硬化
-echo "  [4] sysctl 网络栈硬化"
+# [5] sysctl 网络栈硬化
+echo "  [5] sysctl 网络栈硬化"
 SYSCTL_FILE=/etc/sysctl.d/99-ace-vpn-harden.conf
 desired=$(cat <<'EOF'
 # ace-vpn harden
@@ -249,15 +278,15 @@ else
   yes "sysctl 已最新"
 fi
 
-# [5] BBR 验证
+# [6] BBR 验证
 if [[ "$(sysctl -n net.ipv4.tcp_congestion_control)" == "bbr" ]]; then
   yes "BBR 已开"
 else
   note "BBR 未开（步骤 [4] 重启网络 / 重启机器后生效）"
 fi
 
-# [6] sshd 强制 key（默认不动；需 --disable-password 且已有 authorized_keys 才关）
-echo "  [6] sshd 关 PasswordAuthentication"
+# [7] sshd 强制 key（默认不动；需 --disable-password 且已有 authorized_keys 才关）
+echo "  [7] sshd 关 PasswordAuthentication"
 keys_found=0
 for f in /root/.ssh/authorized_keys /home/*/.ssh/authorized_keys; do
   [[ -s "$f" ]] && keys_found=$((keys_found + 1))
@@ -281,8 +310,8 @@ EOF
   fi
 fi
 
-# [7] ICMP echo（aggressive）
-echo "  [7] ICMP echo（aggressive）"
+# [8] ICMP echo（aggressive）
+echo "  [8] ICMP echo（aggressive）"
 if [[ "$AGGRESSIVE" == "1" ]]; then
   if [[ "$(sysctl -n net.ipv4.icmp_echo_ignore_all)" == "1" ]]; then
     yes "ICMP echo 已关"

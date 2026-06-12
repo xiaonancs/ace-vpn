@@ -10,9 +10,13 @@
 #
 # 可选环境变量：
 #   TCP_PORT=443       主代理 TCP 端口（默认 443）
-#   UDP_PORT=443       Hysteria2 UDP 端口（默认 443）
+#   UDP_PORT=8443      Hysteria2 UDP 端口（默认 8443，ENABLE_UDP=true 时才公网放行）
 #   PANEL_PORT=2053    3x-ui 面板端口（默认 2053）
-#   SUB_PORT=2096      订阅端口（默认 2096）
+#   SUB_PORT=2096      3x-ui 原生订阅端口（默认 2096，默认不公网暴露）
+#   SUB_CONVERTER_PORT=25500  ace-vpn 订阅转换器端口（默认公网放行）
+#   EXPOSE_PANEL=true  临时公网暴露 3x-ui 面板（默认 false，推荐 SSH 隧道）
+#   EXPOSE_XUI_SUB=true 临时公网暴露 3x-ui 原生订阅（默认 false）
+#   ENABLE_UDP=true    启用并公网放行 Hysteria2 UDP（默认 false）
 #   TZ=Asia/Shanghai   时区（默认上海）
 #   SKIP_3XUI=1        跳过 3x-ui 安装（仅做系统初始化）
 #   AUTO_CONFIGURE=1   跳过交互，自动配置 3x-ui 入站
@@ -32,6 +36,11 @@ TCP_PORT="${TCP_PORT:-443}"
 UDP_PORT="${UDP_PORT:-8443}"   # 与 TCP_PORT 分开（3x-ui 端口占用不分 TCP/UDP）
 PANEL_PORT="${PANEL_PORT:-2053}"
 SUB_PORT="${SUB_PORT:-2096}"
+SUB_CONVERTER_PORT="${SUB_CONVERTER_PORT:-25500}"
+EXPOSE_PANEL="${EXPOSE_PANEL:-false}"
+EXPOSE_XUI_SUB="${EXPOSE_XUI_SUB:-false}"
+ENABLE_UDP="${ENABLE_UDP:-false}"
+EXPOSE_HTTP="${EXPOSE_HTTP:-false}"
 TZ_VALUE="${TZ:-Asia/Shanghai}"
 
 # ---------- 前置检查 ----------
@@ -50,6 +59,11 @@ TCP_PORT="${TCP_PORT}" \
 UDP_PORT="${UDP_PORT}" \
 PANEL_PORT="${PANEL_PORT}" \
 SUB_PORT="${SUB_PORT}" \
+SUB_CONVERTER_PORT="${SUB_CONVERTER_PORT}" \
+EXPOSE_PANEL="${EXPOSE_PANEL}" \
+EXPOSE_XUI_SUB="${EXPOSE_XUI_SUB}" \
+ENABLE_UDP="${ENABLE_UDP}" \
+EXPOSE_HTTP="${EXPOSE_HTTP}" \
 bash "${SCRIPT_DIR}/setup-firewall.sh"
 
 # ---------- Step 3：3x-ui ----------
@@ -87,13 +101,16 @@ ${COLOR_GREEN}============================================================${COLO
 
   公网 IP     : ${PUBLIC_IP}
   面板端口    : ${PANEL_PORT}
-  主代理端口  : ${TCP_PORT}/tcp  ${UDP_PORT}/udp
-  订阅端口    : ${SUB_PORT}/tcp
+  主代理端口  : ${TCP_PORT}/tcp
+  订阅转换器  : ${SUB_CONVERTER_PORT}/tcp
+  默认隐藏端口: ${PANEL_PORT}/tcp(panel), ${SUB_PORT}/tcp(3x-ui sub), ${UDP_PORT}/udp
 
 ${COLOR_YELLOW}下一步（手动）${COLOR_RESET}
 
-  1. 浏览器打开 3x-ui 面板：
-       http://${PUBLIC_IP}:${PANEL_PORT}/
+  1. 需要打开 3x-ui 面板时先建 SSH 隧道：
+       ssh -L ${PANEL_PORT}:127.0.0.1:${PANEL_PORT} root@${PUBLIC_IP}
+     然后浏览器打开：
+       http://127.0.0.1:${PANEL_PORT}/
      默认账号密码：admin / admin
 
   2. 立即改 3 项：
@@ -103,7 +120,7 @@ ${COLOR_YELLOW}下一步（手动）${COLOR_RESET}
 
   3. 添加入站（按 docs/开发者日志.md 中 3x-ui / Reality 说明）：
        - VLESS + Reality（TCP ${TCP_PORT}）
-       - Hysteria2        （UDP ${UDP_PORT}）
+       - Hysteria2        （可选，UDP ${UDP_PORT}）
 
   4. 开启订阅（§4.3），把生成的 URL 导入客户端
 

@@ -36,9 +36,10 @@ Xray + Reality 自建，2–5 人家庭共享。**公司内网 DIRECT · 大陆�
 ssh root@<VPS_IP>
 git clone https://github.com/<you>/ace-vpn.git && cd ace-vpn
 sudo AUTO_CONFIGURE=1 bash scripts/deploy/install.sh
-# 浏览器改 3x-ui 面板密码/端口/path
-sudo UPSTREAM_BASE='https://<VPS_IP>:2096/<sub_path>' \
-     SUB_TOKENS='sub-hxn,sub-hxn01' \
+# 用 SSH 隧道登录 3x-ui 面板，改密码/端口/path
+sudo UPSTREAM_BASE='https://127.0.0.1:2096/<sub_path>' \
+     SUB_TOKENS='ace-main,ace-fork' \
+     TUN_TOKENS='ace-main,ace-fork' \
      SERVER_OVERRIDE='<VPS_IP>' \
      bash scripts/deploy/install-sub-converter.sh
 ```

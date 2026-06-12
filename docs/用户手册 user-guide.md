@@ -74,8 +74,8 @@ http://<VPS_IP>:25500/clash/<你的 SubId>
 ```
 
 例如：
-- 你自己的设备：`http://<VPS_IP>:25500/clash/sub-hxn`
-- 家人设备：`http://<VPS_IP>:25500/clash/sub-hxn01`
+- 你自己的设备：`http://<VPS_IP>:25500/clash/ace-main`
+- 家人设备：`http://<VPS_IP>:25500/clash/ace-fork`
 
 把这条 URL 保存好（密码管理器/备忘录），下面所有设备配置都要用它。
 
@@ -1068,7 +1068,7 @@ bash scripts/deploy/harden-vps.sh --vps NEW_IP --aggressive
 > 这一节是给"接手的 AI / 未来的自己"看的**可直接执行的最小闭环**。场景：HostHatch 等厂商
 > 把**同一台机器**重新分配了新 IP（机器、x-ui.db、reality 密钥、SubId 都没变），旧 IP 被 GFW 封。
 > 真实案例：`103.173.179.55`（被封）→ 同机换到 `167.254.242.224`（2026-06-01）。
-> 全程把 `<NEW_IP>` 替换成新 IP、`<OLD_IP>` 替换成旧 IP、`<token>` 用你的 SubId（如 `sub-hxn`）。
+> 全程把 `<NEW_IP>` 替换成新 IP、`<OLD_IP>` 替换成旧 IP、`<token>` 用你的 SubId（如 `ace-main`）。
 
 **Step 0 · 先确认"真的是 IP 被墙"，不要被假象骗**
 
@@ -1280,7 +1280,7 @@ PY
 # 4) 起服务
 systemctl start x-ui && systemctl is-active x-ui
 # 5) 验证订阅里已无该节点（应输出 0）
-curl -s "http://<VPS_IP>:25500/clash/sub-hxn" | grep -c "hxn-ihome"
+curl -s "http://<VPS_IP>:25500/clash/ace-main" | grep -c "hxn-ihome"
 ```
 
 **客户端收尾**：服务端删干净后，Mac / iPhone Clash Party 里对应 profile **刷新订阅**即可；若仍残留，删除 profile 重新导入订阅链接最彻底。
@@ -1289,23 +1289,23 @@ curl -s "http://<VPS_IP>:25500/clash/sub-hxn" | grep -c "hxn-ihome"
 
 **现象**：显式代理（系统代理 / 7890）能用、能翻墙，但**只开 TUN 不行**；用 doctor 一看「系统/TUN 出口」是国内 IP（如 `111.201.x`，loc=CN），「显式 7890 出口」却是东京 VPS。
 
-**根因**：八成是**导入了错的订阅 token**。本项目按设备分两条 token，TUN 默认值不同：
+**根因**：八成是客户端本地 TUN 状态被关掉，或历史上导入过旧订阅。本项目现在两条 token 都默认下发 TUN：
 
 | token | 给谁用 | 服务端下发的 `tun.enable` |
 |-------|--------|--------------------------|
-| `sub-hxn`   | 开发机（Mac）   | **true**（默认开 TUN） |
-| `sub-hxn01` | 家人 / Windows | **false**（默认关 TUN） |
+| `ace-main`   | 开发机（Mac）   | **true**（默认开 TUN） |
+| `ace-fork` | 家人 / Windows | **true**（默认开 TUN） |
 
-如果 Mac 错导成 `sub-hxn01`，服务端每次都给它下发 `tun.enable: false`，于是**每次刷订阅都把本地 TUN 关掉** → 系统流量直连泄漏 → 出口变国内 IP。
+如果客户端仍拿着旧订阅或本地覆盖配置把 `tun.enable` 改成 `false`，刷新后会把本地 TUN 关掉 → 系统流量直连泄漏 → 出口变国内 IP。
 
-**修复**：把订阅 URL 末尾的 `sub-hxn01` 改成 `sub-hxn`（改不了就删掉重新导入）→ 刷新订阅 → 重启 Party → 打开 TUN。新 Mac 第一次开 TUN 会**弹管理员密码**装系统辅助组件（建虚拟网卡 utun + 改路由表必须 root），授权即可。最后跑 `bash scripts/test/doctor.sh` 确认「✓ 系统流量已走 VPS」。
+**修复**：刷新新的 `ace-main` / `ace-fork` 订阅 → 重启 Party → 打开 TUN。新 Mac 第一次开 TUN 会**弹管理员密码**装系统辅助组件（建虚拟网卡 utun + 改路由表必须 root），授权即可。最后跑 `bash scripts/test/doctor.sh` 确认「✓ 系统流量已走 VPS」。
 
-> **为什么家里默认关 TUN？** 不是禁止用，是默认走更简单稳的「系统代理」模式：
-> - **容错高**：Clash 一关电脑照常上网；TUN 配错/崩了会整机断网或静默泄漏。
-> - **零权限**：系统代理开箱即用；TUN 要管理员权限 + 虚拟网卡，还会和公司 VPN 抢全局路由（`1.0.0.0/8` 冲突）。
-> - **省心**：家人非技术用户，系统代理够看视频/刷网页，出问题也不会把网搞死。
+> **如果某台家里电脑不想用 TUN**，可以在客户端本地关闭 TUN，或给订阅 URL 加 `?tun=0`。默认统一开 TUN 是为了避免订阅刷新后系统流量直连泄漏。
+> - **容错取舍**：Clash 一关电脑照常上网；TUN 配错/崩了可能整机断网或静默泄漏。
+> - **权限取舍**：系统代理开箱即用；TUN 要管理员权限 + 虚拟网卡，还会和公司 VPN 抢全局路由（`1.0.0.0/8` 冲突）。
+> - **省心取舍**：非技术用户如果只看视频/刷网页，系统代理也够用；但默认开 TUN 更能防止绕过系统代理的流量直连。
 >
-> **为什么开发机要开 TUN？** TUN 能抓**绕过系统代理的流量**（命令行、Cursor / Claude Code、Docker 等），开发机离不开；而你自己能跑 `doctor.sh` 排障，扛得住 TUN 的故障面。所以「开发机开 TUN、家用机关 TUN」是按人群分配，不是技术限制。
+> **为什么推荐开发机开 TUN？** TUN 能抓**绕过系统代理的流量**（命令行、Cursor / Claude Code、Docker 等）；你自己还能跑 `doctor.sh` 排障，更适合保持全局 TUN。
 
 ### Q12：开着公司 VPN 时，国内站能开但 Google / YouTube 打不开
 

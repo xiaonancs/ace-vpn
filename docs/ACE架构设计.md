@@ -141,9 +141,9 @@ sequenceDiagram
 |------|------|------|-------------|
 | 22 | TCP | SSH | 是（仅 key） |
 | 443 | TCP | VLESS Reality | 是 |
-| 2096 | TCP | 3x-ui 订阅 | 是（HTTPS） |
+| 2096 | TCP | 3x-ui 原生订阅 | 否（仅 localhost / SSH 隧道） |
 | 25500 | TCP | sub-converter | 是（HTTP，YAML 已脱敏） |
-| `<random>` | TCP | 3x-ui 面板 | 是（随机端口 + 随机 path + HTTPS） |
+| `<random>` | TCP | 3x-ui 面板 | 否（仅 localhost / SSH 隧道） |
 | 8443 | UDP | Hy2（预留） | 否（未启用） |
 
 ---
@@ -162,12 +162,14 @@ git clone https://github.com/<you>/ace-vpn.git && cd ace-vpn
 # 3. 一键：系统 + 防火墙 + 3x-ui + 自动建 Reality 入站
 sudo AUTO_CONFIGURE=1 bash scripts/deploy/install.sh
 
-# 4. 浏览器登面板改密码 + 改 path + 改端口
-#    https://<VPS_IP>:2053/<random-path>/
+# 4. 通过 SSH 隧道登面板改密码 + 改 path + 改端口
+#    ssh -L 2053:127.0.0.1:2053 root@<VPS_IP>
+#    http://127.0.0.1:2053/<random-path>/
 
 # 5. 装 Clash 订阅转换器（多 token 单实例）
-sudo UPSTREAM_BASE='https://<VPS_IP>:2096/<sub_path>' \
-     SUB_TOKENS='sub-hxn,sub-hxn01' \
+sudo UPSTREAM_BASE='https://127.0.0.1:2096/<sub_path>' \
+     SUB_TOKENS='ace-main,ace-fork' \
+     TUN_TOKENS='ace-main,ace-fork' \
      SERVER_OVERRIDE='<VPS_IP>' \
      LISTEN_PORT=25500 \
      bash scripts/deploy/install-sub-converter.sh
@@ -178,7 +180,7 @@ sudo UPSTREAM_BASE='https://<VPS_IP>:2096/<sub_path>' \
 | 阶段 | 脚本 | 动作 |
 |------|------|------|
 | 系统初始化 | `setup-system.sh` | apt update、BBR + fq、`net.ipv4.ip_forward=1`、文件句柄上限 |
-| 防火墙 | `setup-firewall.sh` | UFW 放行 22/80/443/2096/25500/面板端口 |
+| 防火墙 | `setup-firewall.sh` | UFW 放行 22/443/25500；80/2096/面板端口默认不暴露 |
 | 3x-ui | `install-3xui.sh` | 官方安装器包装；交互点：端口 2053、admin/admin、SSL 选 2（IP 证书）|
 | 自动配 Reality | `configure-3xui.sh`（`AUTO_CONFIGURE=1`）| 调 3x-ui HTTP API 建 VLESS+Reality 入站，SNI=www.cloudflare.com，flow=xtls-rprx-vision |
 
@@ -264,7 +266,7 @@ sudo ufw reload
 │                                                  │
 │ Environment:                                     │
 │   UPSTREAM_BASE=https://127.0.0.1:2096/<path>    │
-│   SUB_TOKENS=sub-hxn,sub-hxn01                   │
+│   SUB_TOKENS=ace-main,ace-fork                   │
 │   SERVER_OVERRIDE=<VPS_IP>                       │
 │   LISTEN_PORT=25500                              │
 │                                                  │
@@ -280,8 +282,8 @@ sudo ufw reload
 
 | Token | 对应 3x-ui SubId | 服务对象 |
 |-------|-----------------|----------|
-| `sub-hxn` | `sub-hxn` | 你自己的所有设备（Mac×2 / iPhone / iPad / Android）|
-| `sub-hxn01` | `sub-hxn01` | 家人所有设备（Windows×2 / ...） |
+| `ace-main` | `ace-main` | 你自己的所有设备（Mac×2 / iPhone / iPad / Android）|
+| `ace-fork` | `ace-fork` | 家人所有设备（Windows×2 / ...） |
 
 加人只需：(1) 面板里加 Client，挂到对应 SubId；(2) 如需新 SubId，加到 `SUB_TOKENS` 环境变量；(3) `systemctl restart ace-vpn-sub`。
 
@@ -290,7 +292,7 @@ sudo ufw reload
 | 变量 | 作用 | 典型值 |
 |------|------|--------|
 | `UPSTREAM_BASE` | 3x-ui 订阅 URL 前缀 | `https://127.0.0.1:2096/sub_xxxxx` |
-| `SUB_TOKENS` | 白名单，逗号分隔 | `sub-hxn,sub-hxn01` |
+| `SUB_TOKENS` | 白名单，逗号分隔 | `ace-main,ace-fork` |
 | `SERVER_OVERRIDE` | 覆盖 YAML 里 `server:` 字段 | `<VPS_IP>` |
 | `LISTEN_PORT` | 监听端口 | `25500` |
 | `COMPANY_CIDRS` | 公司内网 CIDR（向后兼容旧部署）| `10.128.0.0/16` |
@@ -907,8 +909,8 @@ bash scripts/rules/sync-intranet.sh
 # 分别替换成 VPS_IP_LIST 里的真实 IP，确认服务和订阅都健康
 ssh root@<IP-1> "systemctl status x-ui ace-vpn-sub | head -3"
 ssh root@<IP-2> "systemctl status x-ui ace-vpn-sub | head -3"
-diff <(curl -s http://<IP-1>:25500/clash/sub-hxn) \
-     <(curl -s http://<IP-2>:25500/clash/sub-hxn) | head
+diff <(curl -s http://<IP-1>:25500/clash/ace-main) \
+     <(curl -s http://<IP-2>:25500/clash/ace-main) | head
 ```
 
 如果 diff 有内容 → 跑 `sync-intranet.sh` + 手动 scp `sub-converter.py` 到对应 VPS。
@@ -959,21 +961,21 @@ flowchart TD
 | 维度 | 做法 | 理由 |
 |------|------|------|
 | **Client（UUID）粒度** | **一设备一个** | 吊销某台设备时只影响它自己 |
-| **SubId（订阅）粒度** | **一组人一个** | 自己 `sub-hxn`，家人 `sub-hxn01`，SubId 泄露只吊销那一组 |
+| **SubId（订阅）粒度** | **一组人一个** | 自己 `ace-main`，家人 `ace-fork`，SubId 泄露只吊销那一组 |
 
 ### 10.2 Client Email 命名规范
 
 Email 字段填**人类可读的设备名**，订阅生成的 Clash YAML 里每条节点 name 就是这个 Email，一眼看出哪台设备在用哪条。
 
 ```
-sub-hxn 下（你自己）:
+ace-main 下（你自己）:
   hxn-macbook       # 公司笔记本
   hxn-iphone
   hxn-ipad
   hxn-ihome         # 家里 Mac
   hxn-android
 
-sub-hxn01 下（家人）:
+ace-fork 下（家人）:
   family-dad-phone
   family-dad-pc
   family-mom-phone
@@ -986,7 +988,7 @@ sub-hxn01 下（家人）:
 
 - ID：点刷新 🔄 随机 UUID
 - Email：按命名规范填
-- Sub ID：填 `sub-hxn` 或 `sub-hxn01`
+- Sub ID：填 `ace-main` 或 `ace-fork`
 - Flow：**选 `xtls-rprx-vision`**（Reality 性能更好 + 更抗检测）
 - Save → 再点 Inbound 行最外层的 Save（**保存两次才真正生效**）
 

@@ -2,7 +2,8 @@
 # ============================================================
 # ace-vpn - UFW 防火墙配置
 # ============================================================
-# 放行：SSH(22) + 主代理 TCP/UDP + 面板 + 订阅
+# 放行：SSH(22) + 主代理 TCP(443) + 订阅转换器(25500)
+# 默认不暴露：HTTP(80) + 3x-ui 面板 + 3x-ui 原生订阅
 # 默认策略：拒绝所有入站，放行所有出站
 # 幂等：重复执行安全（ufw --force）
 # ============================================================
@@ -20,8 +21,13 @@ TCP_PORT="${TCP_PORT:-443}"
 UDP_PORT="${UDP_PORT:-8443}"   # Hy2 UDP，与 TCP_PORT 分开，避免 3x-ui 报端口占用
 PANEL_PORT="${PANEL_PORT:-2053}"
 SUB_PORT="${SUB_PORT:-2096}"
+SUB_CONVERTER_PORT="${SUB_CONVERTER_PORT:-${SUB_PORT_CLASH:-25500}}"
 SSH_PORT="${SSH_PORT:-22}"
 HTTP_PORT="${HTTP_PORT:-80}"   # Let's Encrypt HTTP-01 验证 + 续签
+EXPOSE_HTTP="${EXPOSE_HTTP:-false}"
+ENABLE_UDP="${ENABLE_UDP:-false}"
+EXPOSE_PANEL="${EXPOSE_PANEL:-false}"
+EXPOSE_XUI_SUB="${EXPOSE_XUI_SUB:-false}"
 
 # ---------- 1. 确保 ufw 已安装 ----------
 if ! command -v ufw >/dev/null 2>&1; then
@@ -46,25 +52,44 @@ log_step "放行必要端口"
 ufw allow "${SSH_PORT}/tcp" comment 'SSH'
 log_ok "SSH ${SSH_PORT}/tcp 已放行"
 
-# HTTP 80 - Let's Encrypt HTTP-01 验证（3x-ui 强制 SSL + IP 证书 6 天续签）
-ufw allow "${HTTP_PORT}/tcp" comment 'Lets Encrypt HTTP-01'
-log_ok "HTTP ${HTTP_PORT}/tcp 已放行（Let\\'s Encrypt 续签用）"
+if [[ "$EXPOSE_HTTP" == "true" ]]; then
+  ufw allow "${HTTP_PORT}/tcp" comment 'Lets Encrypt HTTP-01'
+  log_ok "HTTP ${HTTP_PORT}/tcp 已放行（Let\\'s Encrypt 续签用）"
+else
+  ufw deny "${HTTP_PORT}/tcp" >/dev/null || true
+  log_ok "HTTP ${HTTP_PORT}/tcp 默认不暴露"
+fi
 
 # 主代理 - TCP（VLESS + Reality）
 ufw allow "${TCP_PORT}/tcp" comment 'ace-vpn main TCP (VLESS+Reality)'
 log_ok "主代理 ${TCP_PORT}/tcp 已放行"
 
-# 主代理 - UDP（Hysteria2）
-ufw allow "${UDP_PORT}/udp" comment 'ace-vpn main UDP (Hysteria2)'
-log_ok "主代理 ${UDP_PORT}/udp 已放行"
+if [[ "$ENABLE_UDP" == "true" ]]; then
+  ufw allow "${UDP_PORT}/udp" comment 'ace-vpn main UDP (Hysteria2)'
+  log_ok "主代理 ${UDP_PORT}/udp 已放行"
+else
+  ufw deny "${UDP_PORT}/udp" >/dev/null || true
+  log_ok "UDP ${UDP_PORT}/udp 默认不暴露（未启用 Hy2 时减少探测面）"
+fi
 
-# 3x-ui 面板
-ufw allow "${PANEL_PORT}/tcp" comment 'ace-vpn 3x-ui panel'
-log_ok "面板端口 ${PANEL_PORT}/tcp 已放行"
+if [[ "$EXPOSE_PANEL" == "true" ]]; then
+  ufw allow "${PANEL_PORT}/tcp" comment 'ace-vpn 3x-ui panel'
+  log_ok "面板端口 ${PANEL_PORT}/tcp 已放行"
+else
+  ufw deny "${PANEL_PORT}/tcp" >/dev/null || true
+  log_ok "面板端口 ${PANEL_PORT}/tcp 默认不暴露（用 SSH 隧道访问）"
+fi
 
-# 订阅端口
-ufw allow "${SUB_PORT}/tcp" comment 'ace-vpn subscription'
-log_ok "订阅端口 ${SUB_PORT}/tcp 已放行"
+if [[ "$EXPOSE_XUI_SUB" == "true" ]]; then
+  ufw allow "${SUB_PORT}/tcp" comment '3x-ui native subscription'
+  log_ok "3x-ui 原生订阅端口 ${SUB_PORT}/tcp 已放行"
+else
+  ufw deny "${SUB_PORT}/tcp" >/dev/null || true
+  log_ok "3x-ui 原生订阅端口 ${SUB_PORT}/tcp 默认不暴露"
+fi
+
+ufw allow "${SUB_CONVERTER_PORT}/tcp" comment 'ace-vpn sub converter'
+log_ok "订阅转换器 ${SUB_CONVERTER_PORT}/tcp 已放行"
 
 # ---------- 4. 启用 ----------
 log_step "启用 UFW"
@@ -79,7 +104,8 @@ if dmesg 2>/dev/null | grep -qi oracle || \
   log_warn "检测到 Oracle Cloud 实例！"
   log_warn "Oracle 还有一层 VCN 安全列表（Security List），需要在 Web 控制台手动放行："
   log_warn "  Networking → Virtual Cloud Networks → 你的 VCN → Security Lists → Add Ingress Rules"
-  log_warn "  放行：TCP ${TCP_PORT}, UDP ${UDP_PORT}, TCP ${PANEL_PORT}, TCP ${SUB_PORT}"
+  log_warn "  放行：TCP ${TCP_PORT}, TCP ${SUB_CONVERTER_PORT}"
+  log_warn "  如显式启用，再放行：UDP ${UDP_PORT}, TCP ${PANEL_PORT}, TCP ${SUB_PORT}"
 fi
 
 log_ok "防火墙配置完成"
