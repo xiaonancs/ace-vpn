@@ -92,7 +92,8 @@ else
   DETECTED_SCHEME="${XUI_PANEL_SCHEME}"
 fi
 
-PANEL_URL="${DETECTED_SCHEME}://127.0.0.1:${XUI_PANEL_PORT}${XUI_PANEL_PATH}"
+PANEL_PATH_CLEAN="${XUI_PANEL_PATH%/}"
+PANEL_URL="${DETECTED_SCHEME}://127.0.0.1:${XUI_PANEL_PORT}${PANEL_PATH_CLEAN}"
 # 3x-ui v2：入站 API 在 /panel/api/inbounds/（复数 inbounds），不是 /panel/inbound/
 API_INBOUNDS="${PANEL_URL}/panel/api/inbounds"
 # 对 https + 给 IP 签的 Let's Encrypt 证书，curl 校验 CN=IP 时可能不匹配，放宽
@@ -101,8 +102,18 @@ log_ok "面板响应正常：${PANEL_URL}"
 
 # ---------- 2. 登录 ----------
 log_step "登录 3x-ui（用户：${XUI_USER}）"
+LOGIN_PAGE=$(curl ${CURL_OPTS} -c "${COOKIE_JAR}" "${PANEL_URL}/")
+CSRF_TOKEN=$(printf '%s' "${LOGIN_PAGE}" | sed -n 's/.*name="csrf-token" content="\([^"]*\)".*/\1/p' | head -1)
+
+LOGIN_HEADERS=(-H "X-Requested-With: XMLHttpRequest")
+if [[ -n "${CSRF_TOKEN}" ]]; then
+  LOGIN_HEADERS+=(-H "X-CSRF-Token: ${CSRF_TOKEN}")
+fi
+
 # shellcheck disable=SC2086
-LOGIN_RESP=$(curl ${CURL_OPTS} -c "${COOKIE_JAR}" \
+LOGIN_RESP=$(curl ${CURL_OPTS} -b "${COOKIE_JAR}" -c "${COOKIE_JAR}" \
+  "${LOGIN_HEADERS[@]}" \
+  -H "Content-Type: application/x-www-form-urlencoded; charset=UTF-8" \
   -d "username=${XUI_USER}&password=${XUI_PASS}" \
   "${PANEL_URL}/login")
 
@@ -160,7 +171,7 @@ parse_x25519() {
     PBK_SOURCE="PublicKey"
   else
     # 部分 xray 构建第二行名为 Password:，实为 X25519 公钥（客户端 vless 参数 pbk）
-    PUBLIC_KEY=$(x25519_extract_line "${out}" '^Password:')
+    PUBLIC_KEY=$(x25519_extract_line "${out}" '^Password([[:space:]]+\(PublicKey\))?:|^Password:')
     if [[ -n "${PUBLIC_KEY}" ]]; then
       PBK_SOURCE="Password-as-publicKey"
     fi
@@ -178,7 +189,7 @@ SHORT_ID=$(openssl rand -hex 8)
 UUID_MAIN=$(cat /proc/sys/kernel/random/uuid)
 HY2_PASSWORD=$(openssl rand -hex 16)
 HY2_OBFS_PASSWORD=$(openssl rand -hex 16)
-SUB_ID=$(openssl rand -hex 8)
+SUB_ID="${SUB_ID:-${SUB_ID_SELF:-$(openssl rand -hex 8)}}"
 
 log_ok "Reality 密钥与 UUID 已生成（pbk 来源=${PBK_SOURCE:-?}，公钥长度 ${#PUBLIC_KEY}）"
 
@@ -329,7 +340,7 @@ inbound = {
     "expiryTime": 0,
     "listen": "",
     "port": ${UDP_PORT},
-    "protocol": "hysteria2",
+    "protocol": "hysteria",
     "settings": json.dumps({
         "clients": settings["clients"],
         "obfs": {"type": "salamander", "password": "${HY2_OBFS_PASSWORD}"},
@@ -355,10 +366,13 @@ add_inbound() {
   local name="$1"
   local payload="$2"
   local resp
+  local headers=(-H "Content-Type: application/json" -H "X-Requested-With: XMLHttpRequest")
+  if [[ -n "${CSRF_TOKEN:-}" ]]; then
+    headers+=(-H "X-CSRF-Token: ${CSRF_TOKEN}")
+  fi
   # shellcheck disable=SC2086
   resp=$(curl ${CURL_OPTS} -b "${COOKIE_JAR}" \
-    -H "Content-Type: application/json" \
-    -H "X-Requested-With: XMLHttpRequest" \
+    "${headers[@]}" \
     -d "${payload}" \
     "${API_INBOUNDS}/add")
 

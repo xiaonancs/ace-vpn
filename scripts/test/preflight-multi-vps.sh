@@ -43,6 +43,7 @@ fi
 VPS_SSH_USER=${VPS_SSH_USER:-root}
 SSH_KEY=${VPS_SSH_KEY:-}
 SUB_PORT=${SUB_PORT_CLASH:-25500}
+SUB_PATH_PREFIX=${SUB_PATH_PREFIX:-clash}
 
 sub_health_token() {
   if [[ -n "${SUB_HEALTH_TOKEN:-}" ]]; then echo "$SUB_HEALTH_TOKEN"; return; fi
@@ -161,16 +162,18 @@ for entry in "${NODES[@]}"; do
   fi
   kv "端口 ${SUB_PORT} 监听" "${port_listen}"
 
-  health=$(curl -fsS --max-time 5 "http://${ip}:${SUB_PORT}/healthz" 2>/dev/null || echo "")
+  admin_header=""
+  [[ -n "${SUB_ADMIN_TOKEN:-}" ]] && admin_header="-H X-Admin-Token:${SUB_ADMIN_TOKEN}"
+  health=$(run_remote "${ip}" "curl -fsS --max-time 5 ${admin_header} 'http://127.0.0.1:${SUB_PORT}/healthz'" 2>/dev/null || echo "")
   if [[ -n "${health}" ]]; then
     ok "/healthz: ${health}"
   else
     tok=$(sub_health_token)
-    clash_code=$(curl -sS --max-time 15 -o /dev/null -w "%{http_code}" "http://${ip}:${SUB_PORT}/clash/${tok}" 2>/dev/null || echo 000)
+    clash_code=$(run_remote "${ip}" "curl -sS --max-time 15 -o /dev/null -w '%{http_code}' 'http://127.0.0.1:${SUB_PORT}/${SUB_PATH_PREFIX}/${tok}'" 2>/dev/null || echo 000)
     if [[ "${clash_code}" == "200" ]]; then
-      ok "/clash/${tok} 返回 200（旧版 sub-converter 无 /healthz，订阅与热加载仍正常）"
+      ok "/${SUB_PATH_PREFIX}/${tok} 返回 200（旧版 sub-converter 无 /healthz，订阅与热加载仍正常）"
     else
-      warn "/healthz 不通且 /clash/${tok} 返回 ${clash_code}（可能防火墙或服务异常）"
+      warn "/healthz 不通且 /${SUB_PATH_PREFIX}/${tok} 返回 ${clash_code}（可能防火墙或服务异常）"
       sub_state="✗"
     fi
   fi

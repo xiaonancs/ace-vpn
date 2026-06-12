@@ -40,6 +40,7 @@ VALIDATOR="$ROOT_DIR/scripts/server/validate-config.py"
 REMOTE_FILE=${REMOTE_SUBCONV_FILE:-"/opt/ace-vpn-sub/sub-converter.py"}
 REMOTE_SVC=${REMOTE_SUBCONV_SVC:-"ace-vpn-sub"}
 SUB_PORT=${SUB_PORT_CLASH:-25500}
+SUB_PATH_PREFIX=${SUB_PATH_PREFIX:-clash}
 BACKUP_KEEP=${SUBCONV_BACKUP_KEEP:-5}
 
 # ────────── token 选择（与 sync-intranet.sh 对齐）──────────
@@ -243,11 +244,14 @@ EOF
     restart_ok=0
   fi
 
-  # 4. /healthz
+  # 4. /healthz（走远端 localhost；公网 /healthz 可保持关闭）
   local health_ok=1
   if [[ $restart_ok -eq 1 ]]; then
     info "curl /healthz"
-    if ! curl -fsS --max-time 8 "http://${ip}:${SUB_PORT}/healthz" >/dev/null; then
+    local admin_header=""
+    [[ -n "${SUB_ADMIN_TOKEN:-}" ]] && admin_header="-H X-Admin-Token:${SUB_ADMIN_TOKEN}"
+    if ! ssh "${SSH_OPTS[@]}" "$VPS_SSH_USER@$ip" \
+        "curl -fsS --max-time 8 ${admin_header} 'http://127.0.0.1:${SUB_PORT}/healthz'" >/dev/null; then
       warn "[$name] /healthz 失败（将回滚）"
       health_ok=0
     fi
@@ -258,10 +262,10 @@ EOF
   if [[ $restart_ok -eq 1 && $health_ok -eq 1 && $SKIP_OUTPUT_CHECK -eq 0 ]]; then
     local tok
     tok=$(sub_health_token)
-    info "curl /clash/${tok} → 本地 validate-config.py"
+    info "curl /${SUB_PATH_PREFIX}/${tok} → 本地 validate-config.py"
     local tmp_out
     tmp_out=$(mktemp -t ace-vpn-sub-out.XXXXXX.yaml)
-    if ! curl -fsS --max-time 30 "http://${ip}:${SUB_PORT}/clash/${tok}" > "$tmp_out"; then
+    if ! curl -fsS --max-time 30 "http://${ip}:${SUB_PORT}/${SUB_PATH_PREFIX}/${tok}" > "$tmp_out"; then
       warn "[$name] 拉取订阅失败"
       output_ok=0
     elif ! python3 "$VALIDATOR" --quiet "$tmp_out"; then
@@ -332,7 +336,11 @@ EOF
     return 1
   fi
   info "验证：curl /healthz"
-  curl -fsS --max-time 8 "http://${ip}:${SUB_PORT}/healthz" | head -5 || warn "[$name] /healthz 异常"
+  local admin_header=""
+  [[ -n "${SUB_ADMIN_TOKEN:-}" ]] && admin_header="-H X-Admin-Token:${SUB_ADMIN_TOKEN}"
+  ssh "${SSH_OPTS[@]}" "$VPS_SSH_USER@$ip" \
+    "curl -fsS --max-time 8 ${admin_header} 'http://127.0.0.1:${SUB_PORT}/healthz'" | head -5 \
+    || warn "[$name] /healthz 异常"
   echo "  ${color_grn}✓${color_off} [$name] 回滚完成"
   return 0
 }

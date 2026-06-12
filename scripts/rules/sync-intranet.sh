@@ -31,6 +31,7 @@ ROOT_DIR=$(cd "$SCRIPT_DIR/../.." && pwd)
 LOCAL_FILE=${LOCAL_INTRANET_FILE:-"$ROOT_DIR/private/intranet.yaml"}
 REMOTE_FILE=${REMOTE_INTRANET_FILE:-"/etc/ace-vpn/intranet.yaml"}
 SUB_PORT=${SUB_PORT_CLASH:-25500}
+SUB_PATH_PREFIX=${SUB_PATH_PREFIX:-clash}
 
 # 旧版 sub-converter 无 /healthz 时，用此 token 探测 /clash/<token> 是否 200
 sub_health_token() {
@@ -224,19 +225,24 @@ EOF
   ssh "${SSH_OPTS[@]}" "$VPS_SSH_USER@$ip" "chmod 0644 '$REMOTE_FILE' && ls -l '$REMOTE_FILE'" \
     || { warn "[$name] chmod 失败"; return 1; }
 
-  info "验证 sub-converter（/healthz 或旧版 /clash/<token>）"
+  info "验证 sub-converter（远端 localhost /healthz 或旧版 /<prefix>/<token>）"
   local tok
   tok=$(sub_health_token)
-  if curl -fsS --max-time 8 "http://${ip}:${SUB_PORT}/healthz" 2>/dev/null; then
+  local admin_header=""
+  [[ -n "${SUB_ADMIN_TOKEN:-}" ]] && admin_header="-H X-Admin-Token:${SUB_ADMIN_TOKEN}"
+  if ssh "${SSH_OPTS[@]}" "$VPS_SSH_USER@$ip" \
+      "curl -fsS --max-time 8 ${admin_header} 'http://127.0.0.1:${SUB_PORT}/healthz'" 2>/dev/null; then
     echo
   else
     local code
-    code=$(curl -sS --max-time 15 -o /dev/null -w "%{http_code}" "http://${ip}:${SUB_PORT}/clash/${tok}" 2>/dev/null || echo 000)
+    code=$(ssh "${SSH_OPTS[@]}" "$VPS_SSH_USER@$ip" \
+      "curl -sS --max-time 15 -o /dev/null -w '%{http_code}' 'http://127.0.0.1:${SUB_PORT}/${SUB_PATH_PREFIX}/${tok}'" \
+      2>/dev/null || echo 000)
     if [[ "$code" == "200" ]]; then
-      warn "[$name] 无 /healthz（旧版 sub-converter），但 http://${ip}:${SUB_PORT}/clash/${tok} 返回 200，热加载仍可用"
+      warn "[$name] 无 /healthz（旧版 sub-converter），但 127.0.0.1:${SUB_PORT}/${SUB_PATH_PREFIX}/${tok} 返回 200，热加载仍可用"
       warn "  可选：scp scripts/server/sub-converter.py 到 VPS 后 systemctl restart ace-vpn-sub，即获得 /healthz"
     else
-      warn "[$name] /healthz 失败且 /clash/${tok} 返回 ${code}（服务或端口 ${SUB_PORT} 异常）"
+      warn "[$name] /healthz 失败且 /${SUB_PATH_PREFIX}/${tok} 返回 ${code}（服务或端口 ${SUB_PORT} 异常）"
       warn "  文件已同步，需要时重启：ssh ${VPS_SSH_USER}@${ip} 'systemctl restart ace-vpn-sub'"
     fi
   fi

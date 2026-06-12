@@ -58,6 +58,7 @@ first_vps_ip() {
 MATCH_VPS_IP=${MATCH_VPS_IP:-$(first_vps_ip)}
 : "${MATCH_VPS_IP:?MATCH_VPS_IP 或 VPS_IP_LIST 未设置；先 source private/env.sh}"
 SUB_PORT=${SUB_PORT_CLASH:-25500}
+SUB_PATH_PREFIX=${SUB_PATH_PREFIX:-clash}
 LOCAL_PROXY=${LOCAL_PROXY:-http://127.0.0.1:7890}
 
 # ─────────────── 目标是什么 ───────────────
@@ -84,10 +85,16 @@ hdr "[1/3] 服务端规则匹配（/match 权威查询）"
 
 URLENC=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1],safe=''))" "$TEST_URL")
 MATCH_URL="http://$MATCH_VPS_IP:$SUB_PORT/match?url=$URLENC"
+ADMIN_CURL_ARGS=()
+if [[ -n "${SUB_ADMIN_TOKEN:-}" ]]; then
+  ADMIN_CURL_ARGS=(-H "X-Admin-Token: ${SUB_ADMIN_TOKEN}")
+fi
 
-if ! MATCH_JSON=$(curl -fsS --max-time 8 "$MATCH_URL" 2>&1); then
+if ! MATCH_JSON=$(curl -fsS --max-time 8 "${ADMIN_CURL_ARGS[@]}" "$MATCH_URL" 2>&1); then
   warn "调 /match 失败：$MATCH_JSON"
-  warn "旧版 sub-converter 没有这个接口，先升级："
+  warn "旧版 sub-converter 没有这个接口，或新版需要 SUB_ADMIN_TOKEN。先确认 private/env.sh："
+  echo "    export SUB_ADMIN_TOKEN='<VPS 上 ace-vpn-sub.service 里的值>'"
+  warn "如果确实是旧版，再升级："
   echo "    scp scripts/server/sub-converter.py root@$MATCH_VPS_IP:/opt/ace-vpn-sub/sub-converter.py"
   echo "    ssh root@$MATCH_VPS_IP 'systemctl restart ace-vpn-sub'"
   MATCH_JSON=""

@@ -15,6 +15,10 @@
     客户端 URL：/clash/<任意白名单里的 token>
     实际从 $UPSTREAM_BASE/<token> 拉上游
 
+[C] 内联上游模式（3x-ui 原生订阅未启用时的稳妥回退）：
+    UPSTREAM_INLINE  一行或多行 vless:// 分享链接
+    SUB_TOKENS       白名单 token；每个 token 返回同一份内联节点
+
 通用环境变量：
     LISTEN_PORT    监听端口，默认 25500
     SERVER_OVERRIDE 强制覆盖节点 server 字段（防 3x-ui 返回 127.0.0.1）
@@ -79,6 +83,7 @@ import socketserver
 import ssl
 import sys
 import threading
+import time
 import urllib.parse
 import urllib.request
 import yaml
@@ -87,6 +92,7 @@ from typing import List, Dict, Any, Optional
 
 # 模式 A：单 token
 UPSTREAM_SUB = os.environ.get("UPSTREAM_SUB", "").strip()
+UPSTREAM_INLINE = os.environ.get("UPSTREAM_INLINE", "").strip()
 SUB_TOKEN = os.environ.get("SUB_TOKEN", "").strip() or secrets.token_urlsafe(12)
 
 # 模式 B：多 token（推荐）
@@ -94,7 +100,10 @@ UPSTREAM_BASE = os.environ.get("UPSTREAM_BASE", "").strip().rstrip("/")
 SUB_TOKENS = [t.strip() for t in os.environ.get("SUB_TOKENS", "").split(",") if t.strip()]
 
 LISTEN_PORT = int(os.environ.get("LISTEN_PORT", "25500"))
+LISTEN_HOST = os.environ.get("LISTEN_HOST", "0.0.0.0").strip() or "0.0.0.0"
 SUB_PATH_PREFIX = os.environ.get("SUB_PATH_PREFIX", "clash").strip().strip("/") or "clash"
+SUB_ADMIN_TOKEN = os.environ.get("SUB_ADMIN_TOKEN", "").strip()
+SUB_RATE_LIMIT_PER_MIN = int(os.environ.get("SUB_RATE_LIMIT_PER_MIN", "120"))
 COMPANY_CIDRS = [c.strip() for c in os.environ.get("COMPANY_CIDRS", "").split(",") if c.strip()]
 COMPANY_SFX = [c.strip() for c in os.environ.get("COMPANY_SFX", "").split(",") if c.strip()]
 INTRANET_FILE = os.environ.get("INTRANET_FILE", "/etc/ace-vpn/intranet.yaml").strip()
@@ -110,6 +119,9 @@ SERVER_OVERRIDE = os.environ.get("SERVER_OVERRIDE", "").strip()
 # 未命中的 token 使用 TUN_ENABLE 默认值。
 TUN_ENABLE_DEFAULT = os.environ.get("TUN_ENABLE", "false").strip().lower() in ("1", "true", "yes", "on")
 TUN_TOKENS = {t.strip() for t in os.environ.get("TUN_TOKENS", "").split(",") if t.strip()}
+TUN_MTU = int(os.environ.get("TUN_MTU", "1420"))
+MAIN_URL_TEST = os.environ.get("MAIN_URL_TEST", "https://www.gstatic.com/generate_204").strip()
+AI_URL_TEST = os.environ.get("AI_URL_TEST", MAIN_URL_TEST).strip()
 
 # extra.cn 域名强制使用的"国内公网 DNS"。
 #
@@ -208,6 +220,8 @@ _SSL_CONTEXT.verify_mode = ssl.CERT_NONE
 _INTRANET_CACHE_LOCK = threading.Lock()
 _INTRANET_CACHE_KEY = None
 _INTRANET_CACHE: Optional[Dict[str, Any]] = None
+_RATE_LOCK = threading.Lock()
+_RATE_BUCKETS: Dict[str, List[float]] = {}
 
 
 def load_intranet_config() -> Dict[str, Any]:
@@ -351,6 +365,12 @@ def _load_intranet_config_uncached() -> Dict[str, Any]:
 
 def resolve_upstream(token: str) -> Optional[str]:
     """按 token 解析上游 3x-ui 订阅 URL。None 表示 token 不在白名单。"""
+    if UPSTREAM_INLINE:
+        if SUB_TOKENS:
+            return f"inline://{token}" if token in SUB_TOKENS else None
+        if token == SUB_TOKEN:
+            return f"inline://{token}"
+        return None
     if UPSTREAM_BASE and SUB_TOKENS:
         if token in SUB_TOKENS:
             return f"{UPSTREAM_BASE}/{token}"
@@ -363,6 +383,8 @@ def resolve_upstream(token: str) -> Optional[str]:
 
 
 def fetch_sub(url: str) -> str:
+    if url.startswith("inline://"):
+        return UPSTREAM_INLINE
     req = urllib.request.Request(url, headers={"User-Agent": "ace-vpn/1.0"})
     with urllib.request.urlopen(req, context=_SSL_CONTEXT, timeout=10) as r:
         return r.read().decode("utf-8", errors="replace").strip()
@@ -719,21 +741,29 @@ def build_clash_yaml(
             # "add route: 1.0.0.0/8: file exists"，导致 TUN 整体启动失败。
             # 排除此段可让 TUN 与公司 VPN 共存；1/8 少量流量仍按系统/公司 VPN 路由走。
             "route-exclude-address": ["1.0.0.0/8"],
-            "mtu": 1500,
+            "mtu": TUN_MTU,
         },
         "proxies": proxies,
         "proxy-groups": [
-            {"name": "🚀 PROXY", "type": "select", "proxies": ["⚡ AUTO", *names, "DIRECT"]},
+            {"name": "🚀 PROXY", "type": "select", "proxies": ["⚡ MAIN_AUTO", *names, "DIRECT"]},
             {
-                "name": "⚡ AUTO",
+                "name": "⚡ MAIN_AUTO",
                 "type": "url-test",
                 "proxies": names,
-                "url": "https://www.gstatic.com/generate_204",
+                "url": MAIN_URL_TEST,
                 "interval": 300,
                 "tolerance": 50,
             },
-            {"name": "🤖 AI", "type": "select", "proxies": ["🚀 PROXY", "⚡ AUTO", *names]},
-            {"name": "📺 MEDIA", "type": "select", "proxies": ["🚀 PROXY", "⚡ AUTO", *names]},
+            {
+                "name": "🤖 AI_AUTO",
+                "type": "url-test",
+                "proxies": names,
+                "url": AI_URL_TEST,
+                "interval": 300,
+                "tolerance": 50,
+            },
+            {"name": "🤖 AI", "type": "select", "proxies": ["🤖 AI_AUTO", "🚀 PROXY", "⚡ MAIN_AUTO", *names]},
+            {"name": "📺 MEDIA", "type": "select", "proxies": ["🚀 PROXY", "⚡ MAIN_AUTO", *names]},
             {"name": "🐟 FINAL", "type": "select", "proxies": ["🚀 PROXY", "DIRECT"]},
         ],
         "rules": build_rules(names, intranet),
@@ -847,11 +877,20 @@ def _match_result(
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
-    server_version = "ace-vpn/1.0"
+    server_version = "server"
+    sys_version = ""
 
     def do_GET(self):  # noqa: N802
+        if self._rate_limited():
+            self._reply(429, b"Too Many Requests\n", "text/plain")
+            return
+
         # 期望 /clash/<token>，不接受多级 path；/healthz 是简单自检
-        if self.path.rstrip("/") == "/healthz":
+        request_path = urllib.parse.urlparse(self.path).path.rstrip("/")
+        if request_path == "/healthz":
+            if not self._admin_allowed():
+                self._reply(404, b"Not Found\n", "text/plain")
+                return
             intranet = load_intranet_config()
             body = (
                 f"ok\n"
@@ -866,7 +905,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         # 诊断接口：GET /match?url=<...>  或  /match?host=<...>
         # 返回 JSON：命中哪条规则、目标组、解析到的 IP 等
-        if self.path.split("?")[0].rstrip("/") == "/match":
+        if request_path == "/match":
+            if not self._admin_allowed():
+                self._reply(404, b"Not Found\n", "text/plain")
+                return
             try:
                 qs = urllib.parse.urlparse(self.path).query
                 params = dict(urllib.parse.parse_qsl(qs))
@@ -922,12 +964,52 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 extra={"Profile-Update-Interval": "24"},
             )
         except Exception as e:  # noqa: BLE001
-            self._reply(500, f"# Error: {e}\n".encode(), "text/plain; charset=utf-8")
+            sys.stderr.write(f"[error] subscription build failed from {self.client_address[0]}: {e}\n")
+            self._reply(500, b"# Error: temporary subscription failure\n", "text/plain; charset=utf-8")
+
+    def _is_local_client(self) -> bool:
+        host = self.client_address[0]
+        try:
+            ip = ipaddress.ip_address(host)
+            return ip.is_loopback
+        except ValueError:
+            return host in ("localhost",)
+
+    def _admin_allowed(self) -> bool:
+        if self._is_local_client():
+            return True
+        if not SUB_ADMIN_TOKEN:
+            return False
+        parsed = urllib.parse.urlparse(self.path)
+        params = dict(urllib.parse.parse_qsl(parsed.query))
+        supplied = params.get("admin_token") or params.get("token") or ""
+        auth = self.headers.get("Authorization", "")
+        if auth.lower().startswith("bearer "):
+            supplied = auth[7:].strip()
+        header_token = self.headers.get("X-Admin-Token", "")
+        supplied = header_token.strip() or supplied
+        return secrets.compare_digest(supplied, SUB_ADMIN_TOKEN)
+
+    def _rate_limited(self) -> bool:
+        if SUB_RATE_LIMIT_PER_MIN <= 0 or self._is_local_client():
+            return False
+        now = time.time()
+        key = self.client_address[0]
+        with _RATE_LOCK:
+            bucket = [t for t in _RATE_BUCKETS.get(key, []) if now - t < 60]
+            if len(bucket) >= SUB_RATE_LIMIT_PER_MIN:
+                _RATE_BUCKETS[key] = bucket
+                return True
+            bucket.append(now)
+            _RATE_BUCKETS[key] = bucket
+        return False
 
     def _reply(self, code: int, body: bytes, ctype: str, extra: Optional[Dict[str, str]] = None):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Cache-Control", "no-store")
         for k, v in (extra or {}).items():
             self.send_header(k, v)
         self.end_headers()
@@ -943,8 +1025,8 @@ class ReusableThreadingTCPServer(socketserver.ThreadingTCPServer):
 
 
 def main() -> int:
-    if not UPSTREAM_BASE and not UPSTREAM_SUB:
-        print("ERROR: Set either UPSTREAM_BASE+SUB_TOKENS (multi) or UPSTREAM_SUB+SUB_TOKEN (single)",
+    if not UPSTREAM_BASE and not UPSTREAM_SUB and not UPSTREAM_INLINE:
+        print("ERROR: Set UPSTREAM_INLINE, UPSTREAM_BASE+SUB_TOKENS (multi), or UPSTREAM_SUB+SUB_TOKEN (single)",
               file=sys.stderr)
         return 1
     if UPSTREAM_BASE and not SUB_TOKENS:
@@ -952,20 +1034,26 @@ def main() -> int:
               file=sys.stderr)
         return 1
 
-    print(f"ace-vpn sub-converter listening on 0.0.0.0:{LISTEN_PORT}", flush=True)
-    if UPSTREAM_BASE:
+    print(f"ace-vpn sub-converter listening on {LISTEN_HOST}:{LISTEN_PORT}", flush=True)
+    if UPSTREAM_INLINE:
+        print(f"  [Inline upstream mode]", flush=True)
+        for t in (SUB_TOKENS or [SUB_TOKEN]):
+            masked = f"{t[:4]}...{t[-4:]}" if len(t) > 10 else "***"
+            print(f"    - http://<VPS-IP>:{LISTEN_PORT}/{SUB_PATH_PREFIX}/{masked}", flush=True)
+    elif UPSTREAM_BASE:
         print(f"  [Multi-token mode]", flush=True)
         print(f"  Upstream base: {UPSTREAM_BASE}/<token>", flush=True)
         for t in SUB_TOKENS:
+            masked = f"{t[:4]}...{t[-4:]}" if len(t) > 10 else "***"
             print(
-                f"    - http://<VPS-IP>:{LISTEN_PORT}/{SUB_PATH_PREFIX}/{t}  "
-                f"(-> {UPSTREAM_BASE}/{t})",
+                f"    - http://<VPS-IP>:{LISTEN_PORT}/{SUB_PATH_PREFIX}/{masked}",
                 flush=True,
             )
     else:
         print(f"  [Single-token mode]", flush=True)
         print(f"  Upstream: {UPSTREAM_SUB}", flush=True)
-        print(f"  Clash URL: http://<VPS-IP>:{LISTEN_PORT}/{SUB_PATH_PREFIX}/{SUB_TOKEN}", flush=True)
+        masked = f"{SUB_TOKEN[:4]}...{SUB_TOKEN[-4:]}" if len(SUB_TOKEN) > 10 else "***"
+        print(f"  Clash URL: http://<VPS-IP>:{LISTEN_PORT}/{SUB_PATH_PREFIX}/{masked}", flush=True)
 
     _init = load_intranet_config()
     print(
@@ -975,7 +1063,7 @@ def main() -> int:
         flush=True,
     )
 
-    with ReusableThreadingTCPServer(("0.0.0.0", LISTEN_PORT), Handler) as httpd:
+    with ReusableThreadingTCPServer((LISTEN_HOST, LISTEN_PORT), Handler) as httpd:
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:

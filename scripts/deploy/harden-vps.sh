@@ -266,13 +266,17 @@ if [[ "$DISABLE_PASSWORD" != "1" ]]; then
   note "(skip) 默认保留密码登录；确认所有常用机器都配好 key 后再加 --disable-password"
 elif [[ $keys_found -eq 0 ]]; then
   note "未检测到任何 authorized_keys，拒绝关密码（否则你会被锁死在 VNC 外）"
-elif grep -qE "^[[:space:]]*PasswordAuthentication[[:space:]]+no" /etc/ssh/sshd_config; then
+elif sshd -T 2>/dev/null | grep -qE "^passwordauthentication no$"; then
   yes "PasswordAuthentication 已 no"
 else
-  fix "改 /etc/ssh/sshd_config: PasswordAuthentication no"
+  fix "写 /etc/ssh/sshd_config.d/00-ace-vpn-hardening.conf: PasswordAuthentication no"
   if [[ "$MODE" == "apply" ]]; then
-    sed -i 's/^[[:space:]]*#*[[:space:]]*PasswordAuthentication.*/PasswordAuthentication no/' \
-      /etc/ssh/sshd_config
+    cat >/etc/ssh/sshd_config.d/00-ace-vpn-hardening.conf <<'EOF'
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+ChallengeResponseAuthentication no
+PermitRootLogin prohibit-password
+EOF
     sshd -t && systemctl reload sshd
   fi
 fi

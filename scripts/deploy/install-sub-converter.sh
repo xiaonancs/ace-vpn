@@ -13,7 +13,7 @@
 #        SERVER_OVERRIDE='<VPS_IP>' \
 #        bash install-sub-converter.sh
 #
-# 所有设备访问 http://<VPS>:25500/clash/<token>，token 必须在白名单里。
+# 所有设备访问 http://<VPS>:25500/<SUB_PATH_PREFIX>/<token>，token 必须在白名单里。
 
 set -euo pipefail
 
@@ -26,19 +26,33 @@ require_root
 require_ubuntu
 
 UPSTREAM_SUB=${UPSTREAM_SUB:-}
+UPSTREAM_INLINE=${UPSTREAM_INLINE:-}
 UPSTREAM_BASE=${UPSTREAM_BASE:-}
 SUB_TOKEN=${SUB_TOKEN:-}
 SUB_TOKENS=${SUB_TOKENS:-}
 LISTEN_PORT=${LISTEN_PORT:-25500}
-SUB_PATH_PREFIX=${SUB_PATH_PREFIX:-clash}
+if [[ -z "${SUB_PATH_PREFIX:-}" ]]; then
+  SUB_PATH_PREFIX="clash-$(openssl rand -hex 16)"
+fi
+SUB_ADMIN_TOKEN=${SUB_ADMIN_TOKEN:-$(openssl rand -hex 24)}
+SUB_RATE_LIMIT_PER_MIN=${SUB_RATE_LIMIT_PER_MIN:-120}
 COMPANY_CIDRS=${COMPANY_CIDRS:-}
 COMPANY_SFX=${COMPANY_SFX:-}
 SERVER_OVERRIDE=${SERVER_OVERRIDE:-}
 TUN_ENABLE=${TUN_ENABLE:-false}
 TUN_TOKENS=${TUN_TOKENS:-}
+TUN_MTU=${TUN_MTU:-1420}
+MAIN_URL_TEST=${MAIN_URL_TEST:-https://www.gstatic.com/generate_204}
+AI_URL_TEST=${AI_URL_TEST:-$MAIN_URL_TEST}
 INTRANET_FILE=${INTRANET_FILE:-/etc/ace-vpn/intranet.yaml}
 
-if [[ -n "$UPSTREAM_BASE" ]]; then
+if [[ -n "$UPSTREAM_INLINE" ]]; then
+  if [[ -z "$SUB_TOKENS" && -z "$SUB_TOKEN" ]]; then
+    log_error "UPSTREAM_INLINE 模式下必须设置 SUB_TOKENS 或 SUB_TOKEN"
+    exit 1
+  fi
+  log_info "模式：内联上游（UPSTREAM_INLINE）"
+elif [[ -n "$UPSTREAM_BASE" ]]; then
   if [[ -z "$SUB_TOKENS" ]]; then
     log_error "UPSTREAM_BASE 模式下必须设置 SUB_TOKENS（逗号分隔的 3x-ui SubId 白名单）"
     log_error "例：SUB_TOKENS='sub-hxn,sub-hxn01'"
@@ -64,6 +78,12 @@ INSTALL_DIR=/opt/ace-vpn-sub
 mkdir -p "$INSTALL_DIR"
 install -m 0755 "$ROOT_DIR/scripts/server/sub-converter.py" "$INSTALL_DIR/sub-converter.py"
 
+SUB_USER=${SUB_USER:-ace-vpn-sub}
+if ! id "$SUB_USER" >/dev/null 2>&1; then
+  log_step "创建最小权限用户 $SUB_USER"
+  useradd --system --no-create-home --shell /usr/sbin/nologin "$SUB_USER"
+fi
+
 log_step "初始化内网规则文件 $INTRANET_FILE（热加载，改完无需重启）"
 install -d -m 0755 "$(dirname "$INTRANET_FILE")"
 if [[ ! -f "$INTRANET_FILE" ]]; then
@@ -88,27 +108,41 @@ After=network-online.target
 [Service]
 Type=simple
 Environment=UPSTREAM_SUB=$UPSTREAM_SUB
+Environment=UPSTREAM_INLINE=$UPSTREAM_INLINE
 Environment=UPSTREAM_BASE=$UPSTREAM_BASE
 Environment=SUB_TOKEN=$SUB_TOKEN
 Environment=SUB_TOKENS=$SUB_TOKENS
 Environment=LISTEN_PORT=$LISTEN_PORT
 Environment=SUB_PATH_PREFIX=$SUB_PATH_PREFIX
+Environment=SUB_ADMIN_TOKEN=$SUB_ADMIN_TOKEN
+Environment=SUB_RATE_LIMIT_PER_MIN=$SUB_RATE_LIMIT_PER_MIN
 Environment=COMPANY_CIDRS=$COMPANY_CIDRS
 Environment=COMPANY_SFX=$COMPANY_SFX
 Environment=SERVER_OVERRIDE=$SERVER_OVERRIDE
 Environment=TUN_ENABLE=$TUN_ENABLE
 Environment=TUN_TOKENS=$TUN_TOKENS
+Environment=TUN_MTU=$TUN_MTU
+Environment=MAIN_URL_TEST=$MAIN_URL_TEST
+Environment=AI_URL_TEST=$AI_URL_TEST
 Environment=INTRANET_FILE=$INTRANET_FILE
+Environment=PYTHONDONTWRITEBYTECODE=1
 ExecStart=/usr/bin/python3 $INSTALL_DIR/sub-converter.py
 Restart=on-failure
 RestartSec=3
-User=root
+User=$SUB_USER
+Group=$SUB_USER
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=$INSTALL_DIR $(dirname "$INTRANET_FILE")
+CapabilityBoundingSet=
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-chmod 644 /etc/systemd/system/ace-vpn-sub.service
+chmod 600 /etc/systemd/system/ace-vpn-sub.service
 systemctl daemon-reload
 systemctl enable ace-vpn-sub.service
 # 强制重启（而不是 --now），确保环境变量 / 代码变更都生效
@@ -128,12 +162,12 @@ systemctl is-active ace-vpn-sub.service || {
 }
 
 log_step "自检每条 token 的节点数"
-if [[ -n "$UPSTREAM_BASE" ]]; then
+if [[ -n "$UPSTREAM_BASE" || ( -n "$UPSTREAM_INLINE" && -n "$SUB_TOKENS" ) ]]; then
   IFS=',' read -r -a _check_tokens <<< "$SUB_TOKENS"
   _any_fail=0
   for _t in "${_check_tokens[@]}"; do
     _t=$(echo "$_t" | xargs)
-    _cnt=$(curl -s "http://127.0.0.1:${LISTEN_PORT}/clash/${_t}" | grep -c '^- name:' || true)
+    _cnt=$(curl -s "http://127.0.0.1:${LISTEN_PORT}/${SUB_PATH_PREFIX}/${_t}" | grep -c '^- name:' || true)
     if [[ "$_cnt" -gt 0 ]]; then
       log_ok "  ${_t}: ${_cnt} 个节点"
     else
@@ -149,20 +183,22 @@ PUBLIC_IP=$(curl -s -4 ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}'
 echo
 log_ok "安装完成 ✓"
 echo
-if [[ -n "$UPSTREAM_BASE" ]]; then
+if [[ -n "$UPSTREAM_BASE" || ( -n "$UPSTREAM_INLINE" && -n "$SUB_TOKENS" ) ]]; then
   echo "  Clash 订阅 URL（每个 token 一条）："
   IFS=',' read -r -a _tokens <<< "$SUB_TOKENS"
   for _t in "${_tokens[@]}"; do
     _t=$(echo "$_t" | xargs)
-    echo "    http://${PUBLIC_IP}:${LISTEN_PORT}/clash/${_t}"
+    echo "    http://${PUBLIC_IP}:${LISTEN_PORT}/${SUB_PATH_PREFIX}/${_t}"
   done
 else
   echo "  Clash 订阅 URL："
-  echo "  http://${PUBLIC_IP}:${LISTEN_PORT}/clash/${SUB_TOKEN}"
+  echo "  http://${PUBLIC_IP}:${LISTEN_PORT}/${SUB_PATH_PREFIX}/${SUB_TOKEN}"
   echo
   echo "  iPhone Shadowrocket 用 3x-ui 原订阅："
   echo "  $UPSTREAM_SUB"
 fi
 echo
+echo "  SUB_PATH_PREFIX: ${SUB_PATH_PREFIX}"
+echo "  SUB_ADMIN_TOKEN: ${SUB_ADMIN_TOKEN}"
 echo "  日志查看： journalctl -u ace-vpn-sub -f"
 echo "  修改配置： systemctl edit ace-vpn-sub"
