@@ -179,7 +179,10 @@ ss -tlnp | grep -E ":22|:443|:25500|:14285|:2096" | awk "{print \"    \" \$4}"
 echo "  防火墙:"
 ufw status | grep -E "22/tcp|443/tcp|25500/tcp|80/tcp|25/tcp|465/tcp|587/tcp" | sed "s/^/    /"
 echo "  IPv6: $(sysctl -n net.ipv6.conf.all.disable_ipv6 2>/dev/null)"
-grep -q "^PasswordAuthentication no" /etc/ssh/sshd_config && echo "  SSH 密码登录: no" || echo "  SSH 密码登录: 请检查"
+sshd -T 2>/dev/null | awk '
+  /^passwordauthentication / { print "  SSH 密码登录: " $2 }
+  /^permitrootlogin / { print "  SSH root 登录: " $2 }
+'
 REMOTE
   else
     warn "SSH 不可达；若公司 VPN 开着，这是预期，不代表 VPS 坏。"

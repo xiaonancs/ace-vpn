@@ -957,11 +957,15 @@ def main() -> int:
         print(f"  [Multi-token mode]", flush=True)
         print(f"  Upstream base: {UPSTREAM_BASE}/<token>", flush=True)
         for t in SUB_TOKENS:
-            print(f"    - http://<VPS-IP>:{LISTEN_PORT}/clash/{t}  (-> {UPSTREAM_BASE}/{t})", flush=True)
+            print(
+                f"    - http://<VPS-IP>:{LISTEN_PORT}/{SUB_PATH_PREFIX}/{t}  "
+                f"(-> {UPSTREAM_BASE}/{t})",
+                flush=True,
+            )
     else:
         print(f"  [Single-token mode]", flush=True)
         print(f"  Upstream: {UPSTREAM_SUB}", flush=True)
-        print(f"  Clash URL: http://<VPS-IP>:{LISTEN_PORT}/clash/{SUB_TOKEN}", flush=True)
+        print(f"  Clash URL: http://<VPS-IP>:{LISTEN_PORT}/{SUB_PATH_PREFIX}/{SUB_TOKEN}", flush=True)
 
     _init = load_intranet_config()
     print(
