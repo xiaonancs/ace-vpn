@@ -121,7 +121,7 @@ TUN_ENABLE_DEFAULT = os.environ.get("TUN_ENABLE", "false").strip().lower() in ("
 TUN_TOKENS = {t.strip() for t in os.environ.get("TUN_TOKENS", "").split(",") if t.strip()}
 TUN_MTU = int(os.environ.get("TUN_MTU", "1420"))
 MAIN_URL_TEST = os.environ.get("MAIN_URL_TEST", "https://www.gstatic.com/generate_204").strip()
-AI_URL_TEST = os.environ.get("AI_URL_TEST", MAIN_URL_TEST).strip()
+AI_URL_TEST = os.environ.get("AI_URL_TEST", "https://chatgpt.com/cdn-cgi/trace").strip()
 
 # extra.cn 域名强制使用的"国内公网 DNS"。
 #
@@ -178,9 +178,9 @@ PROXY_SERVER_DNS = [
     "223.5.5.5",
 ]
 
-# AI 长流式响应域名白名单：DNS 强制境外 DoH + 加入 fake-ip-filter。
+# AI 长流式响应域名白名单：路由到 🤖 AI，DNS 强制境外 DoH + 加入 fake-ip-filter。
 # 这些域名的共同点是「agent/chat 模式的长连接流式输出」，对 DNS 污染和
-# RST 注入最敏感。路由层走 🚀 PROXY 即可（保持既有）；DNS 层单独强化。
+# RST 注入最敏感；和普通海外网页分开，便于单独选择出口和测速目标。
 #
 # 按平台分类，便于后续增减：
 AI_STREAMING_DOMAINS = [
@@ -465,21 +465,8 @@ def parse_vless(uri: str) -> Optional[Dict[str, Any]]:
 
 # 规则集（顺序即优先级）
 #
-# 🤖 AI group 现在专门用来"标记需要走特殊出口（例如 VPS 上 xray 的 wireguard
-# outbound 把 Google AI 转 WARP）的域名"。其他 AI 站（OpenAI / Claude / Cursor 等）
-# 在 VPS 那边能直出干净 IP，留在默认 🚀 PROXY 即可，没必要进 🤖 AI；进了反而让
-# mac 端 group 显示混乱、并误导 VPS 端 routing 加多余规则。
-#
-# 👉 想"专属出口"的域名才往这里加；只是"想代理"的请让它走 🚀 PROXY。
-AI_DOMAINS = [
-    "gemini.google.com",
-    "bard.google.com",
-    "aistudio.google.com",
-    "generativelanguage.googleapis.com",
-    "makersuite.google.com",
-    "notebooklm.google.com",
-    "labs.google",
-]
+# 🤖 AI group 专门承接 AI/agent/chat/API 流量；普通海外网页继续走 🚀 PROXY。
+AI_DOMAINS = list(AI_STREAMING_DOMAINS)
 
 SOCIAL_PROXY = [
     # Discord

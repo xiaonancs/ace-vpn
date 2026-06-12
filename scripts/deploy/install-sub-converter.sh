@@ -10,6 +10,7 @@
 # 模式 B：多 token（推荐，一个实例服务全家）
 #   sudo UPSTREAM_BASE='https://127.0.0.1:2096/<sub-path>' \
 #        SUB_TOKENS='sub-hxn,sub-hxn01' \
+#        TUN_TOKENS='sub-hxn,sub-hxn01' \
 #        SERVER_OVERRIDE='<VPS_IP>' \
 #        bash install-sub-converter.sh
 #
@@ -43,7 +44,7 @@ TUN_ENABLE=${TUN_ENABLE:-false}
 TUN_TOKENS=${TUN_TOKENS:-}
 TUN_MTU=${TUN_MTU:-1420}
 MAIN_URL_TEST=${MAIN_URL_TEST:-https://www.gstatic.com/generate_204}
-AI_URL_TEST=${AI_URL_TEST:-$MAIN_URL_TEST}
+AI_URL_TEST=${AI_URL_TEST:-https://chatgpt.com/cdn-cgi/trace}
 INTRANET_FILE=${INTRANET_FILE:-/etc/ace-vpn/intranet.yaml}
 
 if [[ -n "$UPSTREAM_INLINE" ]]; then
