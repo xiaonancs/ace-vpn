@@ -10,19 +10,20 @@ Xray + Reality 自建，2–5 人家庭共享。**公司内网 DIRECT · 大陆�
 | 方案 | 费用 | 说明 |
 |------|------|------|
 | **白嫖** | 永久 0 元 | [Oracle Cloud Always Free ARM](docs/Oracle%20Cloud%20注册教程.md) · 4C / 24G / 10TB 流量 |
-| **付费** | ¥345/年（$4/月） | HostHatch Tokyo · 稳定 · 15 分钟一键迁移 |
+| **付费** | $6/月起 | Vultr Tokyo 现役 · HostHatch/其它 VPS 可按同一迁移流程替换 |
 | **源码** | 免费 | MIT · 整套部署脚本 + 四端客户端模板 |
 
 👉 想 0 元起步：[Oracle Cloud Always Free 申请教程（含风控踩坑）](docs/Oracle%20Cloud%20注册教程.md)
 
 ## 📍 当前状态
 
-生产 **HostHatch Tokyo ✅** · 协议栈 **VLESS + Reality + 3x-ui + 自研 Python sub-converter** · 已接入 Mac×2 / iPhone / iPad / Android，Windows×2 待发送
+生产 **Vultr Tokyo ✅ (`<VPS_IP>`)** · 协议栈 **VLESS + Reality + 3x-ui + 自研 Python sub-converter** · 已接入 Mac×2 / iPhone / iPad / Android，Windows×2 待发送
 
 ## 📚 文档
 
 | 文档 | 给谁看 |
 |------|--------|
+| **[ACE 宪法](docs/ACE宪法.md)** | 维护者 — 项目不变式 / 文档职责 / 变更前检查表 |
 | **[Oracle Cloud 注册教程](docs/Oracle%20Cloud%20注册教程.md)** | 想 0 元白嫖的人 — Oracle Cloud Always Free 申请全教程 |
 | **[ACE 架构设计](docs/ACE架构设计.md)** | 想学技术方案的人 — 系统全景 / VPS 部署 / sub-converter / DNS 设计 / 规则系统 / 多设备同步 |
 | **[开发者日志](docs/开发者日志.md)** | 开发者 / 维护者 — 每周新增功能 / 性能优化 / 踩坑分类 / VPS 迁移 playbook / 运维 cheatsheet |
@@ -46,9 +47,15 @@ sudo UPSTREAM_BASE='https://127.0.0.1:2096/<sub_path>' \
 
 ### 客户端接入（详见 [用户手册 user-guide](docs/用户手册%20user-guide.md)）
 
+Mac 首次接入 / 换 VPS 后，如果本机还没法翻墙，先用 SSH 带外导入 Mihomo Party 配置：
+
+```bash
+bash scripts/common-tools/bootstrap-mihomo-party.sh --replace-current
+```
+
 | 设备 | 软件 | 订阅 URL |
 |------|------|---------|
-| Mac | Mihomo Party | `http://<VPS_IP>:25500/clash/<SubId>` |
+| Mac | Mihomo Party | `http://<VPS_IP>:25500/<SUB_PATH_PREFIX>/<SubId>` |
 | Android 手机 / 平板 | FlClash 或 Clash Meta for Android（GitHub APK） | 同上 |
 | iPhone / iPad | Stash（推荐）/ Shadowrocket | 同上（小火箭用 base64 订阅） |
 | Windows | Clash Verge Rev | 同上 |
@@ -85,14 +92,14 @@ bash scripts/rules/sync-subconverter.sh --dry-run
 bash scripts/rules/sync-subconverter.sh
 
 # 只推某一台
-bash scripts/rules/sync-subconverter.sh --vps hosthatch
+bash scripts/rules/sync-subconverter.sh --vps vultr
 
 # 改坏了从备份一键回滚（不用 git 不用 scp）
 bash scripts/rules/sync-subconverter.sh --rollback
 
 # 独立跑 validator，校验任意一份 mihomo YAML 配置
-python3 scripts/server/validate-config.py <yaml-file>          # 文件模式
-curl -s http://<VPS>:25500/clash/<tok> | python3 \
+python3 scripts/server/validate-config.py <yaml-file>                 # 文件模式
+curl -s http://<VPS>:25500/<SUB_PATH_PREFIX>/<tok> | python3 \
   scripts/server/validate-config.py -                           # pipe 模式
 ```
 
@@ -158,6 +165,7 @@ DNS / 凭据都不会进本仓库 git 历史**。详见 [private/README.md](priv
 - **2026-04-17** Vultr Tokyo 验证部署；3x-ui + 客户端模板 + Cursor / Claude Code 代理打通
 - **2026-04-18** `configure-3xui.sh` + `sub-converter.py` 完整链路打通；Mac / iPhone / Android 跑通 4K YouTube / Discord / Cursor；`sub-converter` 重构为多 token 单实例
 - **2026-04-18** HostHatch Tokyo 付费方案（$4/月）上线；**Vultr → HostHatch 整库迁移**，pbk / sid / UUID 全保留，家人端仅改 IP
+- **2026-06-13** 现网回到 Vultr Tokyo `<VPS_IP>`；私有配置只保留 `vultr:<VPS_IP>`，订阅路径统一为 `/<SUB_PATH_PREFIX>/ace-main` / `ace-fork`
 - **2026-04-18** 文档瘦身：多份 00-09 doc 合并为 `docs/开发者日志.md` + `docs/用户手册 user-guide.md` 两份
 - **2026-04-19** 内网分流重构：`private/intranet.yaml` 多 profile + `enabled` 开关，`sync-intranet.sh` 一键 scp，VPS 端热加载无需重启。支持「换公司」/「多公司并存」零配置切换
 - **2026-04-19** sub-converter 新增 `/match` 权威匹配接口 + `scripts/test/test-route.sh` 诊断工具，一行命令输出 URL 走哪条规则、经哪个代理组、各阶段延时

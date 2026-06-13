@@ -2,7 +2,7 @@
 
 > 面向普通用户（家人、朋友、未来的你自己）。**不需要任何技术背景**，跟着做就能用。
 >
-> 如果你是开发者/维护者，请看 [`开发者日志.md`](开发者日志.md)。
+> 如果你是开发者/维护者，先看 [`ACE宪法.md`](ACE宪法.md) 和 [`ACE架构设计.md`](ACE架构设计.md)，再看 [`开发者日志.md`](开发者日志.md)。
 
 ---
 
@@ -44,7 +44,7 @@ ace-vpn 不是普通 VPN，是一套"自己当运营商"的家庭网络分流系
 10. [日常使用小贴士](#10-日常使用小贴士)
 11. [常见问题 FAQ](#11-常见问题-faq)
 12. [给家人的极简卡片](#12-给家人的极简卡片)
-13. [仅管理员：HH / Vultr 长期测速对比](#13-仅管理员hh--vultr-长期测速对比)
+13. [仅管理员：VPS 长期测速](#13-仅管理员vps-长期测速)
 
 ---
 
@@ -70,20 +70,21 @@ ace-vpn 不是普通 VPN，是一套"自己当运营商"的家庭网络分流系
 跟**管理员**（ace-vpn 的人）要 **1 条订阅 URL**，格式大概是：
 
 ```
-http://<VPS_IP>:25500/clash/<你的 SubId>
+http://<VPS_IP>:25500/<SUB_PATH_PREFIX>/<你的 SubId>
 ```
 
 例如：
-- 你自己的设备：`http://<VPS_IP>:25500/clash/ace-main`
-- 家人设备：`http://<VPS_IP>:25500/clash/ace-fork`
+- 你自己的设备：`http://<VPS_IP>:25500/<SUB_PATH_PREFIX>/ace-main`
+- 家人设备：`http://<VPS_IP>:25500/<SUB_PATH_PREFIX>/ace-fork`
 
+`<SUB_PATH_PREFIX>` 是管理员部署时生成的随机路径，不要照字面填写。
 把这条 URL 保存好（密码管理器/备忘录），下面所有设备配置都要用它。
 
 ### 2.1 两种订阅格式（管理员帮你选）
 
 | 格式 | URL 形式 | 适用 |
 |------|---------|------|
-| **Clash YAML**（推荐）| `http://<VPS_IP>:25500/clash/<SubId>` | Mac / Windows / Android（FlClash、CMFA）/ iPad Stash |
+| **Clash YAML**（推荐）| `http://<VPS_IP>:25500/<SUB_PATH_PREFIX>/<SubId>` | Mac / Windows / Android（FlClash、CMFA）/ iPad Stash |
 | **v2ray base64** | `https://<VPS_IP>:2096/<sub_path>/<SubId>` | iPhone / iPad 小火箭 |
 
 Clash YAML 里自带**分流规则**（国内直连、国外代理、AI 走代理、抖音直连）全部自动。base64 版是纯节点，需要自己写规则。能用 Clash YAML 就用 Clash YAML。
@@ -103,6 +104,41 @@ brew install --cask mihomo-party
 ```
 
 没装 Homebrew？手动下载：https://github.com/mihomo-party-org/mihomo-party/releases 选最新的 `.dmg` 双击装。
+
+#### 一键冷启动导入（管理员 / 自己的新 Mac 推荐）
+
+如果这台 Mac 还没法翻墙，Mihomo Party 直接点 Update 可能会因为旧配置/旧 IP/代理死锁而失败。
+先用 SSH 作为带外通道导入配置：
+
+```bash
+cd ~/workspace/publish/ace-vpn
+bash scripts/common-tools/bootstrap-mihomo-party.sh --dry-run --batch --no-install-app --no-open
+bash scripts/common-tools/bootstrap-mihomo-party.sh --replace-current
+```
+
+这个命令会读取 `private/env.sh`，SSH 到 `VPS_IP_LIST` 第一台 VPS，在 VPS 本机拉取 Clash YAML，
+然后写入本机 Mihomo Party profile。导入后完全退出并重开 Mihomo Party，之后再走 Mihomo
+Party 自己的 Update 同步。
+
+如果提示 `SSH host key 冲突`，通常是 VPS 重装 / 换 IP 后本机 `known_hosts` 还记着旧指纹。
+先确认 IP 确实是你的 VPS，再执行：
+
+```bash
+ssh-keygen -R <VPS_IP>
+```
+
+如果提示 `SSH 登录被拒` / `Permission denied`，说明 VPS 还没授权这台 Mac 的公钥。有 root
+密码时运行：
+
+```bash
+bash scripts/common-tools/bootstrap-mihomo-party.sh --install-ssh-key --replace-current
+```
+
+常用变体：
+
+```bash
+bash scripts/common-tools/bootstrap-mihomo-party.sh --vps vultr --token ace-main --name ace-vpn-main
+```
 
 #### 导入订阅
 
@@ -285,7 +321,7 @@ FINAL,PROXY
 
 1. 安装打开 → 允许 **VPN** 权限。
 2. 找到 **配置 / Profiles / 订阅** 一类入口 → **从 URL 添加** → 粘贴管理员给的  
-   `http://<VPS_IP>:25500/clash/<SubId>`。
+   `http://<VPS_IP>:25500/<SUB_PATH_PREFIX>/<SubId>`。
 3. **选中**该配置 → 打开主界面上的 **运行 / 系统代理 / VPN**（具体文案因版本略有不同，原则是：**让 App 接管 VPN**）。
 4. 若有 **TUN / 虚拟网卡** 选项，打开后更贴近 Mac 上「全局按规则分流」的行为。
 
@@ -892,7 +928,7 @@ Mihomo Party 监听到文件没了会重新只加载订阅，秒级恢复。
 
 ### 9.5（仅管理员）VPS IP 被 GFW 封：紧急换 IP + 反封禁硬化
 
-> **背景故事**（也是真事）：HostHatch JP 那台 VPS 用了三个月，某天突然全家 VPN 断网。
+> **背景故事**（也是真事）：某台 JP VPS 用了一段时间后，某天突然全家 VPN 断网。
 > 排查发现：从大陆 ping IP 完全不通、SSH 22 也不通——**这台机器在大陆完全失联**，
 > 是 GFW 把整个 IP 加了黑名单。手忙脚乱地买了新 IP、装 3x-ui、抄 SubId、改面板路径……
 > 一个下午没了。
@@ -908,7 +944,7 @@ VPS 被封那一刻 SSH 也连不进，**没有本地最近备份就只能从零
 bash scripts/test/backup-vps-state.sh
 
 # 看一眼备份长啥样：
-ls -la private/migration-backup/hosthatch/
+ls -la private/migration-backup/vultr/
 # → 20260601-110203/  里面有 x-ui.db / credentials / sub.service / intranet.yaml
 ```
 
@@ -932,7 +968,7 @@ PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
 >   ```bash
 >   ssh root@<NEW_IP> "sed -i 's|^Environment=SERVER_OVERRIDE=.*|Environment=SERVER_OVERRIDE=<NEW_IP>|' \
 >     /etc/systemd/system/ace-vpn-sub.service && systemctl daemon-reload && systemctl restart ace-vpn-sub"
->   # 验证：curl -s http://<NEW_IP>:25500/clash/<token> | grep 'server:'  应为 <NEW_IP>
+>   # 验证：curl -s http://<NEW_IP>:25500/<SUB_PATH_PREFIX>/<token> | grep 'server:'  应为 <NEW_IP>
 >   ```
 >   改完客户端再刷新订阅即可。（详细复盘见 `开发者日志.md` §6.13）
 > - **开一台全新 VPS**：用下面 `migrate-vps.sh`，它会自动设对 `SERVER_OVERRIDE`，客户端只需刷新。
@@ -942,18 +978,18 @@ PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
 ```bash
 # 1. 在新 VPS 厂商那边开一台新机，配好 root SSH（你的公钥 → ~/.ssh/authorized_keys）
 # 2. 跑：
-bash scripts/deploy/migrate-vps.sh --from hosthatch --to 203.0.113.10
+bash scripts/deploy/migrate-vps.sh --from vultr --to 203.0.113.10
 
 # 脚本会：
 #   ① 自动备份旧机 x-ui.db / credentials / sub.service / intranet.yaml
 #   ② rsync ace-vpn 仓库到新机
 #   ③ 远程跑 install.sh + install-sub-converter.sh
 #   ④ 把旧机 x-ui.db 还原到新机（reality 密钥 + SubId 全部保留 → 客户端只换 IP）
-#   ⑤ 改 env.sh 的 VPS_IP_LIST：hosthatch:旧IP → hosthatch:新IP，git commit + push
-#   ⑥ 验证新机 /healthz + /clash/<token> 的 server 字段是新 IP
+#   ⑤ 改 env.sh 的 VPS_IP_LIST：vultr:旧IP → vultr:新IP，git commit + push
+#   ⑥ 验证新机 /healthz + /<SUB_PATH_PREFIX>/<token> 的 server 字段是新 IP
 
 # 演练（什么都不改）：
-bash scripts/deploy/migrate-vps.sh --from hosthatch --to NEW_IP --dry-run
+bash scripts/deploy/migrate-vps.sh --from vultr --to NEW_IP --dry-run
 ```
 
 ##### 场景 B：旧机在大陆完全失联（最常见）
@@ -963,13 +999,13 @@ GFW 通常**封整个 IP 的所有 TCP**，所以 22 端口也不通。这种情
 ```bash
 # 优先级 1：用最近一次自动备份（事前预防到位时；路径是 私库/migration-backup/<vps名>/<时间戳>/）
 bash scripts/deploy/migrate-vps.sh --to NEW_IP \
-     --from-backup private/migration-backup/hosthatch/20260601-120233
+     --from-backup private/migration-backup/vultr/20260601-120233
 
 # 优先级 2：借一台 SSH 跳板（ProxyJump）去连旧机
 # --via 跟具体厂商无关，它就是个跳板。原理：
 #     你的 Mac ──直连──▶ 跳板机 ──境外→境外（不过 GFW）──▶ 旧机
 # 跳板机可以是任何一台还活着的境外主机：另一台 VPS / 新买的那台新机 / 朋友的服务器都行。
-bash scripts/deploy/migrate-vps.sh --from hosthatch --to NEW_IP \
+bash scripts/deploy/migrate-vps.sh --from vultr --to NEW_IP \
      --via root@<任意能连旧机的境外主机>
 # 脚本里所有"拉旧机文件"的 ssh / scp 都自动加上 -o ProxyJump=<上面那台>
 # 两个前提：① 你的 Mac 能 SSH 到跳板机（它 IP 没被封）
@@ -987,8 +1023,8 @@ bash scripts/deploy/migrate-vps.sh --from hosthatch --to NEW_IP \
 迁移成功后脚本会打印一行像这样的提示：
 
 ```
-旧：http://OLD_IP:25500/clash/aaaaaaaaaaaaaaaa-bbbbbbbbbbbbbb
-新：http://NEW_IP:25500/clash/aaaaaaaaaaaaaaaa-bbbbbbbbbbbbbb   ← 只 IP 不一样
+旧：http://OLD_IP:25500/<SUB_PATH_PREFIX>/aaaaaaaaaaaaaaaa-bbbbbbbbbbbbbb
+新：http://NEW_IP:25500/<SUB_PATH_PREFIX>/aaaaaaaaaaaaaaaa-bbbbbbbbbbbbbb   ← 通常只 IP 不一样；若随机路径也轮换，就整条 URL 一起换
 ```
 
 **SubId 完全不变**——家人在 App 里改一个 URL 即可：
@@ -1041,7 +1077,7 @@ bash scripts/deploy/harden-vps.sh --vps NEW_IP --aggressive
 每次封 IP 都要求家人改一次订阅 URL，体验差。终极方案：
 
 1. **买个域名**（Cloudflare 上 9 美金/年）
-2. 订阅 URL 改成 `http://sub.your-domain.com:25500/clash/<token>`
+2. 订阅 URL 改成 `http://sub.your-domain.com:25500/<SUB_PATH_PREFIX>/<token>`
 3. reality 节点 server 字段也改成域名（修改 `install-sub-converter.sh` 的 `SERVER_OVERRIDE=sub.your-domain.com`）
 4. 域名 A 记录指向当前 VPS_IP
 5. 被封时**只改 DNS A 记录**，家人客户端 0 改动（DNS TTL 设 60s）
@@ -1056,7 +1092,7 @@ bash scripts/deploy/harden-vps.sh --vps NEW_IP --aggressive
 |------|----|
 | ☐ | crontab 挂了 `backup-vps-state.sh --commit` 每 6 小时 |
 | ☐ | `harden-vps.sh` 在每台 VPS 都跑过 |
-| ☐ | 至少 2 台不同厂商、不同 region 的 VPS（HostHatch JP + Vultr SG，或加 BuyVM LA） |
+| ☐ | 至少 2 台不同厂商、不同 region 的 VPS（当前 Vultr JP + 另一家备用，或加 BuyVM LA） |
 | ☐ | Mihomo `⚡ AUTO` 节点组延迟测试间隔 ≤ 5 分钟 |
 | ☐ | 订阅 URL 不在任何公开/多人群组里发过 |
 | ☐ | 家人的 SubId 不和你的同一个（每人独立 token，封一个少一个不影响其他） |
@@ -1065,9 +1101,8 @@ bash scripts/deploy/harden-vps.sh --vps NEW_IP --aggressive
 
 #### 六、AI 速查：同机换 IP 完整步骤（被墙验证 + 服务端 + 本机收尾）
 
-> 这一节是给"接手的 AI / 未来的自己"看的**可直接执行的最小闭环**。场景：HostHatch 等厂商
+> 这一节是给"接手的 AI / 未来的自己"看的**可直接执行的最小闭环**。场景：Vultr 等厂商
 > 把**同一台机器**重新分配了新 IP（机器、x-ui.db、reality 密钥、SubId 都没变），旧 IP 被 GFW 封。
-> 真实案例：`103.173.179.55`（被封）→ 同机换到 `167.254.242.224`（2026-06-01）。
 > 全程把 `<NEW_IP>` 替换成新 IP、`<OLD_IP>` 替换成旧 IP、`<token>` 用你的 SubId（如 `ace-main`）。
 
 **Step 0 · 先确认"真的是 IP 被墙"，不要被假象骗**
@@ -1097,19 +1132,18 @@ ssh root@<NEW_IP> "sed -i 's|^Environment=SERVER_OVERRIDE=.*|Environment=SERVER_
   /etc/systemd/system/ace-vpn-sub.service && systemctl daemon-reload && systemctl restart ace-vpn-sub"
 
 # 服务端自检（应输出 server: <NEW_IP>）：
-ssh root@<NEW_IP> "curl -s http://127.0.0.1:25500/clash/<token> | grep -m1 'server:'"
+ssh root@<NEW_IP> "curl -s http://127.0.0.1:25500/<SUB_PATH_PREFIX>/<token> | grep -m1 'server:'"
 ```
 
 **Step 2 · 本机收尾（这台 Mac）**
 
 ```bash
-# 2a. 更新 SSH 别名指向（~/.ssh/config 里 Host ace-vpn-hh 的 HostName）
-#     否则 ssh ace-vpn-hh 还连旧 IP。改完验证：
-ssh ace-vpn-hh 'hostname'        # 应返回 ace-node
+# 2a. 更新 SSH key / known_hosts / 别名指向。改完验证：
+ssh -i ~/.ssh/id_rsa_ace_vpn root@<NEW_IP> 'hostname'
 
 # 2b. 同步 env.sh / 凭据 / inventory 里的 IP（若别的机器已改，先 git pull）
 cd ~/workspace/publish/ace-vpn-private && git pull --rebase
-grep VPS_IP_LIST env.sh          # 应为 hosthatch:<NEW_IP>
+grep VPS_IP_LIST env.sh          # 应为 vultr:<NEW_IP>
 # 若未改：把 env.sh 的 VPS_IP_LIST、ace-vpn-credentials.txt、vps-inventory.md 里的
 # <OLD_IP> 全部替换为 <NEW_IP>，然后 git commit + push。
 ```
@@ -1129,15 +1163,15 @@ curl -s "https://check-host.net/check-result/$RID" \
 
 **Step 4 · 客户端刷新订阅**（SubId 不变，只是 IP 变了）
 
-- `http://<NEW_IP>:25500/clash/<token>` —— 各端在订阅里改 IP 后"更新"，见上面《客户端怎么动》表。
+- `http://<NEW_IP>:25500/<SUB_PATH_PREFIX>/<token>` —— 各端在订阅里改 IP/path 后"更新"，见上面《客户端怎么动》表。
 
 **一眼对照表（同机换 IP 必改 4 处）**
 
 | # | 位置 | 改什么 | 不改的后果 |
 |---|------|--------|-----------|
 | 1 | VPS `ace-vpn-sub.service` `SERVER_OVERRIDE` | → `<NEW_IP>` + 重启 | 订阅节点 server 仍是旧 IP，连不上 |
-| 2 | 本机 `~/.ssh/config` Host ace-vpn-hh `HostName` | → `<NEW_IP>` | `ssh ace-vpn-hh` 连旧 IP 失败 |
-| 3 | `ace-vpn-private/env.sh` `VPS_IP_LIST` | → `hosthatch:<NEW_IP>` | sync/preflight 等脚本仍打旧 IP |
+| 2 | 本机 SSH key / `known_hosts` / SSH alias | → `<NEW_IP>` | SSH 仍连旧 IP 或被旧 host key 卡住 |
+| 3 | `ace-vpn-private/env.sh` `VPS_IP_LIST` | → `vultr:<NEW_IP>` | sync/preflight 等脚本仍打旧 IP |
 | 4 | 客户端订阅 URL 的 IP | → `<NEW_IP>` | 拉不到订阅 / 连不上 |
 
 > 说明：本场景是"同机换 IP"，**不需要**跑 `migrate-vps.sh`（那是"换机器"用的，会迁 x-ui.db）。
@@ -1280,7 +1314,7 @@ PY
 # 4) 起服务
 systemctl start x-ui && systemctl is-active x-ui
 # 5) 验证订阅里已无该节点（应输出 0）
-curl -s "http://<VPS_IP>:25500/clash/ace-main" | grep -c "hxn-ihome"
+curl -s "http://<VPS_IP>:25500/<SUB_PATH_PREFIX>/ace-main" | grep -c "hxn-ihome"
 ```
 
 **客户端收尾**：服务端删干净后，Mac / iPhone Clash Party 里对应 profile **刷新订阅**即可；若仍残留，删除 profile 重新导入订阅链接最彻底。
@@ -1340,20 +1374,20 @@ curl -s "http://<VPS_IP>:25500/clash/ace-main" | grep -c "hxn-ihome"
 
 ---
 
-## 13. 仅管理员：HH / Vultr 长期测速对比
+## 13. 仅管理员：VPS 长期测速
 
-这一节给管理员用，用来长期比较 **HostHatch（HH）** 和 **Vultr** 两台 VPS 到常用海外服务的稳定性。
+这一节给管理员用，用来长期观察当前 Vultr 或未来备选 VPS 到常用海外服务的稳定性。
 
 它的工作方式是：
 
 1. 本地 Mac 用 macOS `launchd` 每 30 分钟触发一次；
-2. 脚本读取 `private/env.sh` 里的 `VPS_IP_LIST`，通常是 `hosthatch:<IP> vultr:<IP>`；
-3. 本地 Mac 分别 SSH 到 HH / Vultr；
-4. 在两台 VPS 上对同一批 URL 跑 `curl`；
+2. 脚本读取 `private/env.sh` 里的 `VPS_IP_LIST`，当前应为 `vultr:<VPS_IP>`；
+3. 本地 Mac 分别 SSH 到列表里的每台 VPS；
+4. 在 VPS 上对同一批 URL 跑 `curl`；
 5. 所有结果追加到本地日志 `~/Library/Logs/ace-vpn/vps-watch.log`；
 6. 随时用 `scripts/test/vps-watch-summary.py` 汇总成功率、median、p95、平均耗时和每个 URL 的赢家。
 
-注意：这测的是 **VPS → 目标网站** 的出站质量，用来比较 HH / Vultr 哪台到美国头部互联网公司产品更稳，例如 Google / YouTube / Gemini、Apple / iCloud、Microsoft / GitHub / Copilot、Amazon / AWS / Twitch、Meta / Facebook / Instagram / WhatsApp、X、OpenAI / Claude、Netflix、Cloudflare、Discord 等。它不是完整的 `Mac → VPS → 目标网站` 代理链路测试。
+注意：这测的是 **VPS → 目标网站** 的出站质量，用来比较当前 Vultr 或未来备选 VPS 到美国头部互联网公司产品是否稳定，例如 Google / YouTube / Gemini、Apple / iCloud、Microsoft / GitHub / Copilot、Amazon / AWS / Twitch、Meta / Facebook / Instagram / WhatsApp、X、OpenAI / Claude、Netflix、Cloudflare、Discord 等。它不是完整的 `Mac → VPS → 目标网站` 代理链路测试。
 
 ### 13.1 前置条件
 
@@ -1367,9 +1401,9 @@ git pull
 确认 `private/env.sh` 里至少有这些变量：
 
 ```bash
-export VPS_IP_LIST="hosthatch:<HostHatch-IP> vultr:<Vultr-IP>"
+export VPS_IP_LIST="vultr:<VPS_IP>"
 export VPS_SSH_USER="root"
-export VPS_SSH_KEY="$HOME/.ssh/id_ed25519_vps"
+export VPS_SSH_KEY="$HOME/.ssh/id_rsa_ace_vpn"
 ```
 
 加载环境变量：
@@ -1378,25 +1412,23 @@ export VPS_SSH_KEY="$HOME/.ssh/id_ed25519_vps"
 source private/env.sh
 ```
 
-确认两台 VPS 都能免密 SSH：
+确认当前 VPS 能免密 SSH：
 
 ```bash
-ssh -i "$VPS_SSH_KEY" "$VPS_SSH_USER@<HostHatch-IP>" 'echo hosthatch-ok'
-ssh -i "$VPS_SSH_KEY" "$VPS_SSH_USER@<Vultr-IP>" 'echo vultr-ok'
+ssh -i "$VPS_SSH_KEY" "$VPS_SSH_USER@<VPS_IP>" 'echo vultr-ok'
 ```
 
-如果还要输密码，先给两台 VPS 装本机公钥：
+如果还要输密码，先给 VPS 装本机公钥：
 
 ```bash
-ssh-copy-id -i ~/.ssh/id_ed25519.pub "$VPS_SSH_USER@<HostHatch-IP>"
-ssh-copy-id -i ~/.ssh/id_ed25519.pub "$VPS_SSH_USER@<Vultr-IP>"
+ssh-copy-id -i ~/.ssh/id_rsa_ace_vpn.pub "$VPS_SSH_USER@<VPS_IP>"
 ```
 
-如果你的公钥不是 `id_ed25519.pub`，换成实际文件名。
+如果你的公钥不是 `id_rsa_ace_vpn.pub`，换成实际文件名。
 
 ### 13.2 手动试跑一次
 
-先手动跑一次，确认脚本能同时测 HH / Vultr：
+先手动跑一次，确认脚本能测当前 VPS：
 
 ```bash
 cd ~/workspace/cursor-base/ace-vpn
@@ -1495,7 +1527,7 @@ python3 scripts/test/vps-watch-summary.py
 - `node_overview`：每台 VPS 的整体成功率、超时率、`slow_ge_2s`、`pain_rate`、平均耗时、median、p90/p95/p99、最好/最差耗时，以及 `win_loss`；
 - `node_latency_distribution`：每台 VPS 的耗时分布，例如 `<100ms`、`100-300ms`、`300-800ms`、`800ms-2s`、`>=2s`；
 - `url_summary`：按 `node + url` 聚合的成功率、超时次数、median、p95、平均耗时；
-- `comparison_by_url`：每个 URL 上 HH / Vultr 谁的 median 更低，以及谁成功率更高。
+- `comparison_by_url`：多 VPS 时，每个 URL 上哪台 median 更低，以及谁成功率更高。
 
 看哪个 VPS 更适合当默认节点，优先看：
 
@@ -1584,12 +1616,12 @@ rm ~/Library/Logs/ace-vpn/vps-watch.log
 
 - 是否超时（`000`）；
 - `total` 是否明显偏高；
-- HH / Vultr 谁的 median / p95 更低；
+- 多 VPS 时谁的 median / p95 更低；
 - 哪台成功率更高。
 
 ### 13.8 Cursor 专项稳定性探针
 
-如果普通测速看起来 HH 比 Vultr 快，但实际用 Cursor 时 HH 更容易任务中断，可以单独跑 Cursor 探针：
+如果普通测速看起来正常，但实际用 Cursor 时任务中断，可以单独跑 Cursor 探针：
 
 ```bash
 cd ~/workspace/cursor-base/ace-vpn

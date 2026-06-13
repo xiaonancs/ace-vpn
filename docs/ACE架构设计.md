@@ -4,7 +4,7 @@
 >
 > 文中所有真实公司域名 / 真实 IP / 真实 DNS 均已脱敏，统一用 `corp-a.example` / `10.x.x.x` 占位。
 >
-> 事件型文档（每周做了什么 / 学到什么 / 踩了什么坑）请看 [开发者日志](./开发者日志.md)；本文专注"系统怎么搭起来 / 怎么用"。
+> 不变式和文档职责先看 [ACE 宪法](./ACE宪法.md)；事件型文档（每周做了什么 / 学到什么 / 踩了什么坑）请看 [开发者日志](./开发者日志.md)；本文专注"系统怎么搭起来 / 怎么用"。
 
 ---
 
@@ -127,7 +127,7 @@ sequenceDiagram
     VPS->>VPS: scp 覆盖 /etc/ace-vpn/intranet.yaml
     VPS-->>Mac: curl /healthz → ok active_profiles=corp-a
     Note over Cli: 家人在客户端点"刷新订阅"
-    Cli->>VPS: GET /clash/{token}
+    Cli->>VPS: GET /{SUB_PATH_PREFIX}/{token}
     VPS->>VPS: load_intranet_config() (per-request, <1ms)
     VPS->>VPS: build_rules() (intranet + extra + 内置)
     VPS-->>Cli: Clash YAML → apply → 全家生效
@@ -208,7 +208,17 @@ sudo ufw reload
 
 ## 4. VPS 选型：Vultr vs HostHatch
 
-### 4.1 横向对比（2026-04）
+### 4.1 当前状态（2026-06-13）
+
+现网只保留 **Vultr Tokyo `<VPS_IP>`** 作为同步 / 诊断目标：
+
+```bash
+VPS_IP_LIST="vultr:<VPS_IP>"
+```
+
+HostHatch 相关内容仅作为 2026-04 选型与迁移历史，不再作为当前配置示例。
+
+### 4.2 横向对比（2026-04 历史记录）
 
 | 维度 | Vultr Tokyo | HostHatch Tokyo | 结论 |
 |------|-------------|-----------------|------|
@@ -223,15 +233,16 @@ sudo ufw reload
 | 付款 | 信用卡/PayPal/Alipay | 信用卡/PayPal | 一致 |
 | 延时（北京）| ~80ms | ~50ms | HostHatch 胜 |
 
-### 4.2 决策
+### 4.3 历史决策
 
-**首选 HostHatch，Vultr 做短期验证 + 冷备**。
+2026-04 的阶段性决策曾是：**首选 HostHatch，Vultr 做短期验证 + 冷备**。2026-06-13
+之后，当前运行面重新收敛到 Vultr，实际脚本以 `private/env.sh` 为准。
 
 - 需求排序：**低延时（AI / 日常）> 晚高峰稳定（家人 4K）> 价格**
 - HostHatch 延时 ~50ms、NVMe、AMD EPYC，单人 4K 够用
 - Vultr 保留 1 个月冷备（额外 ¥44），确认稳定后 destroy
 
-### 4.3 下单坑
+### 4.4 下单坑
 
 #### Vultr
 - 账号 email 用正规域名（gmail/outlook）
@@ -270,7 +281,7 @@ sudo ufw reload
 │   SERVER_OVERRIDE=<VPS_IP>                       │
 │   LISTEN_PORT=25500                              │
 │                                                  │
-│ do_GET(/clash/<token>):                          │
+│ do_GET(/<SUB_PATH_PREFIX>/<token>):              │
 │   1. 校验 token 在 SUB_TOKENS 白名单             │
 │   2. 拉 UPSTREAM_BASE/<token>（3x-ui base64）   │
 │   3. 解析 vless://... 生成 Clash proxies         │
@@ -816,7 +827,7 @@ bash scripts/test/test-route.sh https://foo.example/
 | **管理端** | iHome Mac / iWork Mac | 改 `intranet.yaml` / `local-rules.yaml` / 跑 `scripts/rules/sync-intranet.sh` / `scripts/rules/promote-to-vps.sh` |
 | **生产端 - 移动** | iPhone / iPad / Android (家人 / 自己) | 只刷新订阅 |
 | **生产端 - 桌面** | Windows (家人) | 只刷新订阅 |
-| **VPS 端** | HostHatch (主) + Vultr (冷备) | 服务端 |
+| **VPS 端** | Vultr Tokyo `<VPS_IP>` | 服务端 |
 
 ### 9.2 配置同步：git pull + symlink
 
@@ -879,7 +890,7 @@ iHome Mac 和 iWork Mac 都通过 git 同步到 `ace-vpn-private`，后到的 Ma
 `private/env.sh` 里定义（真实 IP 在 `ace-vpn-private/env.sh`，public 仓库只放占位符）：
 
 ```bash
-VPS_IP_LIST="hosthatch:<HostHatch-IP> vultr:<Vultr-IP>"
+VPS_IP_LIST="vultr:<VPS_IP>"
 ```
 
 一条命令同时刷所有节点：
@@ -894,7 +905,7 @@ bash scripts/rules/sync-intranet.sh
 - 每台 VPS 独立做 5 份滚动备份，互不影响
 - 每台同步完都跑一次 `/healthz` 自检
 
-### 9.5 多节点一致性：HostHatch + Vultr
+### 9.5 多节点一致性
 
 | 角色 | 做什么 | 不做什么 |
 |---|---|---|
@@ -906,11 +917,13 @@ bash scripts/rules/sync-intranet.sh
 **月度健康检查**：
 
 ```bash
-# 分别替换成 VPS_IP_LIST 里的真实 IP，确认服务和订阅都健康
-ssh root@<IP-1> "systemctl status x-ui ace-vpn-sub | head -3"
-ssh root@<IP-2> "systemctl status x-ui ace-vpn-sub | head -3"
-diff <(curl -s http://<IP-1>:25500/clash/ace-main) \
-     <(curl -s http://<IP-2>:25500/clash/ace-main) | head
+# 当前单节点检查
+ssh -i "$VPS_SSH_KEY" root@<VPS_IP> "systemctl status x-ui ace-vpn-sub | head -3"
+curl -s http://<VPS_IP>:25500/<SUB_PATH_PREFIX>/ace-main | python3 scripts/server/validate-config.py -
+
+# 未来恢复多节点后，再分别替换成 VPS_IP_LIST 里的真实 IP 做 diff
+diff <(curl -s http://<IP-1>:25500/<SUB_PATH_PREFIX>/ace-main) \
+     <(curl -s http://<IP-2>:25500/<SUB_PATH_PREFIX>/ace-main) | head
 ```
 
 如果 diff 有内容 → 跑 `sync-intranet.sh` + 手动 scp `sub-converter.py` 到对应 VPS。
@@ -938,15 +951,14 @@ flowchart TD
         M1 --> GP[git push<br/>ace-vpn-private]
         M1 --> SY[bash scripts/rules/sync-intranet.sh]
     end
-    SY --> HH["HostHatch (主)<br/>backup 5 份滚动<br/>→ scp → /healthz"]
-    SY --> VL["Vultr (冷备)<br/>backup 5 份滚动<br/>→ scp → /healthz"]
+    SY --> VPS["Vultr <VPS_IP><br/>backup 5 份滚动<br/>→ scp → /healthz"]
     subgraph S2["Mac iWork (想同步)"]
         M2[git pull<br/>ace-vpn-private] --> SLN[symlink 自动指向<br/>最新 intranet.yaml<br/>不需再 sync VPS]
     end
     subgraph S3["家人客户端 (想拿新规则)"]
-        CLI[GUI 点"更新订阅"] --> RF["GET /clash/&lt;token&gt;<br/>per-request reload<br/>10 秒生效"]
+        CLI[GUI 点"更新订阅"] --> RF["GET /&lt;SUB_PATH_PREFIX&gt;/&lt;token&gt;<br/>per-request reload<br/>10 秒生效"]
     end
-    HH -.-> RF
+    VPS -.-> RF
     GP -.-> M2
 ```
 
@@ -1041,7 +1053,7 @@ sequenceDiagram
     Sync->>VPS: 4. scp intranet.yaml 覆盖
     Sync->>VPS: 5. curl /healthz 自检
     Note over Cli: 下次订阅请求到达
-    Cli->>Sub: GET /clash/{token}
+    Cli->>Sub: GET /{SUB_PATH_PREFIX}/{token}
     Sub->>Sub: per-request load_intranet_config()<br/>(每次重读 YAML)
     Sub->>Sub: per-request build_rules()
     Sub-->>Cli: 最新 Clash YAML
@@ -1179,7 +1191,7 @@ $ bash scripts/test/test-route.sh https://portal.corp-a.example/
 ### 13.4 三层 diff（怀疑 GUI override 时）
 
 ```bash
-diff <(curl -s http://<VPS-IP>:25500/clash/$SUB_TOKEN | grep -A30 "^dns:") \
+diff <(curl -s http://<VPS-IP>:25500/<SUB_PATH_PREFIX>/$SUB_TOKEN | grep -A30 "^dns:") \
      <(grep -A30 "^dns:" ~/Library/Application\ Support/mihomo-party/work/config.yaml)
 ```
 

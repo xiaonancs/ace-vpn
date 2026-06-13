@@ -5,14 +5,14 @@
 
 [A] 单 token 模式（兼容旧部署）：
     UPSTREAM_SUB    完整的 3x-ui 订阅 URL
-    SUB_TOKEN       访问 token，客户端 URL：/clash/$SUB_TOKEN
+    SUB_TOKEN       访问 token，客户端 URL：/<SUB_PATH_PREFIX>/$SUB_TOKEN
 
 [B] 多 token 模式（推荐，一个实例服务全家）：
     UPSTREAM_BASE   3x-ui 订阅 URL 前缀（不含 SubId 那一段）
                     例：https://127.0.0.1:2096/sub_xxxxxxxx
     SUB_TOKENS      白名单，逗号分隔，每个 token = 3x-ui 里的一个 SubId
                     例：ace-main,ace-fork,dad-home
-    客户端 URL：/clash/<任意白名单里的 token>
+    客户端 URL：/<SUB_PATH_PREFIX>/<任意白名单里的 token>
     实际从 $UPSTREAM_BASE/<token> 拉上游
 
 [C] 内联上游模式（3x-ui 原生订阅未启用时的稳妥回退）：
@@ -872,7 +872,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._reply(429, b"Too Many Requests\n", "text/plain")
             return
 
-        # 期望 /clash/<token>，不接受多级 path；/healthz 是简单自检
+        # 期望 /<SUB_PATH_PREFIX>/<token>，不接受多级 path；/healthz 是简单自检
         request_path = urllib.parse.urlparse(self.path).path.rstrip("/")
         if request_path == "/healthz":
             if not self._admin_allowed():
@@ -915,8 +915,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
 
         # 拆掉 query 再解析 path；?tun=1/0 可按设备覆盖 tun.enable 默认值。
-        # 订阅路径默认为 /clash/<token>；若设置 SUB_PATH_PREFIX，可改成
-        # /<long-random-prefix>/<token>，降低公网订阅端口被扫到后的可识别性。
+        # 订阅路径由 SUB_PATH_PREFIX 控制，形如 /<long-random-prefix>/<token>，
+        # 降低公网订阅端口被扫到后的可识别性。
         parsed = urllib.parse.urlparse(self.path)
         query = dict(urllib.parse.parse_qsl(parsed.query))
         tun_enable: Optional[bool] = None

@@ -15,7 +15,7 @@
 #   bash scripts/rules/sync-subconverter.sh --dry-run        # 只校验，不推
 #   bash scripts/rules/sync-subconverter.sh --continue-on-error  # 多 VPS 单台失败继续
 #   bash scripts/rules/sync-subconverter.sh --rollback            # 从最新备份回滚（不推新代码）
-#   bash scripts/rules/sync-subconverter.sh --skip-output-check   # 跳过远端 /clash/<tok> 语义校验
+#   bash scripts/rules/sync-subconverter.sh --skip-output-check   # 跳过远端 /<SUB_PATH_PREFIX>/<tok> 语义校验
 #
 # 流程（每台 VPS 独立执行，任何一步失败立刻回滚）：
 #   [本地，所有 VPS 共用一次]
@@ -29,7 +29,7 @@
 #   7. mv -f REMOTE_FILE.new REMOTE_FILE                # 原子替换
 #   8. systemctl restart ace-vpn-sub
 #   9. systemctl is-active  + curl /healthz
-#   10. curl /clash/<token> → python3 validate-config.py --quiet
+#   10. curl /<SUB_PATH_PREFIX>/<token> → python3 validate-config.py --quiet
 #   任一 8-10 失败：cp backups/最新 → REMOTE_FILE + systemctl restart
 set -euo pipefail
 

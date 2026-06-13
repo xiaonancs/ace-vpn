@@ -3,7 +3,7 @@
 #
 # 用途：
 #   在 sync/promote 到多台 VPS 之前，先确认 env.sh 里 VPS_IP_LIST 各节点 SSH / 服务状态。
-#   （2026-05-21 起 Vultr 已 Destroy，通常仅 hosthatch 一项。）
+#   当前通常只有 vultr:<VPS_IP>；未来恢复多 VPS 时仍按 VPS_IP_LIST 扫描。
 #   全程只读 / 只 ssh 拉信息，不改 VPS 任何文件。
 #
 # 用法：

@@ -42,7 +42,7 @@
 | [`test/speed-test.sh`](test/speed-test.sh) | 测当前网络对 AI / cursor / youtube 等关键服务的延迟 + 带宽 | 怀疑网速慢、对比节点速度 |
 | [`test/diagnose.sh`](test/diagnose.sh) | 一次性收集 mihomo 状态 + 出口 IP + cursor 后端可达性 + cursor IDE 日志 | cursor / gemini 突然不能用，要把诊断信息整包发出去看 |
 | [`test/cursor-stability-probe.sh`](test/cursor-stability-probe.sh) | 从各 VPS 低频探测 Cursor 公开端点，统计失败率、慢请求、p95/p99、连续失败次数 | Cursor 在某个 VPS 上容易任务中断，怀疑长链路稳定性不好 |
-| [`test/ai-stability-probe.sh`](test/ai-stability-probe.sh) | 从各 VPS 低频探测 Gemini/Google AI、Claude/Claude Code、OpenAI/ChatGPT/Codex、Cursor、出口 IP 地理库；可选启用 API Key 鉴权与真实流式调用测试 | HH / Vultr 必须二选一，或评估是否要换更贵但更稳的厂商 |
+| [`test/ai-stability-probe.sh`](test/ai-stability-probe.sh) | 从各 VPS 低频探测 Gemini/Google AI、Claude/Claude Code、OpenAI/ChatGPT/Codex、Cursor、出口 IP 地理库；可选启用 API Key 鉴权与真实流式调用测试 | 评估当前 Vultr 或未来备选 VPS 是否稳定 |
 | [`test/ai-stability-summary.py`](test/ai-stability-summary.py) | 汇总 `ai-stability-probe.sh` 日志，输出节点稳定性评分与各 AI 服务明细 | AI 专项稳定性测试跑完后生成决策依据 |
 | [`test/ip-check.sh`](test/ip-check.sh) | 测当前出口 IP 在 Google / OpenAI / Anthropic 眼里是哪国 + 哪些 AI 服务能用 | 怀疑出口 IP 被某 AI 服务封了 |
 | [`test/check-xui-panel.sh`](test/check-xui-panel.sh) | 从本机 `curl -vk` 探测 3x-ui 面板 URL（TCP/TLS/HTTP 层） | 面板突然打不开，先区分是端口/路径/服务还是本地网络 |
@@ -57,6 +57,7 @@
 | [`lib/common.sh`](lib/common.sh) | shell 共享工具（日志、apt 锁等待、root 检查） |
 | [`lib/local_rules.py`](lib/local_rules.py) | python 库：本地规则池的读 / 写 / 渲染 / promote / mihomo reload。被 add-rule / list-rules / apply-local-overrides / promote-to-vps / rollback-overrides 共用 |
 | [`git-hooks/`](git-hooks/) | pre-commit hook，防止 private/ 下敏感文件误推到 GitHub |
+| [`common-tools/bootstrap-mihomo-party.sh`](common-tools/bootstrap-mihomo-party.sh) | **Mac 冷启动导入**：本地代理还没通时，通过 SSH 到 VPS 拉取 Clash YAML，写入 Mihomo Party profile |
 | [`common-tools/sg-tunnel.sh`](common-tools/sg-tunnel.sh) | 临时 SOCKS5 跳板（例如注册 Oracle Cloud 时用新加坡出口） |
 | [`common-tools/patch-mihomo-party.sh`](common-tools/patch-mihomo-party.sh) | 修复 Clash/Mihomo Party 重生成 `work/config.yaml` 时把 `tcp-concurrent` / `find-process-mode` 改坏的问题 |
 
@@ -99,7 +100,35 @@ rm -rf scripts/__pycache__ scripts/lib/__pycache__
 
 ---
 
-## 🛠 三种最常用工作流
+## 🛠 常用工作流
+
+### 工作流 0：新 Mac / 换 VPS 后，代理还没通，先用 SSH 导入 Mihomo Party
+
+这个流程不依赖 Clash Party/Mihomo Party 已经能翻墙。它用 SSH 登录 VPS，在 VPS 本机
+`curl http://127.0.0.1:<port>/<SUB_PATH_PREFIX>/<token>?tun=1` 拉取配置，再写入本机
+Mihomo Party 的 `profile.yaml` 和 `profiles/<id>.yaml`。
+
+```bash
+# 默认读取 private/env.sh：VPS_IP_LIST 第一台 + SUB_ID_SELF / SUB_TOKENS 第一项
+bash scripts/common-tools/bootstrap-mihomo-party.sh
+
+# 换主 VPS 后，把当前 Party profile 直接改到新机
+bash scripts/common-tools/bootstrap-mihomo-party.sh --vps vultr --replace-current
+
+# 指定 token / profile 名
+bash scripts/common-tools/bootstrap-mihomo-party.sh --vps vultr --token ace-main --name ace-vpn-main
+
+# VPS 没授权当前 Mac 的公钥时，交互安装 key 后继续导入（需要 root 密码）
+bash scripts/common-tools/bootstrap-mihomo-party.sh --install-ssh-key --replace-current
+```
+
+脚本会从远端 `ace-vpn-sub.service` 读取真实 `LISTEN_PORT` / `SUB_PATH_PREFIX`，所以即使本地
+`private/env.sh` 里的旧 URL 还没更新，也能先恢复本机代理。导入后重开 Mihomo Party，
+之后再用 Party 自己的 Update 同步。
+
+若提示 `SSH host key 冲突`，先确认 IP 确实是你的 VPS，再运行 `ssh-keygen -R <VPS_IP>` 后重试。
+若提示 `Permission denied` / 公钥未授权，运行上面的 `--install-ssh-key` 版本，或手动
+`ssh-copy-id -i ~/.ssh/id_ed25519.pub root@<VPS_IP>`。
 
 ### 工作流 1：发现新站需要走 VPS（或被误判走 VPS）
 
@@ -128,7 +157,7 @@ bash scripts/test/ip-check.sh
 bash scripts/test/cursor-stability-probe.sh --rounds 1 --log       # 先烟测
 bash scripts/test/cursor-stability-probe.sh --log                  # 默认 30 分钟，每 60 秒一轮
 
-# 4. HH / Vultr 只能二选一？看 AI 业务稳定性而不是普通延迟
+# 4. 评估 Vultr 或备选 VPS？看 AI 业务稳定性而不是普通延迟
 bash scripts/test/ai-stability-probe.sh --rounds 1 --log           # 先烟测
 bash scripts/test/ai-stability-probe.sh --duration-hours 24 --interval-sec 900 --log  # 建议 15 分钟一轮
 python3 scripts/test/ai-stability-summary.py
@@ -208,10 +237,10 @@ sudo mtr -rwzbc 30 <VPS_IP>        # 换成你当前节点的公网 IP
 `~/Library/LaunchAgents/com.xiaonancs.ace-vpn.vps-watch-urls.plist`，  
 把 `__REPO_ROOT__` 换成本机 `ace-vpn` 路径后 `launchctl load`。
 
-### HH / Vultr 长期网速对比
+### VPS 长期网速对比
 
-这个方案从**本地 Mac 定时触发**，每 30 分钟 SSH 到 `VPS_IP_LIST` 里的 HostHatch / Vultr，
-让两台 VPS 对同一批海外站点跑 `curl`。测到的是「VPS → 目标站」出站质量，适合长期比较两家 VPS
+这个方案从**本地 Mac 定时触发**，每 30 分钟 SSH 到 `VPS_IP_LIST` 里的 VPS，
+让每台 VPS 对同一批海外站点跑 `curl`。测到的是「VPS → 目标站」出站质量，适合长期比较当前 Vultr 和未来备选 VPS
 到 Google、Apple、Microsoft / GitHub、Amazon / AWS、Meta、X、OpenAI / Claude、Netflix、Cloudflare、Discord 等头部海外服务的稳定性。
 
 前置：
@@ -223,7 +252,7 @@ source private/env.sh
 # 确认这两个变量已设，且两台都能免密 SSH
 echo "$VPS_IP_LIST"
 echo "$VPS_SSH_KEY"
-# 分别取列表里的 IP 测 ssh：ssh -i "$VPS_SSH_KEY" root@<IP> 'echo ok'
+# 当前只保留 Vultr：ssh -i "$VPS_SSH_KEY" root@<VPS_IP> 'echo ok'
 ```
 
 手动试跑一次：
@@ -346,7 +375,7 @@ bash scripts/rules/rollback-overrides.sh --last
 ```
 
 ### `promote-to-vps.sh` SCP 超时
-检查 `private/env.sh` 里的 `VPS_IP` 是不是当前能访问的节点 IP。VPS 自己出问题（比如本次 hosthatch JP 链路抖动）时 SCP 会卡。
+检查 `private/env.sh` 里的 `VPS_IP` / `VPS_IP_LIST` 是不是当前能访问的节点 IP。VPS 自己出问题或 SSH key 未授权时 SCP 会卡。
 
 ### `sync-intranet.sh` 报 `/healthz` 失败
 sub-converter 服务挂了。SSH 到 VPS：
@@ -365,6 +394,7 @@ journalctl -u ace-vpn-sub -n 50
 
 | 文档 | 内容 |
 |------|------|
+| [`../docs/ACE宪法.md`](../docs/ACE宪法.md) | ACE 宪法 — 项目不变式 / 文档职责 / 变更前检查表 |
 | [`../docs/ACE架构设计.md`](../docs/ACE架构设计.md) | ACE 架构设计 — 系统全景 / 部署 / DNS / 规则系统 / 多设备同步 |
 | [`../docs/开发者日志.md`](../docs/开发者日志.md) | 开发者日志 — 新增功能 / 性能优化 / 踩坑分类 / VPS 迁移 playbook |
 | [`../docs/用户手册 user-guide.md`](../docs/用户手册%20user-guide.md) | 终端用户使用指南 |

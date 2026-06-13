@@ -16,7 +16,7 @@
 #   - 远端：若已有 intranet.yaml，先复制到 $(dirname REMOTE)/backups/intranet-时间戳.yaml，
 #     并只保留最近 5 份 intranet-*.yaml 备份，再 scp 覆盖 REMOTE_FILE
 #   - scp 覆盖 VPS 上的 /etc/ace-vpn/intranet.yaml
-#   - 远端 curl /healthz（新版）或回退探测 /clash/<token>（旧版无 healthz 时）
+#   - 远端 curl /healthz（新版）或回退探测 /<SUB_PATH_PREFIX>/<token>（旧版无 healthz 时）
 #
 # 设计原则：
 #   - 多 VPS 时**只动 intranet.yaml**，不碰 xray outbounds/routing —— 各 VPS 的
@@ -33,7 +33,7 @@ REMOTE_FILE=${REMOTE_INTRANET_FILE:-"/etc/ace-vpn/intranet.yaml"}
 SUB_PORT=${SUB_PORT_CLASH:-25500}
 SUB_PATH_PREFIX=${SUB_PATH_PREFIX:-clash}
 
-# 旧版 sub-converter 无 /healthz 时，用此 token 探测 /clash/<token> 是否 200
+# 旧版 sub-converter 无 /healthz 时，用此 token 探测 /<SUB_PATH_PREFIX>/<token> 是否 200
 sub_health_token() {
   if [[ -n "${SUB_HEALTH_TOKEN:-}" ]]; then
     echo "$SUB_HEALTH_TOKEN"

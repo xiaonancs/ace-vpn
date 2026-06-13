@@ -75,25 +75,42 @@ PY
 extract_ip_from_url() {
   python3 - "$1" <<'PY' 2>/dev/null
 import sys, urllib.parse
-u=urllib.parse.urlparse(sys.argv[1])
+u=urllib.parse.urlparse(sys.argv[1].strip())
 print(u.hostname or "")
+PY
+}
+
+extract_prefix_from_url() {
+  python3 - "$1" <<'PY' 2>/dev/null
+import sys, urllib.parse
+u=urllib.parse.urlparse(sys.argv[1].strip())
+parts=[p for p in u.path.split("/") if p]
+print(parts[0] if parts else "")
 PY
 }
 
 EXPECTED_IP="${EXPECTED_IP:-}"
 PROFILE_URL=$(current_profile_url)
-if [[ -z "$EXPECTED_IP" && -n "$PROFILE_URL" ]]; then
-  EXPECTED_IP=$(extract_ip_from_url "$PROFILE_URL")
+PROFILE_HOST=""
+PROFILE_PREFIX=""
+if [[ -n "$PROFILE_URL" ]]; then
+  PROFILE_HOST=$(extract_ip_from_url "$PROFILE_URL")
+  PROFILE_PREFIX=$(extract_prefix_from_url "$PROFILE_URL")
 fi
 if [[ -z "$EXPECTED_IP" && -n "${VPS_IP_LIST:-}" ]]; then
   first=${VPS_IP_LIST%% *}
   EXPECTED_IP=${first##*:}
+fi
+if [[ -z "$EXPECTED_IP" && -n "$PROFILE_URL" ]]; then
+  EXPECTED_IP="$PROFILE_HOST"
 fi
 
 echo "${BOLD}ace-vpn doctor${RST}"
 date '+  时间: %Y-%m-%d %H:%M:%S'
 kv "期望 VPS IP" "${EXPECTED_IP:-未知}"
 kv "当前订阅 URL" "${PROFILE_URL:-未知}"
+kv "当前订阅 host" "${PROFILE_HOST:-未知}"
+kv "当前订阅 prefix" "${PROFILE_PREFIX:-未知}"
 
 hdr "1. Mihomo Party / 运行配置"
 SECRET=""
@@ -147,6 +164,11 @@ fi
 
 hdr "4. 订阅服务"
 if [[ -n "$PROFILE_URL" ]]; then
+  if [[ -n "$EXPECTED_IP" && -n "$PROFILE_HOST" && "$PROFILE_HOST" != "$EXPECTED_IP" ]]; then
+    warn "当前 Mihomo Party 订阅指向 $PROFILE_HOST，但 private/env.sh 首选 VPS 是 $EXPECTED_IP。"
+    echo "  这通常发生在换 IP / 换主 VPS 后，本机 profile 还停在旧订阅。"
+    echo "  可用 SSH 冷启动同步：bash scripts/common-tools/bootstrap-mihomo-party.sh --replace-current"
+  fi
   sub_code=$(curl -sS --max-time 10 -o /tmp/ace-vpn-doctor-sub.yaml -w "%{http_code}" "$PROFILE_URL" 2>/dev/null)
   kv "订阅 HTTP" "$sub_code"
   if [[ "$sub_code" == "200" ]]; then
@@ -170,7 +192,8 @@ if [[ -n "$EXPECTED_IP" ]]; then
     key=${VPS_SSH_KEY/#~/$HOME}
     [[ -f "$key" ]] && SSH_OPTS+=(-i "$key")
   fi
-  if ssh "${SSH_OPTS[@]}" "${VPS_SSH_USER:-root}@$EXPECTED_IP" 'echo OK' >/dev/null 2>&1; then
+  ssh_check=$(ssh "${SSH_OPTS[@]}" "${VPS_SSH_USER:-root}@$EXPECTED_IP" 'echo OK' 2>&1 || true)
+  if grep -q '^OK$' <<<"$ssh_check"; then
     ok "SSH key 可达"
     ssh "${SSH_OPTS[@]}" "${VPS_SSH_USER:-root}@$EXPECTED_IP" 'bash -s' <<'REMOTE'
 echo "  服务: x-ui=$(systemctl is-active x-ui 2>/dev/null) ace-vpn-sub=$(systemctl is-active ace-vpn-sub 2>/dev/null) fail2ban=$(systemctl is-active fail2ban 2>/dev/null)"
@@ -185,7 +208,18 @@ sshd -T 2>/dev/null | awk '
 '
 REMOTE
   else
-    warn "SSH 不可达；若公司 VPN 开着，这是预期，不代表 VPS 坏。"
+    if grep -q 'REMOTE HOST IDENTIFICATION HAS CHANGED' <<<"$ssh_check"; then
+      warn "SSH host key 冲突：known_hosts 里记录的 $EXPECTED_IP 旧指纹与当前 VPS 不一致。"
+      echo "  先确认 $EXPECTED_IP 确实是你的 VPS，再运行：ssh-keygen -R $EXPECTED_IP"
+    elif grep -qiE 'Permission denied|publickey|password' <<<"$ssh_check"; then
+      warn "SSH 登录被拒：当前本机公钥没有被 $EXPECTED_IP 授权。"
+      key_hint="${VPS_SSH_KEY:-$HOME/.ssh/id_ed25519}"
+      key_hint="${key_hint/#~/$HOME}"
+      echo "  若你有 root 密码，运行：ssh-copy-id -i ${key_hint}.pub ${VPS_SSH_USER:-root}@$EXPECTED_IP"
+      echo "  或运行冷启动脚本交互安装 key：bash scripts/common-tools/bootstrap-mihomo-party.sh --install-ssh-key --replace-current"
+    else
+      warn "SSH 不可达；若公司 VPN 开着，这是预期，不代表 VPS 坏。"
+    fi
   fi
 fi
 

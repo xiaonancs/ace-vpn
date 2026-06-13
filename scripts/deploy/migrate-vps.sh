@@ -14,30 +14,30 @@
 #   4. 你的 ace-vpn 仓库工作区干净（脚本会 rsync 全量到新机）
 #
 # 用法：
-#   # 标准：把 VPS_IP_LIST 里的 hosthatch 替换成新 IP
-#   bash scripts/deploy/migrate-vps.sh --from hosthatch --to 203.0.113.10
+#   # 标准：把 VPS_IP_LIST 里的 vultr 替换成新 IP
+#   bash scripts/deploy/migrate-vps.sh --from vultr --to 203.0.113.10
 #
 #   # 旧机 IP 在 GFW 后面 SSH 也不通（GFW 国境封锁连 22 也走不过去）：
 #   #   方案 A：--via = SSH 跳板（ProxyJump），跟具体厂商无关。
 #   #     只要满足两点：① 你的 Mac 能 SSH 到它 ② 它能 SSH 到旧机（境外→境外不过 GFW）。
 #   #     可以是任何一台还活着的境外机器：另一台 VPS / 新买的那台新机 / 朋友的服务器都行。
-#   bash scripts/deploy/migrate-vps.sh --from hosthatch --to NEW_IP \
+#   bash scripts/deploy/migrate-vps.sh --from vultr --to NEW_IP \
 #        --via root@<任意能连旧机的境外主机>:22
 #   #   方案 B：用本地之前 backup-vps-state.sh 拉过的备份（如果有跑定期备份）
 #   bash scripts/deploy/migrate-vps.sh --to 203.0.113.10 \
 #        --from-backup private/migration-backup/20260601-110000
 #
 #   # 新增一台（不替换旧的，旧 IP 还留在 VPS_IP_LIST 作 fallback）
-#   bash scripts/deploy/migrate-vps.sh --to 203.0.113.10 --new-name hosthatch-tokyo
+#   bash scripts/deploy/migrate-vps.sh --to 203.0.113.10 --new-name backup-tokyo
 #
 #   # 新机已经手动跑过 install.sh + 改好面板凭据，只要迁数据：
-#   bash scripts/deploy/migrate-vps.sh --from hosthatch --to NEW_IP --skip-install
+#   bash scripts/deploy/migrate-vps.sh --from vultr --to NEW_IP --skip-install
 #
 #   # 仅预演不动手：
-#   bash scripts/deploy/migrate-vps.sh --from hosthatch --to NEW_IP --dry-run
+#   bash scripts/deploy/migrate-vps.sh --from vultr --to NEW_IP --dry-run
 #
 #   # 迁移完成 + 验证 ok 后把旧 entry 从 env.sh 移除（默认保留 30 分钟作对照）：
-#   bash scripts/deploy/migrate-vps.sh --from hosthatch --to NEW_IP --decommission-old
+#   bash scripts/deploy/migrate-vps.sh --from vultr --to NEW_IP --decommission-old
 #
 # 安全保证：
 #   1. 备份在迁移前完成，落到 private/migration-backup/<timestamp>/
@@ -401,7 +401,7 @@ else
   info "改 env.sh（备份在 ${ENV_FILE}.bak.$TS）"
 
   if [[ -n "$FROM_ENTRY" ]]; then
-    # 替换 hosthatch:OLD → hosthatch:NEW
+    # 替换 name:OLD → name:NEW
     new_entry="${FROM_NAME}:${TO_IP}"
     if [[ $DECOMMISSION_OLD -eq 1 ]]; then
       # 删除 entry 而不是替换
@@ -429,7 +429,7 @@ def edit(m):
     return f'{m.group(1)}"{" ".join(parts)}"'
 new = re.sub(r'(export\s+VPS_IP_LIST=)"([^"]*)"', edit, content)
 # 在那行下方加个注释（如果还没加过）
-marker = f"# 旧 hosthatch IP（已被 GFW 封 / 已迁移）：{old_entry}"
+marker = f"# 旧 VPS IP（已被 GFW 封 / 已迁移）：{old_entry}"
 if marker not in new:
     new = re.sub(
         r'^(export\s+VPS_IP_LIST="[^"]*")$',

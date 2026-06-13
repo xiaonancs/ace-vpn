@@ -14,7 +14,7 @@ mihomo 拒收"的 YAML 拦在真正拉订阅之前。
 
 用法：
   python3 validate-config.py <yaml-file>            # 校验一份文件
-  curl http://vps:25500/clash/$tok | python3 validate-config.py -   # 校验 stdin
+  curl http://vps:25500/<SUB_PATH_PREFIX>/$tok | python3 validate-config.py -   # 校验 stdin
 
 退出码：
   0    通过
