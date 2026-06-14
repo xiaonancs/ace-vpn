@@ -89,6 +89,23 @@ Gmail 邮件里的远程图片常走 Google 图片/CDN 域名。出现"全局代
 | DOMAIN-SUFFIX | gstatic.com | PROXY |
 | DOMAIN-SUFFIX | googleapis.com | PROXY |
 | DOMAIN-SUFFIX | ggpht.com | PROXY |
+| DOMAIN-SUFFIX | forbes.com | PROXY |
+| DOMAIN-SUFFIX | forbesimg.com | PROXY |
+
+### 3.5 国内 App 补充直连规则
+
+如果使用 Shadowrocket 手工规则，国内外卖/地图/出行类建议放在 DIRECT，且排在 Global / FINAL 前面：
+
+| 类型 | 值 | 策略 |
+|------|----|------|
+| DOMAIN-SUFFIX | meituan.com | DIRECT |
+| DOMAIN-SUFFIX | meituan.net | DIRECT |
+| DOMAIN-SUFFIX | dianping.com | DIRECT |
+| DOMAIN-SUFFIX | sankuai.com | DIRECT |
+| DOMAIN-SUFFIX | ele.me | DIRECT |
+| DOMAIN-SUFFIX | elemecdn.com | DIRECT |
+| DOMAIN-SUFFIX | amap.com | DIRECT |
+| DOMAIN-SUFFIX | didichuxing.com | DIRECT |
 
 ---
 

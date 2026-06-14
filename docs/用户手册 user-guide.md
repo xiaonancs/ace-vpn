@@ -1272,11 +1272,19 @@ Mac 端必须开 **TUN 模式**（不是系统代理）。`curl ipinfo.io/ip` �
 
 你的订阅里可能没有 CHINA_DIRECT 规则。**刷新订阅**（规则是服务端统一下发的）。
 
+### Q6.0：美团外卖 / 大众点评很慢
+
+新版订阅已把美团系常见域名放进直连：`meituan.com` / `meituan.net` / `dianping.com` / `sankuai.com` / `mtyun.com` / `maoyan.com` 等。先刷新订阅；如果仍慢，用 `bash scripts/ace-vpn.sh route <域名>` 看实际命中，或在客户端最近连接里把漏掉的域名补成 `DIRECT`。
+
 ### Q6.1：Gmail 邮件里的图片加载不出来
 
 如果开"全局代理"能加载，开"规则/配置分流"不能加载，说明 Gmail 图片 CDN 被误判直连。新版订阅已把 `gmail.com` / `googlemail.com` / `googleusercontent.com` / `gstatic.com` / `googleapis.com` / `ggpht.com` 统一放进代理规则。
 
 处理：先刷新订阅；Shadowrocket 手工规则用户按 §4.1 的 Gmail/Google 图片规则补齐，并确保这些规则排在 ChinaMax / GEOIP / FINAL 前面。
+
+### Q6.2：Forbes / 英文资讯 App 登录 Google 必须开全局
+
+新版订阅已把 Forbes 及常见英文资讯域名放进代理，并保留 Google 登录域名走代理。先刷新订阅；如果 App 仍失败，通常是内嵌 WebView 使用了新的 CDN 域名，打开客户端最近连接，把漏掉域名加到 `VPS` 规则即可。
 
 ### Q7：家人 Windows 图标变红了 / 灰了
 

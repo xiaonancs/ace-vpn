@@ -111,9 +111,21 @@ curl -s http://<VPS>:25500/<SUB_PATH_PREFIX>/<tok> | python3 \
 
 validator 覆盖的 mihomo 字段联动硬校验（截至 2026-04-28）：`respect-rules ↔ proxy-server-nameserver` / `fake-ip ↔ fake-ip-range` / `default-nameserver 必须是 IP` / `proxy-groups & rules 引用的 target 存在` / `MATCH 兜底` 等 —— 专门拦"语法对但语义错"的组合，详见 [开发者日志 §2.-1](docs/开发者日志.md#2-1-2026-04-28-晚-安全推送工具链validate-configpy--sync-subconvertersh5-份滚动备份--自动回滚) + [§4.C.5](docs/开发者日志.md#4c5-2026-04-28-sub-converterpy-推送无备份无校验--改坏--全军覆没-)。
 
+### 🧰 统一脚本入口
+
+日常可以只记一个入口，底层脚本仍保留给部署、定时任务和回滚使用：
+
+```bash
+bash scripts/ace-vpn.sh help
+bash scripts/ace-vpn.sh route https://www.forbes.com/
+bash scripts/ace-vpn.sh add waimai.meituan.com DIRECT --note "Meituan"
+bash scripts/ace-vpn.sh smoke --direct
+bash scripts/ace-vpn.sh report
+```
+
 ### 📊 本地流量月报（可选）
 
-月报从本机 Mihomo API 采集，默认只记录域名、规则、链路、来源 IP、进程名和流量；不做 HTTPS 解密，也不保存完整 URL path。
+月报从本机 Mihomo API 采集，默认只记录域名、规则、链路、来源 IP、进程名和流量；不做 HTTPS 解密，也不保存完整 URL path。采集器是单独后台进程，不在代理数据路径里；默认 30 秒轮询、低优先级运行，避免影响上网速度。
 
 ```bash
 # 手动采一轮，确认 Mihomo external-controller 可读
@@ -219,4 +231,4 @@ DNS / 凭据都不会进本仓库 git 历史**。详见 [private/README.md](priv
 
 ## 📄 许可
 
-个人项目，MIT（代码层面）。运行时配置、家庭部署信息不开源。
+个人项目，MIT（代码层面，见 [LICENSE](LICENSE)）。运行时配置、家庭部署信息不开源。

@@ -1,10 +1,22 @@
 # 🚀 ace-vpn · scripts 目录说明
 
-> `scripts/` 已按用途拆成子目录。日常只需要记住五类：`deploy/` 部署、`rules/` 规则、`test/` 诊断测速、`telemetry/` 流量统计、`common-tools/` 小工具。
+> `scripts/` 已按用途拆成子目录。日常只需要记住统一入口 [`ace-vpn.sh`](ace-vpn.sh)；底层按用途分为 `deploy/` 部署、`rules/` 规则、`test/` 诊断测速、`telemetry/` 流量统计、`common-tools/` 小工具。
 
 ---
 
 ## 📑 速查表
+
+### 统一入口（推荐日常使用）
+
+| 命令 | 等价底层脚本 |
+|------|--------------|
+| `bash scripts/ace-vpn.sh route <url>` | `test/test-route.sh` |
+| `bash scripts/ace-vpn.sh add <host> <IN|DIRECT|VPS>` | `rules/add-rule.sh` |
+| `bash scripts/ace-vpn.sh promote` | `rules/promote-to-vps.sh` |
+| `bash scripts/ace-vpn.sh smoke --direct` | `test/subscription-smoke.sh` |
+| `bash scripts/ace-vpn.sh sync-sub --vps vultr-tokyo` | `rules/sync-subconverter.sh` |
+| `bash scripts/ace-vpn.sh collect --once` | `telemetry/mihomo-traffic-collector.py` |
+| `bash scripts/ace-vpn.sh report` | `telemetry/monthly-traffic-report.py` |
 
 ### A. 部署类（在 **VPS** 上跑，一次性）
 
@@ -76,7 +88,7 @@
 
 ## 🧹 可以删除的 / 重复的
 
-**结论：目前不建议删除任何脚本。** 这些脚本看起来多，是因为它们分属三条不同生命周期：新 VPS 部署、日常规则运维、出问题时诊断。真正高频只需要 `rules/` 下 3-4 个脚本；`deploy/` 和大部分 `test/` 都是低频但关键的应急工具。
+**结论：不硬删底层脚本，新增统一入口收口日常命令。** 这些脚本分属三条不同生命周期：新 VPS 部署、日常规则运维、出问题时诊断。真正高频命令已合到 `scripts/ace-vpn.sh`；`deploy/`、`rules/`、`test/`、`telemetry/` 继续作为可组合的底层模块。
 
 可以按这个标准判断：
 
@@ -361,7 +373,7 @@ bash scripts/test/subscription-smoke.sh --direct --query process=1  # 验证 App
 
 如果这条通过，说明客户端更新订阅只需要能直连 `<VPS_IP>:25500`。如果 Clash Verge Rev 仍失败，检查客户端是否开启了“使用代理更新订阅”；家庭端建议关闭这个选项。
 
-安装本机流量采集：
+安装本机流量采集。采集器是后台独立进程，不在代理数据路径里；默认 30 秒轮询，LaunchAgent 以 `nice -n 10` 低优先级运行：
 
 ```bash
 python3 scripts/telemetry/mihomo-traffic-collector.py --once

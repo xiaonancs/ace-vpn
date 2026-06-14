@@ -54,6 +54,8 @@ def ensure_db(db: Path) -> sqlite3.Connection:
     db.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db)
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA busy_timeout=3000")
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS connection_totals (
@@ -319,7 +321,7 @@ def main() -> int:
     parser.add_argument("--controller", default=DEFAULT_CONTROLLER)
     parser.add_argument("--secret", default=DEFAULT_SECRET)
     parser.add_argument("--db", type=Path, default=DEFAULT_DB)
-    parser.add_argument("--interval", type=float, default=10.0)
+    parser.add_argument("--interval", type=float, default=30.0)
     parser.add_argument("--timeout", type=float, default=3.0)
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--retention-days", type=int, default=400)

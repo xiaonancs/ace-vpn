@@ -483,6 +483,11 @@ SOCIAL_PROXY = [
     "googleusercontent.com", "googleapis.com", "ggpht.com",
     # GitHub
     "github.com", "githubusercontent.com", "githubassets.com",
+    # International news / publishers (app login and embedded webviews)
+    "forbes.com", "forbesimg.com", "forbesmedia.com",
+    "bloomberg.com", "bbci.co.uk", "bbc.com", "cnn.com", "edition.cnn.com",
+    "reuters.com", "nytimes.com", "washingtonpost.com", "wsj.com",
+    "ft.com", "economist.com", "theguardian.com",
     # 其他
     "wikipedia.org", "reddit.com", "medium.com", "stackexchange.com", "stackoverflow.com",
     "quora.com",
@@ -509,9 +514,12 @@ CHINA_DIRECT = [
     # Alibaba
     "taobao.com", "tmall.com", "alibaba.com", "alicdn.com", "aliyun.com",
     "alipay.com", "alipayobjects.com", "1688.com", "tanx.com", "mmstat.com",
+    "ele.me", "eleme.cn", "eleme.io", "elemecdn.com",
+    "goofish.com", "amap.com", "autonavi.com",
     # Tencent
     "qq.com", "qpic.cn", "tencent.com", "tencent-cloud.com", "weixin.qq.com",
-    "gtimg.com", "gtimg.cn", "tenpay.com",
+    "wechat.com", "weixinbridge.com", "gtimg.com", "gtimg.cn", "tenpay.com",
+    "myqcloud.com", "qcloud.com",
     # Social 国内
     "weibo.com", "weibo.cn", "sinaimg.cn", "sina.com.cn", "sina.cn", "miaopai.com",
     "zhihu.com", "zhimg.com", "xiaohongshu.com", "xhscdn.com",
@@ -522,8 +530,19 @@ CHINA_DIRECT = [
     "bilibili.com", "biliapi.net", "bilivideo.com", "hdslb.com",
     "iqiyi.com", "iqiyipic.com",
     "youku.com", "ykimg.com",
+    # Local services / delivery / travel
+    "meituan.com", "meituan.net", "dianping.com", "sankuai.com",
+    "mtyun.com", "maoyan.com", "neixin.cn", "dpfile.com",
+    "didichuxing.com", "xiaojukeji.com", "didistatic.com",
+    "ctrip.com", "trip.com", "tripcdn.com", "qunar.com", "12306.cn",
+    # Ecommerce / short video / device vendors / banking
+    "jd.com", "360buyimg.com", "jdpay.com",
+    "pinduoduo.com", "yangkeduo.com", "pddpic.com", "pinduoduo.net",
+    "kuaishou.com", "kwai.com", "kwaicdn.com", "ksapisrv.com", "gifshow.com",
+    "huawei.com", "hicloud.com", "vmall.com",
+    "heytapmobi.com", "oppomobile.com", "vivo.com.cn",
+    "unionpay.com", "95516.com", "ccb.com", "icbc.com.cn", "abchina.com", "cmbchina.com",
     # Misc
-    "jd.com", "360buyimg.com", "meituan.net", "meituan.com",
     "netease.com", "126.net", "163.com",
     "cn", "hk", "tw",  # TLD 兜底
 ]

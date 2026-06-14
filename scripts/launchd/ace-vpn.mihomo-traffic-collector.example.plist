@@ -10,7 +10,7 @@
   <array>
     <string>/bin/bash</string>
     <string>-lc</string>
-    <string>cd __REPO_ROOT__ &amp;&amp; exec python3 scripts/telemetry/mihomo-traffic-collector.py --interval 15</string>
+    <string>cd __REPO_ROOT__ &amp;&amp; exec nice -n 10 python3 scripts/telemetry/mihomo-traffic-collector.py --interval 30</string>
   </array>
 
   <key>EnvironmentVariables</key>
