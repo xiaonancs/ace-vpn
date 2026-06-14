@@ -570,6 +570,34 @@ CHINA_DIRECT = [
 ]
 
 
+def _dedupe_domains(*groups: List[str]) -> List[str]:
+    seen: set[str] = set()
+    result: List[str] = []
+    for group in groups:
+        for domain in group:
+            key = str(domain).strip().lower()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            result.append(key)
+    return result
+
+
+SHADOWROCKET_OVERSEAS_PROXY = _dedupe_domains(AI_DOMAINS, SOCIAL_PROXY, MEDIA_PROXY)
+SHADOWROCKET_CHINA_DIRECT = _dedupe_domains(CHINA_DIRECT)
+
+
+def build_shadowrocket_rule_list(name: str, domains: List[str]) -> str:
+    lines = [
+        f"# NAME: {name}",
+        "# AUTHOR: ace-vpn",
+        "# FORMAT: Shadowrocket Rule Set",
+        f"# DOMAIN-SUFFIX: {len(domains)}",
+    ]
+    lines.extend(f"DOMAIN-SUFFIX,{domain}" for domain in domains)
+    return "\n".join(lines) + "\n"
+
+
 def build_rules(proxy_names: List[str], intranet: Dict[str, Any]) -> List[str]:
     rules: List[str] = []
     seen_suffix: set[str] = set()
@@ -922,8 +950,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._reply(429, b"Too Many Requests\n", "text/plain")
             return
 
+        parsed = urllib.parse.urlparse(self.path)
         # 期望 /<SUB_PATH_PREFIX>/<token>，不接受多级 path；/healthz 是简单自检
-        request_path = urllib.parse.urlparse(self.path).path.rstrip("/")
+        request_path = parsed.path.rstrip("/")
         if request_path == "/healthz":
             if not self._admin_allowed():
                 self._reply(404, b"Not Found\n", "text/plain")
@@ -964,12 +993,42 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self._reply(500, f'{{"error":"{e}"}}\n'.encode(), "application/json; charset=utf-8")
             return
 
+        # Shadowrocket 用 3x-ui base64 节点订阅，服务端 Clash YAML rules 不会自动下发到
+        # 手机本地配置。这里提供同源、无需翻墙的规则集 URL，给 iOS 端配置模式订阅。
+        rule_base = f"/{SUB_PATH_PREFIX}/_rules"
+        shadowrocket_rule_sets = {
+            f"{rule_base}/shadowrocket-overseas-proxy.list": (
+                "ace-vpn overseas proxy",
+                SHADOWROCKET_OVERSEAS_PROXY,
+            ),
+            f"{rule_base}/shadowrocket-china-direct.list": (
+                "ace-vpn china direct",
+                SHADOWROCKET_CHINA_DIRECT,
+            ),
+            f"{rule_base}/shadowrocket-pinterest.list": (
+                "ace-vpn pinterest",
+                [
+                    "pinimg.com",
+                    "pinterest.at", "pinterest.ca", "pinterest.ch", "pinterest.cl",
+                    "pinterest.co.kr", "pinterest.co.uk", "pinterest.com",
+                    "pinterest.com.au", "pinterest.com.mx", "pinterest.de",
+                    "pinterest.dk", "pinterest.es", "pinterest.fr", "pinterest.ie",
+                    "pinterest.it", "pinterest.jp", "pinterest.nl", "pinterest.nz",
+                    "pinterest.ph", "pinterest.pt", "pinterest.ru", "pinterest.se",
+                ],
+            ),
+        }
+        if request_path in shadowrocket_rule_sets:
+            name, domains = shadowrocket_rule_sets[request_path]
+            body = build_shadowrocket_rule_list(name, domains).encode("utf-8")
+            self._reply(200, body, "text/plain; charset=utf-8")
+            return
+
         # 拆掉 query 再解析 path；?tun=1/0 可按设备覆盖 tun.enable 默认值。
         # ?process=1/strict/always 可按设备打开进程归因，便于本地流量报表统计
         # "来源于哪个 app"；默认 off，避免日常使用付出额外开销。
         # 订阅路径由 SUB_PATH_PREFIX 控制，形如 /<long-random-prefix>/<token>，
         # 降低公网订阅端口被扫到后的可识别性。
-        parsed = urllib.parse.urlparse(self.path)
         query = dict(urllib.parse.parse_qsl(parsed.query))
         tun_enable: Optional[bool] = None
         if "tun" in query:

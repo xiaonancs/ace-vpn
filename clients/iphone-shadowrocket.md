@@ -39,29 +39,35 @@ Shadowrocket → 配置 → 当前配置 → **规则**。
 | 规则集名 | URL | 策略 |
 |---------|-----|------|
 | 🏢 公司直连 | 自己维护（见下） | DIRECT |
+| 🌍 ACE 海外 App | `http://<VPS_IP>:25500/<SUB_PATH_PREFIX>/_rules/shadowrocket-overseas-proxy.list` | PROXY |
 | 🤖 Claude | `https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Shadowrocket/Claude/Claude.list` | PROXY |
 | 🤖 OpenAI | `https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Shadowrocket/OpenAI/OpenAI.list` | PROXY |
 | 🤖 Gemini | `https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Shadowrocket/Gemini/Gemini.list` | PROXY |
 | 🤖 Copilot | `https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Shadowrocket/Copilot/Copilot.list` | PROXY |
 | ✉️ Gmail / Google 图片 | 手动规则（见 3.4） | PROXY |
 | 💬 Discord | `https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Shadowrocket/Discord/Discord.list` | PROXY |
+| 🇨🇳 ACE 国内 App | `http://<VPS_IP>:25500/<SUB_PATH_PREFIX>/_rules/shadowrocket-china-direct.list` | DIRECT |
 | 🇨🇳 ChinaMax | `https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Shadowrocket/ChinaMax/ChinaMax.list` | DIRECT |
 | 🌍 Global | `https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Shadowrocket/Global/Global.list` | PROXY |
+
+`<SUB_PATH_PREFIX>` 用管理员给你的订阅 URL 中间那段随机路径，不带最后的 `ace-main` / `ace-fork`。
 
 ### 3.2 排序（必须按这个顺序）
 
 ```
 1. 🏢 公司直连       → DIRECT
-2. 🤖 Claude         → PROXY
-3. 🤖 OpenAI         → PROXY
-4. 🤖 Gemini         → PROXY
-5. 🤖 Copilot        → PROXY
-6. ✉️ Gmail / Google 图片 → PROXY
-7. 💬 Discord        → PROXY
-8. 🇨🇳 ChinaMax      → DIRECT
-9. 🌍 Global         → PROXY
-10. GEOIP CN         → DIRECT
-11. FINAL            → DIRECT   ⚠️ 兜底必须是 DIRECT
+2. 🌍 ACE 海外 App   → PROXY
+3. 🤖 Claude         → PROXY
+4. 🤖 OpenAI         → PROXY
+5. 🤖 Gemini         → PROXY
+6. 🤖 Copilot        → PROXY
+7. ✉️ Gmail / Google 图片 → PROXY
+8. 💬 Discord        → PROXY
+9. 🇨🇳 ACE 国内 App  → DIRECT
+10. 🇨🇳 ChinaMax     → DIRECT
+11. 🌍 Global        → PROXY
+12. GEOIP CN         → DIRECT
+13. FINAL            → DIRECT   ⚠️ 兜底必须是 DIRECT
 ```
 
 ### 3.3 Cursor 补充规则
@@ -77,9 +83,9 @@ Shadowrocket → 配置 → 规则 → **添加规则**：
 
 放在 AI 规则集附近（第 2~6 行之间都行）。
 
-### 3.4 Gmail 图片补充规则
+### 3.4 Gmail / Pinterest 图片补充规则（备用）
 
-Gmail 邮件里的远程图片常走 Google 图片/CDN 域名。出现"全局代理能加载，配置分流加载不出来"时，把下面规则放在 ChinaMax / GEOIP / FINAL 前面：
+优先用 §3.1 的 `🌍 ACE 海外 App` 规则集。只有不方便订阅规则集时，才手动加下面这些规则，并放在 ChinaMax / GEOIP / FINAL 前面：
 
 | 类型 | 值 | 策略 |
 |------|----|------|
@@ -101,7 +107,7 @@ Gmail 邮件里的远程图片常走 Google 图片/CDN 域名。出现"全局代
 
 ### 3.5 国内 App 补充直连规则
 
-如果使用 Shadowrocket 手工规则，国内外卖/地图/出行类建议放在 DIRECT，且排在 Global / FINAL 前面：
+优先用 §3.1 的 `🇨🇳 ACE 国内 App` 规则集。如果使用 Shadowrocket 手工规则，国内外卖/地图/出行类建议放在 DIRECT，且排在 Global / FINAL 前面：
 
 | 类型 | 值 | 策略 |
 |------|----|------|
@@ -169,6 +175,7 @@ IP-CIDR,172.16.0.0/12,no-resolve
 - 打开抖音 → 视频能加载（证明走了直连）
 
 如果某个 App 不通：Shadowrocket → 配置 → **最近匹配（Recent Logs）** 看它的请求命中了哪条规则。
+如果 Pinterest 图片仍不出，优先确认最近匹配里 `pinimg.com` 是否命中 `🌍 ACE 海外 App` / PROXY。
 
 ---
 

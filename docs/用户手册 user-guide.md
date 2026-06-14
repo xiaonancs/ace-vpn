@@ -253,13 +253,17 @@ FINAL,PROXY
 
 | 规则集 | URL | 策略 |
 |-------|-----|------|
+| ACE 海外 App | `http://<VPS_IP>:25500/<SUB_PATH_PREFIX>/_rules/shadowrocket-overseas-proxy.list` | PROXY |
+| ACE 国内 App | `http://<VPS_IP>:25500/<SUB_PATH_PREFIX>/_rules/shadowrocket-china-direct.list` | DIRECT |
 | Claude | `https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Shadowrocket/Claude/Claude.list` | PROXY |
 | OpenAI | `https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Shadowrocket/OpenAI/OpenAI.list` | PROXY |
 | Discord | `https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Shadowrocket/Discord/Discord.list` | PROXY |
 | 境外通用 | `https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Shadowrocket/Global/Global.list` | PROXY |
 | 境内大陆 | `https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Shadowrocket/ChinaMax/ChinaMax.list` | DIRECT |
 
-顺序：Claude → OpenAI → Discord → Global → ChinaMax → GEOIP CN → FINAL,PROXY。
+`<SUB_PATH_PREFIX>` 用管理员给你的订阅 URL 中间那段随机路径，不带最后的 `ace-main` / `ace-fork`。
+
+顺序：ACE 海外 App → Claude → OpenAI → Discord → ACE 国内 App → ChinaMax → Global → GEOIP CN → FINAL,DIRECT。Pinterest 图片重点看最近匹配里 `pinimg.com` 是否命中 ACE 海外 App。
 
 ### 4.2 iPad / iPad Pro（平板）
 
@@ -1290,7 +1294,11 @@ Mac 端必须开 **TUN 模式**（不是系统代理）。`curl ipinfo.io/ip` �
 
 这类现象通常是 App 图片 CDN 或 API 域名没有显式命中代理，落到了 FINAL / GEOIP / 客户端默认策略。新版订阅已把 Pinterest 主域和图片 CDN（`pinterest.com` / `pinimg.com` / 常见 `pinterest.*` 地区域名）放进代理，同时补了 TikTok / Snapchat / LinkedIn / Slack / Notion 等国外 App。
 
-处理：先刷新订阅；仍失败时在客户端最近连接里找未命中的域名，或在 Mac 上跑 `bash scripts/ace-vpn.sh route <域名>`。明确国外 App 域名补 `VPS`，明确国内 App 域名补 `DIRECT`。
+处理：
+
+- Stash / Clash YAML 用户：刷新订阅。
+- Shadowrocket / base64 用户：添加或刷新 `http://<VPS_IP>:25500/<SUB_PATH_PREFIX>/_rules/shadowrocket-overseas-proxy.list`，策略选 PROXY，排序放在 ChinaMax / GEOIP / FINAL 前面。
+- 仍失败时看 Shadowrocket 最近匹配，确认 `pinimg.com` 是否命中 PROXY。明确国外 App 域名补 `VPS` / PROXY，明确国内 App 域名补 `DIRECT`。
 
 ### Q7：家人 Windows 图标变红了 / 灰了
 

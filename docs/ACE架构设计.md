@@ -718,6 +718,14 @@ ace-vpn 的规则有三个并存来源，决定优先级和粒度：
 | 国内 App 直连 | 美团/点评/饿了么/高德/微信小程序/钉钉/滴滴/携程/京东/拼多多/芒果 TV/快手/银行/手机厂商 CDN | `DIRECT` | 这些服务在国内边缘节点和风控体系内运行，走日本 VPS 通常更慢，还可能触发异地风控 |
 | 海外 App 代理 | Pinterest / TikTok / Snapchat / LinkedIn / Slack / Notion / Forbes / Bloomberg / Reuters / BBC / CNN / NYT / WSJ / Google 登录链路 | `PROXY` | 海外 App 常用海外 API、图片 CDN、内嵌 WebView 和 Google 登录，直连容易被 GFW 或 DNS 污染影响 |
 
+Shadowrocket 是例外：它通常消费 3x-ui base64 节点订阅，服务端 Clash YAML rules 不会自动进入手机配置。sub-converter 因此额外暴露同源规则集：
+
+| Shadowrocket 规则集 | 策略 |
+|---|---|
+| `/<SUB_PATH_PREFIX>/_rules/shadowrocket-overseas-proxy.list` | `PROXY` |
+| `/<SUB_PATH_PREFIX>/_rules/shadowrocket-china-direct.list` | `DIRECT` |
+| `/<SUB_PATH_PREFIX>/_rules/shadowrocket-pinterest.list` | `PROXY` |
+
 ### 8.2 规则优先级（决策顺序）
 
 sub-converter 渲染最终 Clash YAML 时，从上到下依次拼装 rules：

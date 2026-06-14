@@ -92,6 +92,25 @@ def main() -> int:
     if failed:
         print(f"\n{failed} route regression(s) failed", file=sys.stderr)
         return 1
+
+    shadowrocket_overseas = module.build_shadowrocket_rule_list(
+        "test overseas",
+        module.SHADOWROCKET_OVERSEAS_PROXY,
+    )
+    shadowrocket_china = module.build_shadowrocket_rule_list(
+        "test china",
+        module.SHADOWROCKET_CHINA_DIRECT,
+    )
+    for needle, content in [
+        ("DOMAIN-SUFFIX,pinimg.com", shadowrocket_overseas),
+        ("DOMAIN-SUFFIX,pinterest.com", shadowrocket_overseas),
+        ("DOMAIN-SUFFIX,servicewechat.com", shadowrocket_china),
+    ]:
+        if needle not in content:
+            print(f"FAIL shadowrocket rule list missing {needle}", file=sys.stderr)
+            return 1
+        print(f"OK   shadowrocket list contains {needle}")
+
     print("\nroute regressions passed")
     return 0
 
