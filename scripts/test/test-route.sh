@@ -95,8 +95,8 @@ if ! MATCH_JSON=$(curl -fsS --max-time 8 "${ADMIN_CURL_ARGS[@]}" "$MATCH_URL" 2>
   warn "旧版 sub-converter 没有这个接口，或新版需要 SUB_ADMIN_TOKEN。先确认 private/env.sh："
   echo "    export SUB_ADMIN_TOKEN='<VPS 上 ace-vpn-sub.service 里的值>'"
   warn "如果确实是旧版，再升级："
-  echo "    scp scripts/server/sub-converter.py root@$MATCH_VPS_IP:/opt/ace-vpn-sub/sub-converter.py"
-  echo "    ssh root@$MATCH_VPS_IP 'systemctl restart ace-vpn-sub'"
+  echo "    bash scripts/rules/sync-subconverter.sh --vps <name> --dry-run"
+  echo "    bash scripts/rules/sync-subconverter.sh --vps <name>"
   MATCH_JSON=""
 fi
 

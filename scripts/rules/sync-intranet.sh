@@ -240,7 +240,7 @@ EOF
       2>/dev/null || echo 000)
     if [[ "$code" == "200" ]]; then
       warn "[$name] 无 /healthz（旧版 sub-converter），但 127.0.0.1:${SUB_PORT}/${SUB_PATH_PREFIX}/${tok} 返回 200，热加载仍可用"
-      warn "  可选：scp scripts/server/sub-converter.py 到 VPS 后 systemctl restart ace-vpn-sub，即获得 /healthz"
+      warn "  可选：bash scripts/rules/sync-subconverter.sh --vps ${name}，通过安全推送升级后即可获得 /healthz"
     else
       warn "[$name] /healthz 失败且 /${SUB_PATH_PREFIX}/${tok} 返回 ${code}（服务或端口 ${SUB_PORT} 异常）"
       warn "  文件已同步，需要时重启：ssh ${VPS_SSH_USER}@${ip} 'systemctl restart ace-vpn-sub'"

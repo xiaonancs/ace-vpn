@@ -109,6 +109,7 @@ flowchart TB
 | **sub-converter.py** | 自研 Python（~600 行），把 3x-ui 的 base64 `vless://` 订阅转成带分流规则的 Clash Meta YAML；内嵌规则引擎 + `/match` 调试接口 + `/healthz` |
 | **intranet.yaml** | 多 profile 内网分流配置；本地真值在 `ace-vpn-private/intranet.yaml`，VPS 端是 `/etc/ace-vpn/intranet.yaml` 的副本 |
 | **local-rules.yaml** | Mac 本地规则池（git 跟踪在 `ace-vpn-private`），渲染成 Mihomo Party 的 override，秒级单机生效；`promote-to-vps.sh` 推 VPS 后清空 |
+| **telemetry collector** | 可选的本机观测进程，只读 Mihomo external-controller 连接快照；不在代理数据路径里，不上传到 VPS |
 | **Clash 客户端** | 消费 Clash YAML，负责 DNS + 规则匹配 + 代理出口；TUN 模式接管全表 |
 
 ### 2.3 数据流时序
@@ -145,6 +146,12 @@ sequenceDiagram
 | 25500 | TCP | sub-converter | 是（HTTP，YAML 已脱敏） |
 | `<random>` | TCP | 3x-ui 面板 | 否（仅 localhost / SSH 隧道） |
 | 8443 | UDP | Hy2（预留） | 否（未启用） |
+
+### 2.5 本地流量统计边界
+
+`scripts/telemetry/mihomo-traffic-collector.py` 只在管理员本机运行，通过 Mihomo external-controller 周期性读取连接快照，再写本地 SQLite。它不是代理、不是透明网关，也不参与 DNS / rules 决策，所以采集器卡住时最多影响报表，不应影响真实上网。
+
+默认采集粒度是 host、rule、chain、source IP、process、duration、upload/download 和 AI 分类；不做 HTTPS 解密，也不保存完整 URL path。App 归因依赖 Mihomo `find-process-mode`，默认关闭，只有订阅 URL 显式追加 `?process=1` 的设备才开启。
 
 ---
 
@@ -746,8 +753,8 @@ local-rules.yaml 渲染成 Mihomo Party override 时用 `+rules:` 语法，再 p
 ```bash
 # A1. 改内置硬编码（适合"天底下所有人都该这么走"）
 $EDITOR scripts/server/sub-converter.py
-scp scripts/server/sub-converter.py root@<VPS-IP>:/opt/ace-vpn-sub/sub-converter.py
-ssh root@<VPS-IP> "systemctl restart ace-vpn-sub"
+bash scripts/rules/sync-subconverter.sh --dry-run
+bash scripts/rules/sync-subconverter.sh
 
 # A2. 改 intranet.yaml（适合公司域名 / extra）
 $EDITOR private/intranet.yaml      # 等价于 ace-vpn-private/intranet.yaml
@@ -935,7 +942,7 @@ diff <(curl -s http://<IP-1>:25500/<SUB_PATH_PREFIX>/ace-main) \
      <(curl -s http://<IP-2>:25500/<SUB_PATH_PREFIX>/ace-main) | head
 ```
 
-如果 diff 有内容 → 跑 `sync-intranet.sh` + 手动 scp `sub-converter.py` 到对应 VPS。
+如果 diff 有内容 → 先判断差异来自 `intranet.yaml` 还是 `sub-converter.py`；前者跑 `sync-intranet.sh`，后者必须跑 `sync-subconverter.sh`，不要手动 scp 绕过备份和自动回滚。
 
 ### 9.6 远程跳板：`sg-tunnel.sh`
 

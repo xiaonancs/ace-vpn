@@ -214,6 +214,7 @@ DNS / 凭据都不会进本仓库 git 历史**。详见 [private/README.md](priv
 - **2026-04-18** `configure-3xui.sh` + `sub-converter.py` 完整链路打通；Mac / iPhone / Android 跑通 4K YouTube / Discord / Cursor；`sub-converter` 重构为多 token 单实例
 - **2026-04-18** HostHatch Tokyo 付费方案（$4/月）上线；**Vultr → HostHatch 整库迁移**，pbk / sid / UUID 全保留，家人端仅改 IP
 - **2026-06-13** 现网回到 Vultr Tokyo `<VPS_IP>`；私有配置只保留 `vultr:<VPS_IP>`，订阅路径统一为 `/<SUB_PATH_PREFIX>/ace-main` / `ace-fork`
+- **2026-06-14** 扩展手机 App / 英文媒体 / AI 分流规则，新增本地流量月报和 `scripts/ace-vpn.sh` 统一入口；Vultr Tokyo 已通过安全推送和订阅烟测
 - **2026-04-18** 文档瘦身：多份 00-09 doc 合并为 `docs/开发者日志.md` + `docs/用户手册 user-guide.md` 两份
 - **2026-04-19** 内网分流重构：`private/intranet.yaml` 多 profile + `enabled` 开关，`sync-intranet.sh` 一键 scp，VPS 端热加载无需重启。支持「换公司」/「多公司并存」零配置切换
 - **2026-04-19** sub-converter 新增 `/match` 权威匹配接口 + `scripts/test/test-route.sh` 诊断工具，一行命令输出 URL 走哪条规则、经哪个代理组、各阶段延时

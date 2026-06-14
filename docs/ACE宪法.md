@@ -72,6 +72,16 @@ Mac -> SSH VPS -> curl 127.0.0.1:<LISTEN_PORT>/<SUB_PATH_PREFIX>/<token>?tun=1 -
 
 `sub-converter.py`、`intranet.yaml`、Mihomo override 都属于数据面配置。
 
+### 2.6 流量统计边界
+
+流量统计只能作为本地观测面，不得进入代理数据面：
+
+- 采集器必须是独立后台进程，不能阻塞或代理真实网络连接。
+- 默认关闭进程归因；只有管理员自己的订阅显式加 `?process=1` 时，才允许开启 `find-process-mode`。
+- 不做 HTTPS 解密，不保存完整 URL path，只记录 Mihomo API 能看到的 host、规则、链路、来源 IP、进程名、时长和流量。
+- SQLite / CSV 默认留在本机；分享报表前必须确认没有真实公司域名、内网 IP、token 或可识别家人隐私的数据。
+- 为了追求统计完整性而影响上网速度，视为违反本项目目标。
+
 ---
 
 ## 3. 运行与排障准则
