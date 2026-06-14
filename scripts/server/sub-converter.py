@@ -478,6 +478,21 @@ SOCIAL_PROXY = [
     "facebook.com", "fbcdn.net", "fb.com", "instagram.com", "cdninstagram.com", "whatsapp.com", "whatsapp.net",
     # Telegram
     "telegram.org", "t.me", "telegram.me", "tdesktop.com",
+    # Overseas mobile apps / social / productivity
+    "pinterest.com", "pinimg.com",
+    "pinterest.at", "pinterest.ca", "pinterest.ch", "pinterest.cl",
+    "pinterest.co.kr", "pinterest.co.uk", "pinterest.com.au", "pinterest.com.mx",
+    "pinterest.de", "pinterest.dk", "pinterest.es", "pinterest.fr",
+    "pinterest.ie", "pinterest.it", "pinterest.jp", "pinterest.nl",
+    "pinterest.nz", "pinterest.ph", "pinterest.pt", "pinterest.ru", "pinterest.se",
+    "tiktok.com", "tiktokv.com", "tiktokcdn.com", "tiktokcdn-us.com",
+    "byteoversea.com", "ibyteimg.com", "ibytedtos.com", "muscdn.com", "musical.ly",
+    "snapchat.com", "sc-cdn.net", "snapkit.com",
+    "linkedin.com", "licdn.com",
+    "threads.net",
+    "slack.com", "slack-edge.com", "slack-imgs.com", "slackb.com",
+    "notion.so", "notion.site",
+    "dropbox.com", "dropboxusercontent.com",
     # Google（含搜索/邮件/Gmail 图片 CDN 等）
     "google.com", "gmail.com", "googlemail.com", "gstatic.com",
     "googleusercontent.com", "googleapis.com", "ggpht.com",
@@ -514,34 +529,41 @@ CHINA_DIRECT = [
     # Alibaba
     "taobao.com", "tmall.com", "alibaba.com", "alicdn.com", "aliyun.com",
     "alipay.com", "alipayobjects.com", "1688.com", "tanx.com", "mmstat.com",
-    "ele.me", "eleme.cn", "eleme.io", "elemecdn.com",
+    "ele.me", "eleme.com", "eleme.cn", "eleme.io", "elemecdn.com", "fengniao.com",
     "goofish.com", "amap.com", "autonavi.com",
+    "dingtalk.com", "dingtalkapps.com", "fliggy.com", "alitrip.com", "uc.cn", "ucweb.com",
     # Tencent
     "qq.com", "qpic.cn", "tencent.com", "tencent-cloud.com", "weixin.qq.com",
     "wechat.com", "weixinbridge.com", "gtimg.com", "gtimg.cn", "tenpay.com",
-    "myqcloud.com", "qcloud.com",
+    "myqcloud.com", "qcloud.com", "servicewechat.com", "weapp.com", "wecom.work",
     # Social 国内
     "weibo.com", "weibo.cn", "sinaimg.cn", "sina.com.cn", "sina.cn", "miaopai.com",
-    "zhihu.com", "zhimg.com", "xiaohongshu.com", "xhscdn.com",
+    "zhihu.com", "zhimg.com", "xiaohongshu.com", "xiaohongshu.net", "xhscdn.com", "xhslink.com",
     "douban.com", "doubanio.com",
     # Baidu
-    "baidu.com", "bdimg.com", "bdstatic.com", "baidupcs.com",
+    "baidu.com", "bdimg.com", "bdstatic.com", "baidupcs.com", "baidubce.com", "bcebos.com",
     # 视频
     "bilibili.com", "biliapi.net", "bilivideo.com", "hdslb.com",
     "iqiyi.com", "iqiyipic.com",
     "youku.com", "ykimg.com",
+    "mgtv.com", "hitv.com", "miguvideo.com", "cmvideo.cn", "pptv.com", "le.com",
     # Local services / delivery / travel
     "meituan.com", "meituan.net", "dianping.com", "sankuai.com",
     "mtyun.com", "maoyan.com", "neixin.cn", "dpfile.com",
+    "58.com", "ganji.com", "anjuke.com", "ke.com", "lianjia.com", "beike.com",
     "didichuxing.com", "xiaojukeji.com", "didistatic.com",
     "ctrip.com", "trip.com", "tripcdn.com", "qunar.com", "12306.cn",
+    "ly.com", "elong.com", "tuniu.com",
     # Ecommerce / short video / device vendors / banking
     "jd.com", "360buyimg.com", "jdpay.com",
+    "vip.com", "suning.com", "smzdm.com", "dewu.com", "poizon.com",
     "pinduoduo.com", "yangkeduo.com", "pddpic.com", "pinduoduo.net",
     "kuaishou.com", "kwai.com", "kwaicdn.com", "ksapisrv.com", "gifshow.com",
     "huawei.com", "hicloud.com", "vmall.com",
-    "heytapmobi.com", "oppomobile.com", "vivo.com.cn",
+    "heytapmobi.com", "oppomobile.com", "vivo.com.cn", "honor.com", "lenovo.com.cn",
     "unionpay.com", "95516.com", "ccb.com", "icbc.com.cn", "abchina.com", "cmbchina.com",
+    "bankcomm.com", "boc.cn", "cmbc.com.cn", "spdb.com.cn", "cib.com.cn",
+    "cebbank.com", "psbc.com", "pingan.com", "citicbank.com",
     # Misc
     "netease.com", "126.net", "163.com",
     "cn", "hk", "tw",  # TLD 兜底

@@ -91,6 +91,13 @@ Gmail 邮件里的远程图片常走 Google 图片/CDN 域名。出现"全局代
 | DOMAIN-SUFFIX | ggpht.com | PROXY |
 | DOMAIN-SUFFIX | forbes.com | PROXY |
 | DOMAIN-SUFFIX | forbesimg.com | PROXY |
+| DOMAIN-SUFFIX | pinterest.com | PROXY |
+| DOMAIN-SUFFIX | pinimg.com | PROXY |
+| DOMAIN-SUFFIX | tiktok.com | PROXY |
+| DOMAIN-SUFFIX | snapchat.com | PROXY |
+| DOMAIN-SUFFIX | linkedin.com | PROXY |
+| DOMAIN-SUFFIX | slack.com | PROXY |
+| DOMAIN-SUFFIX | notion.so | PROXY |
 
 ### 3.5 国内 App 补充直连规则
 
@@ -103,9 +110,15 @@ Gmail 邮件里的远程图片常走 Google 图片/CDN 域名。出现"全局代
 | DOMAIN-SUFFIX | dianping.com | DIRECT |
 | DOMAIN-SUFFIX | sankuai.com | DIRECT |
 | DOMAIN-SUFFIX | ele.me | DIRECT |
+| DOMAIN-SUFFIX | eleme.com | DIRECT |
 | DOMAIN-SUFFIX | elemecdn.com | DIRECT |
 | DOMAIN-SUFFIX | amap.com | DIRECT |
+| DOMAIN-SUFFIX | servicewechat.com | DIRECT |
+| DOMAIN-SUFFIX | dingtalk.com | DIRECT |
 | DOMAIN-SUFFIX | didichuxing.com | DIRECT |
+| DOMAIN-SUFFIX | ctrip.com | DIRECT |
+| DOMAIN-SUFFIX | jd.com | DIRECT |
+| DOMAIN-SUFFIX | vip.com | DIRECT |
 
 ---
 

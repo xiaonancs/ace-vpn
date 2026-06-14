@@ -85,12 +85,12 @@ hdr "[1/3] 服务端规则匹配（/match 权威查询）"
 
 URLENC=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1],safe=''))" "$TEST_URL")
 MATCH_URL="http://$MATCH_VPS_IP:$SUB_PORT/match?url=$URLENC"
-ADMIN_CURL_ARGS=()
+ADMIN_CURL_ARGS=(-fsS --noproxy "*" --max-time 8)
 if [[ -n "${SUB_ADMIN_TOKEN:-}" ]]; then
-  ADMIN_CURL_ARGS=(-H "X-Admin-Token: ${SUB_ADMIN_TOKEN}")
+  ADMIN_CURL_ARGS+=(-H "X-Admin-Token: ${SUB_ADMIN_TOKEN}")
 fi
 
-if ! MATCH_JSON=$(curl -fsS --max-time 8 "${ADMIN_CURL_ARGS[@]}" "$MATCH_URL" 2>&1); then
+if ! MATCH_JSON=$(curl "${ADMIN_CURL_ARGS[@]}" "$MATCH_URL" 2>&1); then
   warn "调 /match 失败：$MATCH_JSON"
   warn "旧版 sub-converter 没有这个接口，或新版需要 SUB_ADMIN_TOKEN。先确认 private/env.sh："
   echo "    export SUB_ADMIN_TOKEN='<VPS 上 ace-vpn-sub.service 里的值>'"

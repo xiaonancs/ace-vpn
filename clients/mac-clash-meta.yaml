@@ -201,7 +201,7 @@ rules:
   - DOMAIN-SUFFIX,anthropic.com,🤖 AI 出口
   - DOMAIN-SUFFIX,statsig.anthropic.com,🤖 AI 出口
 
-  # ========== 3. Gmail / Google 图片 CDN -> 主力海外 ==========
+  # ========== 3. Gmail / Google 图片 CDN / 海外 App -> 主力海外 ==========
   - DOMAIN-SUFFIX,gmail.com,🌍 海外兜底
   - DOMAIN-SUFFIX,googlemail.com,🌍 海外兜底
   - DOMAIN-SUFFIX,googleusercontent.com,🌍 海外兜底
@@ -211,6 +211,13 @@ rules:
   - DOMAIN-SUFFIX,forbes.com,🌍 海外兜底
   - DOMAIN-SUFFIX,forbesimg.com,🌍 海外兜底
   - DOMAIN-SUFFIX,forbesmedia.com,🌍 海外兜底
+  - DOMAIN-SUFFIX,pinterest.com,🌍 海外兜底
+  - DOMAIN-SUFFIX,pinimg.com,🌍 海外兜底
+  - DOMAIN-SUFFIX,tiktok.com,🌍 海外兜底
+  - DOMAIN-SUFFIX,snapchat.com,🌍 海外兜底
+  - DOMAIN-SUFFIX,linkedin.com,🌍 海外兜底
+  - DOMAIN-SUFFIX,slack.com,🌍 海外兜底
+  - DOMAIN-SUFFIX,notion.so,🌍 海外兜底
 
   # ========== 4. Discord 等需要明确代理的海外服务 ==========
   - RULE-SET,discord,🌍 海外兜底
@@ -223,13 +230,21 @@ rules:
   - DOMAIN-SUFFIX,mtyun.com,DIRECT
   - DOMAIN-SUFFIX,maoyan.com,DIRECT
   - DOMAIN-SUFFIX,ele.me,DIRECT
+  - DOMAIN-SUFFIX,eleme.com,DIRECT
   - DOMAIN-SUFFIX,elemecdn.com,DIRECT
   - DOMAIN-SUFFIX,amap.com,DIRECT
   - DOMAIN-SUFFIX,autonavi.com,DIRECT
+  - DOMAIN-SUFFIX,servicewechat.com,DIRECT
+  - DOMAIN-SUFFIX,weapp.com,DIRECT
+  - DOMAIN-SUFFIX,dingtalk.com,DIRECT
   - DOMAIN-SUFFIX,didichuxing.com,DIRECT
   - DOMAIN-SUFFIX,xiaojukeji.com,DIRECT
+  - DOMAIN-SUFFIX,ctrip.com,DIRECT
+  - DOMAIN-SUFFIX,mgtv.com,DIRECT
+  - DOMAIN-SUFFIX,jd.com,DIRECT
   - DOMAIN-SUFFIX,pinduoduo.com,DIRECT
   - DOMAIN-SUFFIX,yangkeduo.com,DIRECT
+  - DOMAIN-SUFFIX,vip.com,DIRECT
   - DOMAIN-SUFFIX,kuaishou.com,DIRECT
   - DOMAIN-SUFFIX,kwaicdn.com,DIRECT
 

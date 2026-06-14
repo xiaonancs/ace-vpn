@@ -1286,6 +1286,12 @@ Mac 端必须开 **TUN 模式**（不是系统代理）。`curl ipinfo.io/ip` �
 
 新版订阅已把 Forbes 及常见英文资讯域名放进代理，并保留 Google 登录域名走代理。先刷新订阅；如果 App 仍失败，通常是内嵌 WebView 使用了新的 CDN 域名，打开客户端最近连接，把漏掉域名加到 `VPS` 规则即可。
 
+### Q6.3：Pinterest / 国外 App 规则模式打不开，但全局代理可以
+
+这类现象通常是 App 图片 CDN 或 API 域名没有显式命中代理，落到了 FINAL / GEOIP / 客户端默认策略。新版订阅已把 Pinterest 主域和图片 CDN（`pinterest.com` / `pinimg.com` / 常见 `pinterest.*` 地区域名）放进代理，同时补了 TikTok / Snapchat / LinkedIn / Slack / Notion 等国外 App。
+
+处理：先刷新订阅；仍失败时在客户端最近连接里找未命中的域名，或在 Mac 上跑 `bash scripts/ace-vpn.sh route <域名>`。明确国外 App 域名补 `VPS`，明确国内 App 域名补 `DIRECT`。
+
 ### Q7：家人 Windows 图标变红了 / 灰了
 
 - 红 = 服务端连不上。刷新订阅，还不行微信找管理员

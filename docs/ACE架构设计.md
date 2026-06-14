@@ -715,8 +715,8 @@ ace-vpn 的规则有三个并存来源，决定优先级和粒度：
 
 | 方向 | 代表域名 | 目标 | 原因 |
 |---|---|---|---|
-| 国内 App 直连 | 美团/点评/饿了么/高德/滴滴/拼多多/快手/银行/手机厂商 CDN | `DIRECT` | 这些服务在国内边缘节点和风控体系内运行，走日本 VPS 通常更慢，还可能触发异地风控 |
-| 海外 App 代理 | Forbes / Bloomberg / Reuters / BBC / CNN / NYT / WSJ / Google 登录链路 | `PROXY` | 英文资讯 App 常用海外 CDN、内嵌 WebView 和 Google 登录，直连容易被 GFW 或 DNS 污染影响 |
+| 国内 App 直连 | 美团/点评/饿了么/高德/微信小程序/钉钉/滴滴/携程/京东/拼多多/芒果 TV/快手/银行/手机厂商 CDN | `DIRECT` | 这些服务在国内边缘节点和风控体系内运行，走日本 VPS 通常更慢，还可能触发异地风控 |
+| 海外 App 代理 | Pinterest / TikTok / Snapchat / LinkedIn / Slack / Notion / Forbes / Bloomberg / Reuters / BBC / CNN / NYT / WSJ / Google 登录链路 | `PROXY` | 海外 App 常用海外 API、图片 CDN、内嵌 WebView 和 Google 登录，直连容易被 GFW 或 DNS 污染影响 |
 
 ### 8.2 规则优先级（决策顺序）
 
