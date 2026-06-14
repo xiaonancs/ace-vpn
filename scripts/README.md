@@ -1,6 +1,6 @@
 # 🚀 ace-vpn · scripts 目录说明
 
-> `scripts/` 已按用途拆成子目录。日常只需要记住四类：`deploy/` 部署、`rules/` 规则、`test/` 诊断测速、`common-tools/` 小工具。
+> `scripts/` 已按用途拆成子目录。日常只需要记住五类：`deploy/` 部署、`rules/` 规则、`test/` 诊断测速、`telemetry/` 流量统计、`common-tools/` 小工具。
 
 ---
 
@@ -49,8 +49,19 @@
 | [`test/vps-watch-urls.sh`](test/vps-watch-urls.sh) | SSH 到各 VPS，默认合并 `test/speed-test-endpoints.txt` + 可选 `private/vps-watch-urls.txt`，curl 指标与 `test/speed-test.sh` 一致；`--log` 写入单文件 | 每 30 分钟对比两台 VPS 出站（LaunchAgent 模板见 `scripts/launchd/`） |
 | [`test/vps-watch-summary.py`](test/vps-watch-summary.py) | 汇总 `vps-watch-urls.sh` 的 TSV 日志，输出整体 win/loss、成功率、超时率、2s+ 慢请求、平均耗时、median、p90/p95/p99、耗时分布、各 URL 对比 | 长期运行后生成阶段性对比 |
 | [`test/test-route.sh`](test/test-route.sh) | 给一个 URL，输出命中哪条规则 + 命中哪个组 + 实测延时 + 出口 IP | 想知道某站到底走的什么路径 |
+| [`test/route-regression.py`](test/route-regression.py) | 离线验证 Gmail/Google 图片、AI、媒体、国内直连等关键内置规则不会回退 | 改 `sub-converter.py` 里的内置规则后 |
+| [`test/subscription-smoke.sh`](test/subscription-smoke.sh) | 直连拉取订阅并跑 YAML validator，验证 Windows/家人端刷新订阅不依赖翻墙 | 换订阅 URL / 换 VPS / 推新 sub-converter 后 |
 
-### D. 仓库辅助
+### D. 流量统计（本机，可选）
+
+只读本机 Mihomo external-controller，默认落库到 `~/Library/Application Support/ace-vpn/mihomo-traffic.sqlite3`。不做 HTTPS 解密，不记录 URL path。
+
+| 脚本 | 作用 | 何时跑 |
+|------|------|--------|
+| [`telemetry/mihomo-traffic-collector.py`](telemetry/mihomo-traffic-collector.py) | 采集当前连接的域名、来源 IP、进程名、规则、链路、AI 分类、流量增量 | 想要月度流量报表时常驻运行 |
+| [`telemetry/monthly-traffic-report.py`](telemetry/monthly-traffic-report.py) | 从 SQLite 汇总月报，可导出明细 CSV | 每月查看流量来源、AI 占比、Top app / host |
+
+### E. 仓库辅助
 
 | 脚本 / 目录 | 作用 |
 |-------------|------|
@@ -74,6 +85,7 @@
 | `deploy/` | 低频，但换 VPS / 重装 / 灾备恢复时必须保留 |
 | `rules/` | 高频核心链路，必须保留 |
 | `test/` | 看似重叠，但定位的问题不同，保留 |
+| `telemetry/` | 可选月报链路，不影响 VPN 主链路 |
 | `server/` / `lib/` | 被服务和入口脚本依赖，必须保留 |
 | `common-tools/` | 临时场景工具，只有确认长期不用时再删 |
 
@@ -336,6 +348,41 @@ python3 scripts/test/vps-watch-summary.py --records
 ```bash
 launchctl unload ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.vps-watch-urls.plist
 ```
+
+### 工作流 4：订阅刷新 / 月报自动化
+
+验证家里 Windows / 手机刷新订阅是否不需要翻墙：
+
+```bash
+source private/env.sh
+bash scripts/test/subscription-smoke.sh --direct
+bash scripts/test/subscription-smoke.sh --direct --query process=1  # 验证 App 归因订阅参数
+```
+
+如果这条通过，说明客户端更新订阅只需要能直连 `<VPS_IP>:25500`。如果 Clash Verge Rev 仍失败，检查客户端是否开启了“使用代理更新订阅”；家庭端建议关闭这个选项。
+
+安装本机流量采集：
+
+```bash
+python3 scripts/telemetry/mihomo-traffic-collector.py --once
+
+cp scripts/launchd/ace-vpn.mihomo-traffic-collector.example.plist \
+  ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.mihomo-traffic-collector.plist
+sed -i '' -e "s#__REPO_ROOT__#$(pwd)#g" -e "s#__HOME__#$HOME#g" \
+  ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.mihomo-traffic-collector.plist
+launchctl load ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.mihomo-traffic-collector.plist
+launchctl start com.xiaonancs.ace-vpn.mihomo-traffic-collector
+```
+
+生成月报：
+
+```bash
+python3 scripts/telemetry/monthly-traffic-report.py
+python3 scripts/telemetry/monthly-traffic-report.py --details-csv ~/Desktop/ace-vpn-traffic.csv
+```
+
+默认只能统计到域名级别，不能统计 HTTPS 完整路径；这是刻意的隐私边界。App 维度依赖 Mihomo 的进程识别，如果需要给自己的设备打开，在订阅 URL 后追加 `?process=1`。
+如果采集器返回 401，说明 external-controller 配了 secret，把该值填入 LaunchAgent 的 `MIHOMO_SECRET` 或手动运行时传 `--secret`。
 
 ---
 

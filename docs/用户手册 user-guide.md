@@ -220,8 +220,12 @@ DOMAIN-KEYWORD,discord,PROXY
 DOMAIN-SUFFIX,youtube.com,PROXY
 DOMAIN-SUFFIX,googlevideo.com,PROXY
 DOMAIN-SUFFIX,google.com,PROXY
+DOMAIN-SUFFIX,gmail.com,PROXY
+DOMAIN-SUFFIX,googlemail.com,PROXY
+DOMAIN-SUFFIX,googleusercontent.com,PROXY
 DOMAIN-SUFFIX,googleapis.com,PROXY
 DOMAIN-SUFFIX,gstatic.com,PROXY
+DOMAIN-SUFFIX,ggpht.com,PROXY
 DOMAIN-SUFFIX,twitter.com,PROXY
 DOMAIN-SUFFIX,x.com,PROXY
 DOMAIN-SUFFIX,t.me,PROXY
@@ -289,6 +293,10 @@ FINAL,PROXY
    - ☑ **TUN 模式**
    - ☑ **开机自启**
 7. 完成
+
+#### 刷新订阅是否需要翻墙？
+
+不需要。订阅 URL 是 `http://<VPS_IP>:25500/...` 的 IP 直连，只要家里网络能访问这个端口，就能在没开代理时更新。Clash Verge Rev 如果有"使用代理更新订阅"选项，家人端建议关闭，避免代理坏了以后连订阅都刷新不了。
 
 #### 远程帮家人安装（推荐）
 
@@ -1264,6 +1272,12 @@ Mac 端必须开 **TUN 模式**（不是系统代理）。`curl ipinfo.io/ip` �
 
 你的订阅里可能没有 CHINA_DIRECT 规则。**刷新订阅**（规则是服务端统一下发的）。
 
+### Q6.1：Gmail 邮件里的图片加载不出来
+
+如果开"全局代理"能加载，开"规则/配置分流"不能加载，说明 Gmail 图片 CDN 被误判直连。新版订阅已把 `gmail.com` / `googlemail.com` / `googleusercontent.com` / `gstatic.com` / `googleapis.com` / `ggpht.com` 统一放进代理规则。
+
+处理：先刷新订阅；Shadowrocket 手工规则用户按 §4.1 的 Gmail/Google 图片规则补齐，并确保这些规则排在 ChinaMax / GEOIP / FINAL 前面。
+
 ### Q7：家人 Windows 图标变红了 / 灰了
 
 - 红 = 服务端连不上。刷新订阅，还不行微信找管理员
@@ -1314,7 +1328,7 @@ PY
 # 4) 起服务
 systemctl start x-ui && systemctl is-active x-ui
 # 5) 验证订阅里已无该节点（应输出 0）
-curl -s "http://<VPS_IP>:25500/<SUB_PATH_PREFIX>/ace-main" | grep -c "hxn-ihome"
+curl -s "http://<VPS_IP>:25500/<SUB_PATH_PREFIX>/ace-main" | grep -c "<disabled-node-name>"
 ```
 
 **客户端收尾**：服务端删干净后，Mac / iPhone Clash Party 里对应 profile **刷新订阅**即可；若仍残留，删除 profile 重新导入订阅链接最彻底。

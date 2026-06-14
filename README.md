@@ -17,7 +17,7 @@ Xray + Reality 自建，2–5 人家庭共享。**公司内网 DIRECT · 大陆�
 
 ## 📍 当前状态
 
-生产 **Vultr Tokyo ✅ (`<VPS_IP>`)** · 协议栈 **VLESS + Reality + 3x-ui + 自研 Python sub-converter** · 已接入 Mac×2 / iPhone / iPad / Android，Windows×2 待发送
+生产 **Vultr Tokyo ✅ (`<VPS_IP>`)** · 协议栈 **VLESS + Reality + 3x-ui + 自研 Python sub-converter** · 已接入 Mac / iPhone / Android / Windows，客户端刷新订阅自动同步规则
 
 ## 📚 文档
 
@@ -60,6 +60,12 @@ bash scripts/common-tools/bootstrap-mihomo-party.sh --replace-current
 | iPhone / iPad | Stash（推荐）/ Shadowrocket | 同上（小火箭用 base64 订阅） |
 | Windows | Clash Verge Rev | 同上 |
 
+Windows / 家人端第一次把旧 URL 替换成新的 `ace-fork` URL；之后只需要点"更新订阅"。订阅端口是 IP 直连，刷新本身不需要翻墙。上线前可在 Mac 上做直连烟测：
+
+```bash
+bash scripts/test/subscription-smoke.sh --direct
+```
+
 ### 🏢 三网段分流（Mac 改 → VPS 热加载 → 全家同步）
 
 
@@ -98,12 +104,35 @@ bash scripts/rules/sync-subconverter.sh --vps vultr
 bash scripts/rules/sync-subconverter.sh --rollback
 
 # 独立跑 validator，校验任意一份 mihomo YAML 配置
-python3 scripts/server/validate-config.py <yaml-file>                 # 文件模式
+python3 scripts/server/validate-config.py <yaml-file>          # 文件模式
 curl -s http://<VPS>:25500/<SUB_PATH_PREFIX>/<tok> | python3 \
   scripts/server/validate-config.py -                           # pipe 模式
 ```
 
 validator 覆盖的 mihomo 字段联动硬校验（截至 2026-04-28）：`respect-rules ↔ proxy-server-nameserver` / `fake-ip ↔ fake-ip-range` / `default-nameserver 必须是 IP` / `proxy-groups & rules 引用的 target 存在` / `MATCH 兜底` 等 —— 专门拦"语法对但语义错"的组合，详见 [开发者日志 §2.-1](docs/开发者日志.md#2-1-2026-04-28-晚-安全推送工具链validate-configpy--sync-subconvertersh5-份滚动备份--自动回滚) + [§4.C.5](docs/开发者日志.md#4c5-2026-04-28-sub-converterpy-推送无备份无校验--改坏--全军覆没-)。
+
+### 📊 本地流量月报（可选）
+
+月报从本机 Mihomo API 采集，默认只记录域名、规则、链路、来源 IP、进程名和流量；不做 HTTPS 解密，也不保存完整 URL path。
+
+```bash
+# 手动采一轮，确认 Mihomo external-controller 可读
+python3 scripts/telemetry/mihomo-traffic-collector.py --once
+
+# macOS 自动常驻采集
+cp scripts/launchd/ace-vpn.mihomo-traffic-collector.example.plist \
+  ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.mihomo-traffic-collector.plist
+sed -i '' -e "s#__REPO_ROOT__#$(pwd)#g" -e "s#__HOME__#$HOME#g" \
+  ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.mihomo-traffic-collector.plist
+launchctl load ~/Library/LaunchAgents/com.xiaonancs.ace-vpn.mihomo-traffic-collector.plist
+launchctl start com.xiaonancs.ace-vpn.mihomo-traffic-collector
+
+# 生成当月汇总；如需明细 CSV，追加 --details-csv ~/Desktop/traffic.csv
+python3 scripts/telemetry/monthly-traffic-report.py
+```
+
+如果要统计"来源于哪个 App"，订阅 URL 可给自己的设备追加 `?process=1`。默认保持 `find-process-mode: off`，优先保证速度和隐私。
+如果采集器返回 401，在 Mihomo 客户端设置里查看 external-controller secret，填进 LaunchAgent 的 `MIHOMO_SECRET`。
 
 ### ⚡ 本地规则池（Mac 即时加规则，攒后批量推 VPS）
 
@@ -129,6 +158,12 @@ bash scripts/rules/rollback-overrides.sh --disable  # 应急核选项：彻底�
 ```
 
 机制：写入 `private/local-rules.yaml` → **pre-flight 校验**（坏规则永远写不进 override）→ **自动备份**当前 override → 渲染成 Mihomo Party 的 `override.yaml`（`+rules:` prepend，本地优先级最高）→ Mihomo GUI 秒级自动 reload。promote 时三种 target 全部入 `intranet.yaml`（`IN` → `profile.domains`、`VPS` → `extra.overseas`、`DIRECT` → `extra.cn`）→ scp VPS 热加载 → 全设备同步。详见 [user-guide §7](docs/用户手册%20user-guide.md#7-如何自定义新增-url-和规则) + [§9.4 安全网](docs/用户手册%20user-guide.md#94仅管理员安全网应急回退别让一条坏规则把自己的网砍了)。
+
+内置路由有回归测试，改规则后先跑：
+
+```bash
+python3 scripts/test/route-regression.py
+```
 
 > ⚠️ **Clash Party / Mihomo Party 用户必做一次性 DNS 配置修复**：默认
 > `controlDns: true` 会把订阅的 DNS 段整块替换，导致 `fake-ip-filter` /
@@ -157,6 +192,7 @@ DNS / 凭据都不会进本仓库 git 历史**。详见 [private/README.md](priv
 - 面板端口 / 路径 / 账号**不得使用默认值**（2053 / admin / admin = 裸奔）
 - 每 3–6 个月轮换 `SUB_TOKENS`
 - 迁移后销毁旧 VPS 磁盘
+- 流量统计只保留本地 SQLite，不上传到 VPS；需要分享报表时先确认 CSV 中没有敏感公司域名
 
 ## 📝 开发日志
 

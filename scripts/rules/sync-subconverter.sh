@@ -179,7 +179,10 @@ parse_targets() {
           idx=$((idx + 1))
         done
       fi
-      [[ ${#TARGETS[@]} -eq 0 ]] && { TARGETS=("custom|$ONE_TARGET"); warn "$ONE_TARGET 不在 VPS_IP_LIST 里，当裸 IP 处理"; }
+      if [[ ${#TARGETS[@]} -eq 0 ]]; then
+        TARGETS=("custom|$ONE_TARGET")
+        warn "$ONE_TARGET 不在 VPS_IP_LIST 里，当裸 IP 处理"
+      fi
       ;;
   esac
 }

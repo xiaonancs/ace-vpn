@@ -201,18 +201,26 @@ rules:
   - DOMAIN-SUFFIX,anthropic.com,🤖 AI 出口
   - DOMAIN-SUFFIX,statsig.anthropic.com,🤖 AI 出口
 
-  # ========== 3. Discord 等需要明确代理的海外服务 ==========
+  # ========== 3. Gmail / Google 图片 CDN -> 主力海外 ==========
+  - DOMAIN-SUFFIX,gmail.com,🌍 海外兜底
+  - DOMAIN-SUFFIX,googlemail.com,🌍 海外兜底
+  - DOMAIN-SUFFIX,googleusercontent.com,🌍 海外兜底
+  - DOMAIN-SUFFIX,gstatic.com,🌍 海外兜底
+  - DOMAIN-SUFFIX,googleapis.com,🌍 海外兜底
+  - DOMAIN-SUFFIX,ggpht.com,🌍 海外兜底
+
+  # ========== 4. Discord 等需要明确代理的海外服务 ==========
   - RULE-SET,discord,🌍 海外兜底
 
-  # ========== 4. 国内规则 -> DIRECT ==========
+  # ========== 5. 国内规则 -> DIRECT ==========
   - RULE-SET,chinamax,DIRECT
 
-  # ========== 5. 海外规则 -> 主力海外 ==========
+  # ========== 6. 海外规则 -> 主力海外 ==========
   - RULE-SET,global,🌍 海外兜底
 
-  # ========== 6. GEOIP 兜底 ==========
+  # ========== 7. GEOIP 兜底 ==========
   - GEOIP,CN,DIRECT,no-resolve
   - GEOIP,LAN,DIRECT,no-resolve
 
-  # ========== 7. MATCH 兜底（保守直连） ==========
+  # ========== 8. MATCH 兜底（保守直连） ==========
   - MATCH,DIRECT

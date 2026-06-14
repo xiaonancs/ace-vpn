@@ -278,6 +278,7 @@ HostHatch 相关内容仅作为 2026-04 选型与迁移历史，不再作为当�
 │ Environment:                                     │
 │   UPSTREAM_BASE=https://127.0.0.1:2096/<path>    │
 │   SUB_TOKENS=ace-main,ace-fork                   │
+│   SUB_PATH_PREFIX=<long-random-prefix>           │
 │   SERVER_OVERRIDE=<VPS_IP>                       │
 │   LISTEN_PORT=25500                              │
 │                                                  │
@@ -304,6 +305,7 @@ HostHatch 相关内容仅作为 2026-04 选型与迁移历史，不再作为当�
 |------|------|--------|
 | `UPSTREAM_BASE` | 3x-ui 订阅 URL 前缀 | `https://127.0.0.1:2096/sub_xxxxx` |
 | `SUB_TOKENS` | 白名单，逗号分隔 | `ace-main,ace-fork` |
+| `SUB_PATH_PREFIX` | 公开订阅路径前缀，建议长随机值 | `<long-random-prefix>` |
 | `SERVER_OVERRIDE` | 覆盖 YAML 里 `server:` 字段 | `<VPS_IP>` |
 | `LISTEN_PORT` | 监听端口 | `25500` |
 | `COMPANY_CIDRS` | 公司内网 CIDR（向后兼容旧部署）| `10.128.0.0/16` |

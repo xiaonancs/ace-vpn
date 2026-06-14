@@ -120,6 +120,7 @@ SERVER_OVERRIDE = os.environ.get("SERVER_OVERRIDE", "").strip()
 TUN_ENABLE_DEFAULT = os.environ.get("TUN_ENABLE", "false").strip().lower() in ("1", "true", "yes", "on")
 TUN_TOKENS = {t.strip() for t in os.environ.get("TUN_TOKENS", "").split(",") if t.strip()}
 TUN_MTU = int(os.environ.get("TUN_MTU", "1420"))
+FIND_PROCESS_MODE_DEFAULT = os.environ.get("FIND_PROCESS_MODE", "off").strip().lower() or "off"
 MAIN_URL_TEST = os.environ.get("MAIN_URL_TEST", "https://www.gstatic.com/generate_204").strip()
 AI_URL_TEST = os.environ.get("AI_URL_TEST", "https://chatgpt.com/cdn-cgi/trace").strip()
 
@@ -477,8 +478,9 @@ SOCIAL_PROXY = [
     "facebook.com", "fbcdn.net", "fb.com", "instagram.com", "cdninstagram.com", "whatsapp.com", "whatsapp.net",
     # Telegram
     "telegram.org", "t.me", "telegram.me", "tdesktop.com",
-    # Google（含搜索/邮件等）
-    "google.com", "gstatic.com", "googleusercontent.com", "googleapis.com", "ggpht.com",
+    # Google（含搜索/邮件/Gmail 图片 CDN 等）
+    "google.com", "gmail.com", "googlemail.com", "gstatic.com",
+    "googleusercontent.com", "googleapis.com", "ggpht.com",
     # GitHub
     "github.com", "githubusercontent.com", "githubassets.com",
     # 其他
@@ -592,11 +594,16 @@ def build_clash_yaml(
     proxies: List[Dict[str, Any]],
     intranet: Dict[str, Any],
     tun_enable: Optional[bool] = None,
+    find_process_mode: Optional[str] = None,
 ) -> str:
     if not proxies:
         return "# ERROR: No nodes parsed from upstream subscription.\n"
     if tun_enable is None:
         tun_enable = TUN_ENABLE_DEFAULT
+    if find_process_mode is None:
+        find_process_mode = FIND_PROCESS_MODE_DEFAULT
+    if find_process_mode not in ("off", "strict", "always"):
+        find_process_mode = "off"
 
     names = [p["name"] for p in proxies]
 
@@ -605,6 +612,8 @@ def build_clash_yaml(
         "allow-lan": False,
         "mode": "rule",
         "log-level": "info",
+        "external-controller": "127.0.0.1:9090",
+        "find-process-mode": find_process_mode,
         "ipv6": False,
         "unified-delay": True,
         "tcp-concurrent": True,
@@ -915,6 +924,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
 
         # 拆掉 query 再解析 path；?tun=1/0 可按设备覆盖 tun.enable 默认值。
+        # ?process=1/strict/always 可按设备打开进程归因，便于本地流量报表统计
+        # "来源于哪个 app"；默认 off，避免日常使用付出额外开销。
         # 订阅路径由 SUB_PATH_PREFIX 控制，形如 /<long-random-prefix>/<token>，
         # 降低公网订阅端口被扫到后的可识别性。
         parsed = urllib.parse.urlparse(self.path)
@@ -922,6 +933,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
         tun_enable: Optional[bool] = None
         if "tun" in query:
             tun_enable = query["tun"].strip().lower() in ("1", "true", "yes", "on")
+        find_process_mode: Optional[str] = None
+        if "process" in query:
+            process_value = query["process"].strip().lower()
+            if process_value in ("1", "true", "yes", "on", "strict"):
+                find_process_mode = "strict"
+            elif process_value == "always":
+                find_process_mode = "always"
+            else:
+                find_process_mode = "off"
 
         parts = parsed.path.rstrip("/").split("/")
         if len(parts) != 3 or parts[1] != SUB_PATH_PREFIX or not parts[2]:
@@ -943,7 +963,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 p = parse_vless(line.strip())
                 if p:
                     proxies.append(p)
-            body = build_clash_yaml(proxies, intranet, tun_enable=tun_enable).encode("utf-8")
+            body = build_clash_yaml(
+                proxies,
+                intranet,
+                tun_enable=tun_enable,
+                find_process_mode=find_process_mode,
+            ).encode("utf-8")
             self._reply(
                 200,
                 body,

@@ -45,6 +45,9 @@ ace-vpn-credentials.txt
 *.log
 logs/
 nohup.out
+*.sqlite3
+*.db
+traffic-*.csv
 
 # Backups
 *.bak

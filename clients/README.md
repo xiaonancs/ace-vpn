@@ -56,9 +56,18 @@
 
 ### 3.3 订阅管理
 
-- 3x-ui 生成一个 URL，所有客户端导入
-- 换 VPS 时：更新 3x-ui 里的出站 IP → 客户端"更新订阅"即可
+- sub-converter 生成一个长随机路径 URL，所有客户端导入
+- 换 VPS 或改规则时：客户端"更新订阅"即可；从旧 token 迁移到新 token 时才需要手动替换 URL
+- 家人 Windows 端建议关闭"使用代理更新订阅"，订阅端口是 IP 直连，刷新本身不需要翻墙
 - **不要**给每个客户端单独手抄 UUID
+
+自己的 Mac / Windows 如果要做月度 App 维度流量统计，可把订阅 URL 改成：
+
+```text
+http://<VPS_IP>:25500/<SUB_PATH_PREFIX>/<SubId>?process=1
+```
+
+这会打开 Mihomo 的进程归因。家人端默认不加，减少隐私采集和性能开销。
 
 ---
 

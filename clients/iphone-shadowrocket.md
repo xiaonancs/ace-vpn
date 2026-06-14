@@ -43,6 +43,7 @@ Shadowrocket → 配置 → 当前配置 → **规则**。
 | 🤖 OpenAI | `https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Shadowrocket/OpenAI/OpenAI.list` | PROXY |
 | 🤖 Gemini | `https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Shadowrocket/Gemini/Gemini.list` | PROXY |
 | 🤖 Copilot | `https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Shadowrocket/Copilot/Copilot.list` | PROXY |
+| ✉️ Gmail / Google 图片 | 手动规则（见 3.4） | PROXY |
 | 💬 Discord | `https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Shadowrocket/Discord/Discord.list` | PROXY |
 | 🇨🇳 ChinaMax | `https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Shadowrocket/ChinaMax/ChinaMax.list` | DIRECT |
 | 🌍 Global | `https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Shadowrocket/Global/Global.list` | PROXY |
@@ -55,11 +56,12 @@ Shadowrocket → 配置 → 当前配置 → **规则**。
 3. 🤖 OpenAI         → PROXY
 4. 🤖 Gemini         → PROXY
 5. 🤖 Copilot        → PROXY
-6. 💬 Discord        → PROXY
-7. 🇨🇳 ChinaMax      → DIRECT
-8. 🌍 Global         → PROXY
-9. GEOIP CN          → DIRECT
-10. FINAL            → DIRECT   ⚠️ 兜底必须是 DIRECT
+6. ✉️ Gmail / Google 图片 → PROXY
+7. 💬 Discord        → PROXY
+8. 🇨🇳 ChinaMax      → DIRECT
+9. 🌍 Global         → PROXY
+10. GEOIP CN         → DIRECT
+11. FINAL            → DIRECT   ⚠️ 兜底必须是 DIRECT
 ```
 
 ### 3.3 Cursor 补充规则
@@ -74,6 +76,19 @@ Shadowrocket → 配置 → 规则 → **添加规则**：
 | DOMAIN-SUFFIX | anthropic.com | PROXY |
 
 放在 AI 规则集附近（第 2~6 行之间都行）。
+
+### 3.4 Gmail 图片补充规则
+
+Gmail 邮件里的远程图片常走 Google 图片/CDN 域名。出现"全局代理能加载，配置分流加载不出来"时，把下面规则放在 ChinaMax / GEOIP / FINAL 前面：
+
+| 类型 | 值 | 策略 |
+|------|----|------|
+| DOMAIN-SUFFIX | gmail.com | PROXY |
+| DOMAIN-SUFFIX | googlemail.com | PROXY |
+| DOMAIN-SUFFIX | googleusercontent.com | PROXY |
+| DOMAIN-SUFFIX | gstatic.com | PROXY |
+| DOMAIN-SUFFIX | googleapis.com | PROXY |
+| DOMAIN-SUFFIX | ggpht.com | PROXY |
 
 ---
 
