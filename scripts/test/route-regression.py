@@ -111,6 +111,19 @@ def main() -> int:
             return 1
         print(f"OK   shadowrocket list contains {needle}")
 
+    shadowrocket_conf = module.build_shadowrocket_conf("test")
+    for needle in [
+        "[Rule]",
+        "DOMAIN-SUFFIX,pinimg.com,PROXY",
+        "DOMAIN-SUFFIX,pinterest.com,PROXY",
+        "DOMAIN-SUFFIX,servicewechat.com,DIRECT",
+        "FINAL,DIRECT",
+    ]:
+        if needle not in shadowrocket_conf:
+            print(f"FAIL shadowrocket config missing {needle}", file=sys.stderr)
+            return 1
+        print(f"OK   shadowrocket config contains {needle}")
+
     print("\nroute regressions passed")
     return 0
 

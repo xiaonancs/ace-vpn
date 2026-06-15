@@ -469,6 +469,16 @@ def parse_vless(uri: str) -> Optional[Dict[str, Any]]:
 # 🤖 AI group 专门承接 AI/agent/chat/API 流量；普通海外网页继续走 🚀 PROXY。
 AI_DOMAINS = list(AI_STREAMING_DOMAINS)
 
+PINTEREST_DOMAINS = [
+    "pinimg.com",
+    "pinterest.at", "pinterest.ca", "pinterest.ch", "pinterest.cl",
+    "pinterest.co.kr", "pinterest.co.uk", "pinterest.com",
+    "pinterest.com.au", "pinterest.com.mx", "pinterest.de",
+    "pinterest.dk", "pinterest.es", "pinterest.fr", "pinterest.ie",
+    "pinterest.it", "pinterest.jp", "pinterest.nl", "pinterest.nz",
+    "pinterest.ph", "pinterest.pt", "pinterest.ru", "pinterest.se",
+]
+
 SOCIAL_PROXY = [
     # Discord
     "discord.com", "discordapp.com", "discordapp.net", "discord.gg", "discord.media",
@@ -479,12 +489,7 @@ SOCIAL_PROXY = [
     # Telegram
     "telegram.org", "t.me", "telegram.me", "tdesktop.com",
     # Overseas mobile apps / social / productivity
-    "pinterest.com", "pinimg.com",
-    "pinterest.at", "pinterest.ca", "pinterest.ch", "pinterest.cl",
-    "pinterest.co.kr", "pinterest.co.uk", "pinterest.com.au", "pinterest.com.mx",
-    "pinterest.de", "pinterest.dk", "pinterest.es", "pinterest.fr",
-    "pinterest.ie", "pinterest.it", "pinterest.jp", "pinterest.nl",
-    "pinterest.nz", "pinterest.ph", "pinterest.pt", "pinterest.ru", "pinterest.se",
+    *PINTEREST_DOMAINS,
     "tiktok.com", "tiktokv.com", "tiktokcdn.com", "tiktokcdn-us.com",
     "byteoversea.com", "ibyteimg.com", "ibytedtos.com", "muscdn.com", "musical.ly",
     "snapchat.com", "sc-cdn.net", "snapkit.com",
@@ -585,6 +590,7 @@ def _dedupe_domains(*groups: List[str]) -> List[str]:
 
 SHADOWROCKET_OVERSEAS_PROXY = _dedupe_domains(AI_DOMAINS, SOCIAL_PROXY, MEDIA_PROXY)
 SHADOWROCKET_CHINA_DIRECT = _dedupe_domains(CHINA_DIRECT)
+SHADOWROCKET_PINTEREST = list(PINTEREST_DOMAINS)
 
 
 def build_shadowrocket_rule_list(name: str, domains: List[str]) -> str:
@@ -595,6 +601,46 @@ def build_shadowrocket_rule_list(name: str, domains: List[str]) -> str:
         f"# DOMAIN-SUFFIX: {len(domains)}",
     ]
     lines.extend(f"DOMAIN-SUFFIX,{domain}" for domain in domains)
+    return "\n".join(lines) + "\n"
+
+
+def build_shadowrocket_conf(name: str = "ace-vpn") -> str:
+    """Build a full Shadowrocket config file.
+
+    Shadowrocket users commonly import a 3x-ui base64 node subscription; that
+    updates nodes only, not rules. A full config subscription lets iOS update
+    routing rules in one place without rule-set UI support.
+    """
+    overseas = _dedupe_domains(SHADOWROCKET_PINTEREST, SHADOWROCKET_OVERSEAS_PROXY)
+    china = _dedupe_domains(SHADOWROCKET_CHINA_DIRECT)
+    lines = [
+        "#!MANAGED-CONFIG https://github.com/xiaonancs/ace-vpn",
+        f"# NAME: {name}",
+        "# AUTHOR: ace-vpn",
+        "# FORMAT: Shadowrocket Config",
+        "",
+        "[General]",
+        "bypass-system = true",
+        "skip-proxy = 127.0.0.1, localhost, *.local, *.lan",
+        "dns-server = system, 119.29.29.29, 223.5.5.5",
+        "ipv6 = false",
+        "",
+        "[Rule]",
+        "# Overseas apps / AI / media / image CDN -> proxy",
+    ]
+    lines.extend(f"DOMAIN-SUFFIX,{domain},PROXY" for domain in overseas)
+    lines.append("")
+    lines.append("# Mainland China apps / CDN -> direct")
+    lines.extend(f"DOMAIN-SUFFIX,{domain},DIRECT" for domain in china)
+    lines.extend([
+        "",
+        "IP-CIDR,127.0.0.0/8,DIRECT,no-resolve",
+        "IP-CIDR,10.0.0.0/8,DIRECT,no-resolve",
+        "IP-CIDR,172.16.0.0/12,DIRECT,no-resolve",
+        "IP-CIDR,192.168.0.0/16,DIRECT,no-resolve",
+        "GEOIP,CN,DIRECT",
+        "FINAL,DIRECT",
+    ])
     return "\n".join(lines) + "\n"
 
 
@@ -994,7 +1040,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
 
         # Shadowrocket 用 3x-ui base64 节点订阅，服务端 Clash YAML rules 不会自动下发到
-        # 手机本地配置。这里提供同源、无需翻墙的规则集 URL，给 iOS 端配置模式订阅。
+        # 手机本地配置。这里提供同源、无需翻墙的完整配置和规则集 URL，给 iOS 端配置模式订阅。
+        config_base = f"/{SUB_PATH_PREFIX}/_configs"
+        if request_path == f"{config_base}/shadowrocket.conf":
+            body = build_shadowrocket_conf("ace-vpn shadowrocket").encode("utf-8")
+            self._reply(200, body, "text/plain; charset=utf-8")
+            return
+
         rule_base = f"/{SUB_PATH_PREFIX}/_rules"
         shadowrocket_rule_sets = {
             f"{rule_base}/shadowrocket-overseas-proxy.list": (

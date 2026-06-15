@@ -89,6 +89,14 @@ http://<VPS_IP>:25500/<SUB_PATH_PREFIX>/<你的 SubId>
 
 Clash YAML 里自带**分流规则**（国内直连、国外代理、AI 走代理、抖音直连）全部自动。base64 版是纯节点，需要自己写规则。能用 Clash YAML 就用 Clash YAML。
 
+Shadowrocket 如果只能编辑配置文件，不要手工逐条加规则，直接使用 ace-vpn 生成的完整配置文件：
+
+```text
+http://<VPS_IP>:25500/<SUB_PATH_PREFIX>/_configs/shadowrocket.conf
+```
+
+这份配置文件内联了 Pinterest / pinimg、国外 App 代理、国内 App 直连、GEOIP CN 和 FINAL 规则。后续只需要更新这一份配置文件。
+
 ---
 
 ## 3. Mac 配置
@@ -1297,7 +1305,7 @@ Mac 端必须开 **TUN 模式**（不是系统代理）。`curl ipinfo.io/ip` �
 处理：
 
 - Stash / Clash YAML 用户：刷新订阅。
-- Shadowrocket / base64 用户：添加或刷新 `http://<VPS_IP>:25500/<SUB_PATH_PREFIX>/_rules/shadowrocket-overseas-proxy.list`，策略选 PROXY，排序放在 ChinaMax / GEOIP / FINAL 前面。
+- Shadowrocket / base64 用户：更新完整配置文件 `http://<VPS_IP>:25500/<SUB_PATH_PREFIX>/_configs/shadowrocket.conf`。如果当前版本只能编辑文本，就打开该 URL，把全文复制到配置文件里。
 - 仍失败时看 Shadowrocket 最近匹配，确认 `pinimg.com` 是否命中 PROXY。明确国外 App 域名补 `VPS` / PROXY，明确国内 App 域名补 `DIRECT`。
 
 ### Q7：家人 Windows 图标变红了 / 灰了

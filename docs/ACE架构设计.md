@@ -722,6 +722,7 @@ Shadowrocket 是例外：它通常消费 3x-ui base64 节点订阅，服务端 C
 
 | Shadowrocket 规则集 | 策略 |
 |---|---|
+| `/<SUB_PATH_PREFIX>/_configs/shadowrocket.conf` | 完整配置文件，内联所有 rules |
 | `/<SUB_PATH_PREFIX>/_rules/shadowrocket-overseas-proxy.list` | `PROXY` |
 | `/<SUB_PATH_PREFIX>/_rules/shadowrocket-china-direct.list` | `DIRECT` |
 | `/<SUB_PATH_PREFIX>/_rules/shadowrocket-pinterest.list` | `PROXY` |

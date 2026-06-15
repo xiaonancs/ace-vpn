@@ -14,6 +14,16 @@
 
 **换 VPS 后**：回到配置列表点击"更新"按钮即可，不用重新手抄。
 
+### 1.1 一键更新分流配置文件（推荐）
+
+Shadowrocket 的 base64 节点订阅只更新节点，不会自动更新 rules。ace-vpn 额外提供一份完整 Shadowrocket 配置文件，里面已经内联 Pinterest / pinimg、国外 App、国内 App 直连等规则：
+
+```text
+http://<VPS_IP>:25500/<SUB_PATH_PREFIX>/_configs/shadowrocket.conf
+```
+
+在 Shadowrocket 的配置文件页面使用这条 URL 下载/更新配置文件；如果当前版本只能编辑文本，就打开这个 URL，把全文复制到配置文件里。后续规则更新时，只需要重新更新这份配置文件。
+
 ---
 
 ## 二、全局路由模式
@@ -28,7 +38,9 @@ Shadowrocket 首页 → **全局路由**，选择：
 
 ---
 
-## 三、规则配置（按优先级从上到下）
+## 三、规则配置（备用：不能导入完整配置文件时）
+
+优先用 §1.1 的完整配置文件。下面是旧版 Shadowrocket 或特殊界面下的手动维护方法。
 
 Shadowrocket → 配置 → 当前配置 → **规则**。
 
