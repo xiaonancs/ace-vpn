@@ -216,6 +216,7 @@ DNS / 凭据都不会进本仓库 git 历史**。详见 [private/README.md](priv
 - **2026-06-13** 现网回到 Vultr Tokyo `<VPS_IP>`；私有配置只保留 `vultr:<VPS_IP>`，订阅路径统一为 `/<SUB_PATH_PREFIX>/ace-main` / `ace-fork`
 - **2026-06-14** 扩展手机 App / 英文媒体 / AI 分流规则，新增本地流量月报和 `scripts/ace-vpn.sh` 统一入口；Vultr Tokyo 已通过安全推送和订阅烟测
 - **2026-06-15** 修复 Pinterest iOS 规则模式不可访问：Pinterest / pinimg / 常见海外 App 显式代理，国内 App 直连清单补齐并加入回归测试
+- **2026-06-15** 记录公司内网域名排障：`curl -x 127.0.0.1:7890` 通但浏览器 / 裸 `curl` 不通时，优先检查 System Proxy / TUN 是否接管当前应用
 - **2026-04-18** 文档瘦身：多份 00-09 doc 合并为 `docs/开发者日志.md` + `docs/用户手册 user-guide.md` 两份
 - **2026-04-19** 内网分流重构：`private/intranet.yaml` 多 profile + `enabled` 开关，`sync-intranet.sh` 一键 scp，VPS 端热加载无需重启。支持「换公司」/「多公司并存」零配置切换
 - **2026-04-19** sub-converter 新增 `/match` 权威匹配接口 + `scripts/test/test-route.sh` 诊断工具，一行命令输出 URL 走哪条规则、经哪个代理组、各阶段延时

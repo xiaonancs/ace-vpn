@@ -1280,6 +1280,42 @@ TUN 模式误开成"全局"了。
 
 Mac 端必须开 **TUN 模式**（不是系统代理）。`curl ipinfo.io/ip` 在终端里应该返回日本 IP。
 
+### Q5.1：公司内网域名规则已加，但浏览器还是打不开
+
+先判断是"规则/DNS 没生效"，还是"系统流量没进 Mihomo"：
+
+```bash
+# 1. 让请求明确走 Mihomo HTTP 代理
+curl -I -x http://127.0.0.1:7890 http://<internal-host>.corp-a.srv/
+
+# 2. 不指定代理，模拟浏览器 / 普通命令行
+curl -I http://<internal-host>.corp-a.srv/
+
+# 3. 看 macOS 系统代理是否打开
+scutil --proxy
+```
+
+如果第 1 条能返回登录跳转 / 200 / 302，但第 2 条或浏览器打不开，说明订阅里的 `nameserver-policy` / 内网规则大概率是对的，问题是 **System Proxy / TUN 没有接管当前应用流量**。
+
+处理：
+
+- Mihomo Party / Clash Mi 里打开 **System Proxy / 系统代理**；开发机、CLI、Docker、Cursor 这类场景再打开 **TUN Mode**。
+- macOS Wi-Fi 应急命令：
+
+```bash
+networksetup -setwebproxy Wi-Fi 127.0.0.1 7890
+networksetup -setsecurewebproxy Wi-Fi 127.0.0.1 7890
+```
+
+关闭应急代理：
+
+```bash
+networksetup -setwebproxystate Wi-Fi off
+networksetup -setsecurewebproxystate Wi-Fi off
+```
+
+如果新发现的是一整个内网父域，管理员应把脱敏后的父域规则作为 `IN` promote 到 VPS，让所有设备刷新订阅即可同步。
+
 ### Q6：抖音加载慢
 
 你的订阅里可能没有 CHINA_DIRECT 规则。**刷新订阅**（规则是服务端统一下发的）。

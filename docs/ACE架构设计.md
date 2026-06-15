@@ -674,6 +674,8 @@ useNameserverPolicy: true   # ⭐ 必须 true：让 mihomo 真的看 nameserver-
 
 GUI 路径：**Mihomo Party → 设置 → DNS → 关「控制 DNS」+ 开「使用 Nameserver Policy」**。
 
+还有一个容易误判的边界：`nameserver-policy` 只对**已经进入 Mihomo** 的流量生效。如果 macOS System Proxy / TUN 没开，浏览器或裸 `curl` 仍会走系统 resolver；这时私有内网域名可能直接 `Could not resolve host`，但 `curl -x http://127.0.0.1:7890 ...` 却是通的。这个现象说明 DNS 配置本身不一定坏，先检查客户端是否真的接管了流量。
+
 ### 7.9 DNS 决策矩阵（一图收尾）
 
 | 域名分类 | 例子 | fake-IP? | 用哪组 DNS | 出口 |
@@ -1153,6 +1155,7 @@ extra:
 | 一开 ace-vpn 公司 SaaS / 零信任不通 | 误把 B/C 类放进 `profiles.<>.domains` | [§4.A.6](./开发者日志.md#4a6-2026-04-24-把零信任--saas-公网域名误当成真内网域名-) |
 | `extra.cn` 域名 TLS 卡死 | DoH 经海外 PROXY 解析到海外 CDN | [§4.A.7](./开发者日志.md#4a7-2026-04-24-extracn-域名走默认-doh-解析到海外-ip-) |
 | 企业 VPN 看似已连但 10.x 不通 | ace-vpn TUN 抢全表后启动顺序错 | [§4.A.8](./开发者日志.md#4a8-2026-04-24-企业-vpn-客户端--ace-vpn-tun-启动顺序) |
+| `curl -x 127.0.0.1:7890` 能访问内网域名，浏览器 / 裸 `curl` 不通 | System Proxy / TUN 未接管当前应用 | [§4.C.0](./开发者日志.md#4c0-2026-06-15-内网域名-dns-正确但浏览器打不开system-proxy-未接管) |
 | 订阅节点 `server: 127.0.0.1` | `UPSTREAM_BASE` 写本机 + 没设 `SERVER_OVERRIDE` | [§4.B.5](./开发者日志.md#4b5-2026-04-18-sub-converter-所有节点-server-127001) |
 | HostHatch 下单被反欺诈 flag | IP 国家 vs 账单国家不一致 | [§4.B.7](./开发者日志.md#4b7-2026-04-21-hosthatch-下单被反欺诈-flag) |
 | 改 sub-converter env 不生效 | 没显式 `systemctl restart` | [§4.C.2](./开发者日志.md#4c2-2026-04-18-改了-sub-converter-环境变量但不生效--新-token-返回-0-节点) |
