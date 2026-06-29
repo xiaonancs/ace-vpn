@@ -206,32 +206,6 @@ DNS / 凭据都不会进本仓库 git 历史**。详见 [private/README.md](priv
 - 迁移后销毁旧 VPS 磁盘
 - 流量统计只保留本地 SQLite，不上传到 VPS；需要分享报表时先确认 CSV 中没有敏感公司域名
 
-## 📝 开发日志
-
-- **2026-04-17** 项目启动；VPS 选型对比；Oracle 注册尝试（WAF 风控挂）
-- **2026-04-17** Oracle Cloud Always Free 申请教程上线（`docs/Oracle Cloud 注册教程.md`），0 元方案就位
-- **2026-04-17** Vultr Tokyo 验证部署；3x-ui + 客户端模板 + Cursor / Claude Code 代理打通
-- **2026-04-18** `configure-3xui.sh` + `sub-converter.py` 完整链路打通；Mac / iPhone / Android 跑通 4K YouTube / Discord / Cursor；`sub-converter` 重构为多 token 单实例
-- **2026-04-18** HostHatch Tokyo 付费方案（$4/月）上线；**Vultr → HostHatch 整库迁移**，pbk / sid / UUID 全保留，家人端仅改 IP
-- **2026-06-13** 现网回到 Vultr Tokyo `<VPS_IP>`；私有配置只保留 `vultr:<VPS_IP>`，订阅路径统一为 `/<SUB_PATH_PREFIX>/ace-main` / `ace-fork`
-- **2026-06-14** 扩展手机 App / 英文媒体 / AI 分流规则，新增本地流量月报和 `scripts/ace-vpn.sh` 统一入口；Vultr Tokyo 已通过安全推送和订阅烟测
-- **2026-06-15** 修复 Pinterest iOS 规则模式不可访问：Pinterest / pinimg / 常见海外 App 显式代理，国内 App 直连清单补齐并加入回归测试
-- **2026-06-15** 记录公司内网域名排障：`curl -x 127.0.0.1:7890` 通但浏览器 / 裸 `curl` 不通时，优先检查 System Proxy / TUN 是否接管当前应用
-- **2026-04-18** 文档瘦身：多份 00-09 doc 合并为 `docs/开发者日志.md` + `docs/用户手册 user-guide.md` 两份
-- **2026-04-19** 内网分流重构：`private/intranet.yaml` 多 profile + `enabled` 开关，`sync-intranet.sh` 一键 scp，VPS 端热加载无需重启。支持「换公司」/「多公司并存」零配置切换
-- **2026-04-19** sub-converter 新增 `/match` 权威匹配接口 + `scripts/test/test-route.sh` 诊断工具，一行命令输出 URL 走哪条规则、经哪个代理组、各阶段延时
-- **2026-04-19** per-profile `dns_servers` 定向解析；修复 Clash Party GUI 吞订阅 DNS 的深坑（详见 [ACE 架构设计 §7 DNS 设计](docs/ACE架构设计.md#7-dns-设计)）
-- **2026-04-19** 公私仓库分离：新增 `docs/ACE架构设计.md`（对外技术方案，含架构 / 流程 / 时序图）；真实配置迁入私有仓库 `ace-vpn-private`，public 仓库通过 symlink 接入
-- **2026-04-23** 本地规则三层安全网：`add-rule.sh` / `apply-local-overrides.sh` 写 override 前 pre-flight 校验本地池里所有 `VPS` 类规则的 proxy group 在当前 active profile 里存在；坏规则直接拒写、网络不受影响。每次写入前自动备份旧 override 到 `override/.bak/`（保留最近 10 个）。新增 `rollback-overrides.sh` 一键回退（`--last` / `--disable` / `--clear` / 交互选）。详见 [user-guide §9.4](docs/用户手册%20user-guide.md#94仅管理员安全网应急回退别让一条坏规则把自己的网砍了)
-- **2026-04-21** 本地规则池工作流：`add-rule.sh` / `list-rules.sh` / `apply-local-overrides.sh` / `promote-to-vps.sh` 四脚本闭环。Mac 单机加规则秒级生效（渲染 Mihomo Party `override.yaml` 的 `+rules` prepend），积累后批量 promote 进 `intranet.yaml` 推 VPS 同步全设备。本地池 `local-rules.yaml` 由 private 仓库托管，多 Mac 之间通过 git pull 同步
-- **2026-04-21** sub-converter 扩展 `intranet.yaml` 顶层 `extra: {overseas, cn}`，promote 闭环补完：三种 target 全部能 promote 到 VPS 全设备共享；extra 在内置 AI / SOCIAL_PROXY / CHINA_DIRECT 之前 prepend，用户手加规则永远赢内置默认；`/healthz` 暴露 extra 计数便于验证
-- **2026-04-21** target 命名从 `intranet/cn/overseas` 改成更直观的 `IN/DIRECT/VPS`（用户视角：内网 / 直连 / 经过 VPS）；大小写无关 + 老名兼容自动归一；用户手册顶部加亮点功能索引
-- **2026-04-23** WARP 备选方案实战跑通后弃用（HostHatch JP 当前 IP 没被 Google 封）；`fscarmen/warp` Non-global 接入 + Xray `outbounds[0]=direct` + 第一条 routing 把 VPS 自身 `/32` 强制 `direct`，避免 SSH 自指环路；改 xray 必须改 `/etc/x-ui/x-ui.db` 的 `xrayTemplateConfig`（直接编 `config.json` 会被 systemctl restart 回滚）。完整流程精简版沉淀进 [开发者日志 §5 WARP 备选方案](docs/开发者日志.md#5-warp-备选方案cloudflare-warp-outbound)
-- **2026-04-24** intranet schema 重构：明确"真·内网 / SaaS / 零信任网关"三类域名分类，`profiles.<>.domains` 只放公网解不到的内网域名，公网公司域名（SaaS 应用、零信任网关后挂的内部服务）改放 `extra.cn`。`sub-converter.py` 给 `extra.cn` 强制配国内 UDP 公网 DNS（`119.29.29.29` + `223.5.5.5`），并加进 `fake-ip-filter`，避免默认 DoH 经海外 PROXY 解析到海外 CDN 节点 IP 导致 TLS 握手卡死。`promote-to-vps.sh` 默认 local-wins + 冲突日志，`sync-intranet.sh` VPS 端自动滚动备份最近 5 份 `intranet.yaml`。详见 [ACE 架构设计 §7 DNS 设计](docs/ACE架构设计.md#7-dns-设计) + [开发者日志 §4.A.6/4.A.7/4.A.8](docs/开发者日志.md#4a6-2026-04-24-把零信任--saas-公网域名误当成真内网域名-)
-- **2026-04-25** 文档体系重构：`开发者日志.md` 改为"开发者日志"（按"新增功能 / 性能优化 / 踩坑分类"组织 14 个功能时间线 + 7 项性能优化 + 16 个踩坑按 DNS / 部署 / 客户端三类归档）；`ACE架构设计.md` 改为"ACE 架构设计"（吸收 VPS 选型 / 部署 / sub-converter / 客户端分发 / DNS / 规则系统 / 多设备同步等系统级章节，新增「规则系统：更新/同步/冲突」「多设备/多云端同步」两节专门讲 add-rule → promote → sync 流水线和多 Mac / 多 VPS 协作）
-- **2026-04-28** AI 长流式响应稳定性修复：`sub-converter.py` 新增 `OVERSEAS_DOH` + `AI_STREAMING_DOMAINS` 常量，覆盖 Cursor / Claude Code / Codex / OpenCode / Gemini / Copilot / Perplexity / Mistral / DeepSeek 等主流 AI 域名，强制 DNS 走境外 DoH（`1.1.1.1` / `8.8.8.8` / `dns.cloudflare.com`）+ 加入 `fake-ip-filter` 防假 IP 缓存；新增顶层 `sniffer` 段（HTTP/TLS/QUIC `override-destination: true`），修复 fake-ip 模式下 Cursor agent 长流偶发的 "SNI mismatch → RST" 断连；`dns.respect-rules: true` 让 DNS 解析遵从 rules 分流决策。所有 mihomo 端（Mac / iPhone / 家人端）刷订阅即生效，不依赖客户端 override。详见 [开发者日志 §4.A.9](docs/开发者日志.md#4a9-2026-04-28-cursor--claude-code--codex-等-ai-长流式响应被-dns-污染断连-)
-- **2026-04-28 晚** 安全推送工具链：新增 `scripts/server/validate-config.py`（独立的 mihomo YAML 语义校验器，拦 `respect-rules` ↔ `proxy-server-nameserver` 等联动问题）+ `scripts/rules/sync-subconverter.sh`（推前本地三关校验 + 远端 5 份滚动备份 + 原子替换 + 推后 healthz + YAML 二次校验 + 任一失败自动回滚 + `--rollback` 独立模式）。新增 `PROXY_SERVER_DNS` 常量修复 `respect-rules: true` 下缺 `proxy-server-nameserver` 导致客户端 `Profile Check Failed` 的 bug。从此 `sub-converter.py` 推送永远不会留下"改坏了、回不去了"的 VPS。详见 [开发者日志 §2.-1](docs/开发者日志.md#2-1-2026-04-28-晚-安全推送工具链validate-configpy--sync-subconvertersh5-份滚动备份--自动回滚) + [§4.A.10](docs/开发者日志.md#4a10-2026-04-28-respect-rules-true-必须配-proxy-server-nameserver4a9-的后续坑-) + [§4.C.5](docs/开发者日志.md#4c5-2026-04-28-sub-converterpy-推送无备份无校验--改坏--全军覆没-)
-
 ## 📄 许可
 
 个人项目，MIT（代码层面，见 [LICENSE](LICENSE)）。运行时配置、家庭部署信息不开源。
