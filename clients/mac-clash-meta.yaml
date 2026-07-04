@@ -236,17 +236,31 @@ rules:
   - DOMAIN-SUFFIX,autonavi.com,DIRECT
   - DOMAIN-SUFFIX,servicewechat.com,DIRECT
   - DOMAIN-SUFFIX,weapp.com,DIRECT
+  - DOMAIN-SUFFIX,qlogo.cn,DIRECT
   - DOMAIN-SUFFIX,dingtalk.com,DIRECT
   - DOMAIN-SUFFIX,didichuxing.com,DIRECT
   - DOMAIN-SUFFIX,xiaojukeji.com,DIRECT
   - DOMAIN-SUFFIX,ctrip.com,DIRECT
+  - DOMAIN-SUFFIX,xiaohongshu.com,DIRECT
+  - DOMAIN-SUFFIX,xhscdn.com,DIRECT
+  - DOMAIN-SUFFIX,xhscdn.net,DIRECT
+  - DOMAIN-SUFFIX,weibocdn.com,DIRECT
+  - DOMAIN-SUFFIX,biliimg.com,DIRECT
+  - DOMAIN-SUFFIX,hdslb.com,DIRECT
+  - DOMAIN-SUFFIX,douyinstatic.com,DIRECT
+  - DOMAIN-SUFFIX,byteimg.com,DIRECT
+  - DOMAIN-SUFFIX,ixigua.com,DIRECT
   - DOMAIN-SUFFIX,mgtv.com,DIRECT
   - DOMAIN-SUFFIX,jd.com,DIRECT
+  - DOMAIN-SUFFIX,360buyimg.com,DIRECT
+  - DOMAIN-SUFFIX,jdstatic.com,DIRECT
   - DOMAIN-SUFFIX,pinduoduo.com,DIRECT
   - DOMAIN-SUFFIX,yangkeduo.com,DIRECT
+  - DOMAIN-SUFFIX,pddpic.com,DIRECT
   - DOMAIN-SUFFIX,vip.com,DIRECT
   - DOMAIN-SUFFIX,kuaishou.com,DIRECT
   - DOMAIN-SUFFIX,kwaicdn.com,DIRECT
+  - DOMAIN-SUFFIX,kwimgs.com,DIRECT
 
   # ========== 6. 国内规则 -> DIRECT ==========
   - RULE-SET,chinamax,DIRECT

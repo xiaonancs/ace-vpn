@@ -132,10 +132,23 @@ Shadowrocket → 配置 → 规则 → **添加规则**：
 | DOMAIN-SUFFIX | elemecdn.com | DIRECT |
 | DOMAIN-SUFFIX | amap.com | DIRECT |
 | DOMAIN-SUFFIX | servicewechat.com | DIRECT |
+| DOMAIN-SUFFIX | qlogo.cn | DIRECT |
 | DOMAIN-SUFFIX | dingtalk.com | DIRECT |
 | DOMAIN-SUFFIX | didichuxing.com | DIRECT |
 | DOMAIN-SUFFIX | ctrip.com | DIRECT |
+| DOMAIN-SUFFIX | xiaohongshu.com | DIRECT |
+| DOMAIN-SUFFIX | xhscdn.com | DIRECT |
+| DOMAIN-SUFFIX | xhscdn.net | DIRECT |
+| DOMAIN-SUFFIX | weibocdn.com | DIRECT |
+| DOMAIN-SUFFIX | biliimg.com | DIRECT |
+| DOMAIN-SUFFIX | douyinstatic.com | DIRECT |
+| DOMAIN-SUFFIX | byteimg.com | DIRECT |
+| DOMAIN-SUFFIX | ixigua.com | DIRECT |
 | DOMAIN-SUFFIX | jd.com | DIRECT |
+| DOMAIN-SUFFIX | 360buyimg.com | DIRECT |
+| DOMAIN-SUFFIX | jdstatic.com | DIRECT |
+| DOMAIN-SUFFIX | pddpic.com | DIRECT |
+| DOMAIN-SUFFIX | kwimgs.com | DIRECT |
 | DOMAIN-SUFFIX | vip.com | DIRECT |
 
 ---

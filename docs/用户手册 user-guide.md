@@ -1344,6 +1344,17 @@ networksetup -setsecurewebproxystate Wi-Fi off
 - Shadowrocket / base64 用户：更新完整配置文件 `http://<VPS_IP>:25500/<SUB_PATH_PREFIX>/_configs/shadowrocket.conf`。如果当前版本只能编辑文本，就打开该 URL，把全文复制到配置文件里。
 - 仍失败时看 Shadowrocket 最近匹配，确认 `pinimg.com` 是否命中 PROXY。明确国外 App 域名补 `VPS` / PROXY，明确国内 App 域名补 `DIRECT`。
 
+### Q6.4：小红书 / 国内 App 图片加载不出来
+
+如果规则模式下图片不出，先看客户端最近连接：国内 App 的图片域名应命中 `DIRECT`，不要落到 `🐟 FINAL`、海外代理组或客户端默认策略。新版订阅补了这批容易漏的国内图片/CDN 域名：
+
+- 小红书：`xiaohongshu.com` / `xhscdn.com` / `xhscdn.net`
+- 微博 / 微信：`weibocdn.com` / `sinaimg.cn` / `qlogo.cn` / `qpic.cn`
+- B站 / 抖音 / 快手：`biliimg.com` / `hdslb.com` / `douyinstatic.com` / `byteimg.com` / `ixigua.com` / `kwimgs.com` / `yximgs.com`
+- 电商图片：`360buyimg.com` / `jdstatic.com` / `pddpic.com` / `alicdn.com`
+
+处理：先刷新订阅；Shadowrocket 用户更新完整配置文件，不要只刷新 base64 节点订阅。仍失败时把最近连接里的漏域名按国内 App 补 `DIRECT`，再 promote 到 VPS。
+
 ### Q7：家人 Windows 图标变红了 / 灰了
 
 - 红 = 服务端连不上。刷新订阅，还不行微信找管理员

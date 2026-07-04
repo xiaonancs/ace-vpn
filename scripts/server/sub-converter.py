@@ -529,8 +529,10 @@ MEDIA_PROXY = [
 CHINA_DIRECT = [
     # ByteDance / Douyin
     "douyin.com", "aweme.snssdk.com", "snssdk.com", "bytedance.com", "bytedancecdn.com",
-    "douyincdn.com", "douyinpic.com", "douyinvod.com", "iesdouyin.com", "pstatp.com",
-    "toutiao.com", "toutiaoimg.com", "toutiaocdn.com", "bdstatic.com",
+    "douyincdn.com", "douyinpic.com", "douyinstatic.com", "douyinvod.com", "idouyinvod.com",
+    "iesdouyin.com", "pstatp.com", "byteimg.com",
+    "toutiao.com", "toutiaoimg.com", "toutiaocdn.com", "ixigua.com", "ixiguavideo.com",
+    "amemv.com", "bdstatic.com",
     # Alibaba
     "taobao.com", "tmall.com", "alibaba.com", "alicdn.com", "aliyun.com",
     "alipay.com", "alipayobjects.com", "1688.com", "tanx.com", "mmstat.com",
@@ -538,17 +540,20 @@ CHINA_DIRECT = [
     "goofish.com", "amap.com", "autonavi.com",
     "dingtalk.com", "dingtalkapps.com", "fliggy.com", "alitrip.com", "uc.cn", "ucweb.com",
     # Tencent
-    "qq.com", "qpic.cn", "tencent.com", "tencent-cloud.com", "weixin.qq.com",
+    "qq.com", "qpic.cn", "qlogo.cn", "tencent.com", "tencent-cloud.com", "weixin.qq.com",
     "wechat.com", "weixinbridge.com", "gtimg.com", "gtimg.cn", "tenpay.com",
     "myqcloud.com", "qcloud.com", "servicewechat.com", "weapp.com", "wecom.work",
     # Social 国内
-    "weibo.com", "weibo.cn", "sinaimg.cn", "sina.com.cn", "sina.cn", "miaopai.com",
-    "zhihu.com", "zhimg.com", "xiaohongshu.com", "xiaohongshu.net", "xhscdn.com", "xhslink.com",
+    "weibo.com", "weibo.cn", "weibocdn.com", "sinaimg.cn", "sina.com.cn", "sina.cn", "miaopai.com",
+    "zhihu.com", "zhimg.com", "xiaohongshu.com", "xiaohongshu.net", "xhscdn.com",
+    "xhscdn.net", "xhslink.com", "fengkongcloud.com",
     "douban.com", "doubanio.com",
     # Baidu
     "baidu.com", "bdimg.com", "bdstatic.com", "baidupcs.com", "baidubce.com", "bcebos.com",
     # 视频
-    "bilibili.com", "biliapi.net", "bilivideo.com", "hdslb.com",
+    "bilibili.com", "biliapi.com", "biliapi.net", "biliimg.com",
+    "bilivideo.com", "bilivideo.net", "hdslb.com", "hdslb.net", "hdslb.org",
+    "b23.tv", "bilicdn1.com", "bilicdn2.com", "bilicdn3.com", "bilicdn4.com", "bilicdn5.com",
     "iqiyi.com", "iqiyipic.com",
     "youku.com", "ykimg.com",
     "mgtv.com", "hitv.com", "miguvideo.com", "cmvideo.cn", "pptv.com", "le.com",
@@ -560,10 +565,11 @@ CHINA_DIRECT = [
     "ctrip.com", "trip.com", "tripcdn.com", "qunar.com", "12306.cn",
     "ly.com", "elong.com", "tuniu.com",
     # Ecommerce / short video / device vendors / banking
-    "jd.com", "360buyimg.com", "jdpay.com",
+    "jd.com", "360buyimg.com", "jdstatic.com", "jdimg.com", "jdpay.com",
     "vip.com", "suning.com", "smzdm.com", "dewu.com", "poizon.com",
     "pinduoduo.com", "yangkeduo.com", "pddpic.com", "pinduoduo.net",
-    "kuaishou.com", "kwai.com", "kwaicdn.com", "ksapisrv.com", "gifshow.com",
+    "kuaishou.com", "kwai.com", "kwaicdn.com", "kwaicdnx.com", "kwimgs.com",
+    "ksapisrv.com", "gifshow.com", "yximgs.com",
     "huawei.com", "hicloud.com", "vmall.com",
     "heytapmobi.com", "oppomobile.com", "vivo.com.cn", "honor.com", "lenovo.com.cn",
     "unionpay.com", "95516.com", "ccb.com", "icbc.com.cn", "abchina.com", "cmbchina.com",
