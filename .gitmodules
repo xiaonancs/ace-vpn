@@ -1,0 +1,3 @@
+[submodule "ace-vpn-private"]
+	path = ace-vpn-private
+	url = git@github.com:xiaonancs/ace-vpn-private.git
