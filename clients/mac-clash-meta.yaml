@@ -236,7 +236,15 @@ rules:
   - DOMAIN-SUFFIX,autonavi.com,DIRECT
   - DOMAIN-SUFFIX,servicewechat.com,DIRECT
   - DOMAIN-SUFFIX,weapp.com,DIRECT
+  - DOMAIN-SUFFIX,qpic.cn,DIRECT
   - DOMAIN-SUFFIX,qlogo.cn,DIRECT
+  - DOMAIN-SUFFIX,weixin.com,DIRECT
+  - DOMAIN-SUFFIX,wechatpay.com,DIRECT
+  - DOMAIN-SUFFIX,wechatos.net,DIRECT
+  - DOMAIN-SUFFIX,wechatlegal.net,DIRECT
+  - DOMAIN-SUFFIX,tencent-cloud.net,DIRECT
+  - DOMAIN-SUFFIX,qcloudimg.com,DIRECT
+  - DOMAIN-SUFFIX,qcloudcdn.com,DIRECT
   - DOMAIN-SUFFIX,dingtalk.com,DIRECT
   - DOMAIN-SUFFIX,didichuxing.com,DIRECT
   - DOMAIN-SUFFIX,xiaojukeji.com,DIRECT
@@ -247,8 +255,12 @@ rules:
   - DOMAIN-SUFFIX,weibocdn.com,DIRECT
   - DOMAIN-SUFFIX,biliimg.com,DIRECT
   - DOMAIN-SUFFIX,hdslb.com,DIRECT
+  - DOMAIN-SUFFIX,acgvideo.com,DIRECT
+  - DOMAIN-SUFFIX,yfcdn.net,DIRECT
   - DOMAIN-SUFFIX,douyinstatic.com,DIRECT
   - DOMAIN-SUFFIX,byteimg.com,DIRECT
+  - DOMAIN-SUFFIX,bytednsdoc.com,DIRECT
+  - DOMAIN-SUFFIX,zjcdn.com,DIRECT
   - DOMAIN-SUFFIX,ixigua.com,DIRECT
   - DOMAIN-SUFFIX,mgtv.com,DIRECT
   - DOMAIN-SUFFIX,jd.com,DIRECT

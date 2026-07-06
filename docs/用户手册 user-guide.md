@@ -1348,10 +1348,11 @@ networksetup -setsecurewebproxystate Wi-Fi off
 
 如果规则模式下图片不出，先看客户端最近连接：国内 App 的图片域名应命中 `DIRECT`，不要落到 `🐟 FINAL`、海外代理组或客户端默认策略。新版订阅补了这批容易漏的国内图片/CDN 域名：
 
+- 微信 / 腾讯：`qpic.cn` / `qlogo.cn` / `weixin.com` / `wechatpay.com` / `wechatos.net` / `tencent-cloud.net` / `qcloudimg.com` / `qcloudcdn.com`
 - 小红书：`xiaohongshu.com` / `xhscdn.com` / `xhscdn.net`
-- 微博 / 微信：`weibocdn.com` / `sinaimg.cn` / `qlogo.cn` / `qpic.cn`
-- B站 / 抖音 / 快手：`biliimg.com` / `hdslb.com` / `douyinstatic.com` / `byteimg.com` / `ixigua.com` / `kwimgs.com` / `yximgs.com`
-- 电商图片：`360buyimg.com` / `jdstatic.com` / `pddpic.com` / `alicdn.com`
+- 微博：`weibocdn.com` / `sinaimg.cn`
+- B站 / 抖音 / 快手：`biliimg.com` / `hdslb.com` / `acgvideo.com` / `yfcdn.net` / `douyinstatic.com` / `byteimg.com` / `bytednsdoc.com` / `zjcdn.com` / `ixigua.com` / `kwimgs.com` / `yximgs.com`
+- 外卖 / 电商图片：`elemecdn.com` / `elemecdn.cn` / `ele.to` / `360buyimg.com` / `jdstatic.com` / `jcloudcs.com` / `alicdn.com` / `taobaocdn.com` / `pddpic.com`
 
 处理：先刷新订阅；Shadowrocket 用户更新完整配置文件，不要只刷新 base64 节点订阅。仍失败时把最近连接里的漏域名按国内 App 补 `DIRECT`，再 promote 到 VPS。
 
