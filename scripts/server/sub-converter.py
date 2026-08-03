@@ -494,7 +494,7 @@ SOCIAL_PROXY = [
     "byteoversea.com", "ibyteimg.com", "ibytedtos.com", "muscdn.com", "musical.ly",
     "snapchat.com", "sc-cdn.net", "snapkit.com",
     "linkedin.com", "licdn.com",
-    "threads.net",
+    "threads.com", "threads.net",
     "slack.com", "slack-edge.com", "slack-imgs.com", "slackb.com",
     "notion.so", "notion.site",
     "dropbox.com", "dropboxusercontent.com",

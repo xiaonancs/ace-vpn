@@ -47,6 +47,8 @@ def main() -> int:
         ("tiktok.com", "🚀 PROXY"),
         ("snapchat.com", "🚀 PROXY"),
         ("linkedin.com", "🚀 PROXY"),
+        ("threads.com", "🚀 PROXY"),
+        ("www.threads.com", "🚀 PROXY"),
         ("slack.com", "🚀 PROXY"),
         ("notion.so", "🚀 PROXY"),
         ("chatgpt.com", "🤖 AI"),
