@@ -62,6 +62,7 @@
 | [`test/vps-watch-summary.py`](test/vps-watch-summary.py) | 汇总 `vps-watch-urls.sh` 的 TSV 日志，输出整体 win/loss、成功率、超时率、2s+ 慢请求、平均耗时、median、p90/p95/p99、耗时分布、各 URL 对比 | 长期运行后生成阶段性对比 |
 | [`test/test-route.sh`](test/test-route.sh) | 给一个 URL，输出命中哪条规则 + 命中哪个组 + 实测延时 + 出口 IP | 想知道某站到底走的什么路径 |
 | [`test/route-regression.py`](test/route-regression.py) | 离线验证 Gmail/Google 图片、Pinterest/海外 App、AI、媒体、国内 App 直连等关键内置规则不会回退 | 改 `sub-converter.py` 里的内置规则后 |
+| [`test/check-mobile-direct.sh`](test/check-mobile-direct.sh) | 批量检查微信/抖音/小红书/淘宝/支付宝/美团/地图/银行等移动端域名是否命中 `DIRECT` | 手机 App 图片/视频/登录卡顿时 |
 | [`test/subscription-smoke.sh`](test/subscription-smoke.sh) | 直连拉取订阅并跑 YAML validator，验证 Windows/家人端刷新订阅不依赖翻墙 | 换订阅 URL / 换 VPS / 推新 sub-converter 后 |
 
 ### D. 流量统计（本机，可选）

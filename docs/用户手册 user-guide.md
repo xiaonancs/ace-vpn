@@ -1344,17 +1344,25 @@ networksetup -setsecurewebproxystate Wi-Fi off
 - Shadowrocket / base64 用户：更新完整配置文件 `http://<VPS_IP>:25500/<SUB_PATH_PREFIX>/_configs/shadowrocket.conf`。如果当前版本只能编辑文本，就打开该 URL，把全文复制到配置文件里。
 - 仍失败时看 Shadowrocket 最近匹配，确认 `pinimg.com` 是否命中 PROXY。明确国外 App 域名补 `VPS` / PROXY，明确国内 App 域名补 `DIRECT`。
 
-### Q6.4：小红书 / 国内 App 图片加载不出来
+### Q6.4：微信朋友圈 / 抖音 / 小红书 / 国内 App 图片和视频加载不出来
 
-如果规则模式下图片不出，先看客户端最近连接：国内 App 的图片域名应命中 `DIRECT`，不要落到 `🐟 FINAL`、海外代理组或客户端默认策略。新版订阅补了这批容易漏的国内图片/CDN 域名：
+如果规则模式下图片、视频或登录卡顿，先看客户端最近连接：国内 App 的图片、视频、支付和风控域名应命中 `DIRECT`，不要落到 `🐟 FINAL`、海外代理组或客户端默认策略。新版订阅补了这批容易漏的国内移动端域名，并把它们同时放进 `fake-ip-filter` 和国内 DNS policy：
 
-- 微信 / 腾讯：`qpic.cn` / `qlogo.cn` / `weixin.com` / `wechatpay.com` / `wechatos.net` / `tencent-cloud.net` / `qcloudimg.com` / `qcloudcdn.com`
-- 小红书：`xiaohongshu.com` / `xhscdn.com` / `xhscdn.net`
-- 微博：`weibocdn.com` / `sinaimg.cn`
-- B站 / 抖音 / 快手：`biliimg.com` / `hdslb.com` / `acgvideo.com` / `yfcdn.net` / `douyinstatic.com` / `byteimg.com` / `bytednsdoc.com` / `zjcdn.com` / `ixigua.com` / `kwimgs.com` / `yximgs.com`
-- 外卖 / 电商图片：`elemecdn.com` / `elemecdn.cn` / `ele.to` / `360buyimg.com` / `jdstatic.com` / `jcloudcs.com` / `alicdn.com` / `taobaocdn.com` / `pddpic.com`
+- 微信朋友圈 / 微信读书：`qpic.cn` / `qlogo.cn` / `qq.com` / `gtimg.com` / `weixin.com` / `wechatpay.com` / `tenpay.com` / `weread.qq.com`
+- 抖音 / 字节：`douyin.com` / `douyinstatic.com` / `douyinvod.com` / `douyinpic.com` / `byteimg.com` / `bytednsdoc.com` / `amemv.com` / `ixigua.com` / `zjcdn.com`
+- 小红书：`xiaohongshu.com` / `xiaohongshu.net` / `xhscdn.com` / `xhscdn.net` / `xhslink.com` / `fengkongcloud.com`
+- 淘宝 / 支付宝 / 夸克：`taobao.com` / `tmall.com` / `alicdn.com` / `taobaocdn.com` / `alipay.com` / `alipayobjects.com` / `quark.cn` / `myquark.cn` / `uczzd.cn` / `ucweb.com`
+- 大众点评 / 美团外卖：`meituan.com` / `meituan.net` / `dianping.com` / `sankuai.com` / `dpfile.com`
+- 地图 / 出行：`amap.com` / `autonavi.com` / `baidu.com` / `qq.com` / `mapbar.com` / `didichuxing.com` / `ctrip.com`
+- 银行 / 支付：`unionpay.com` / `95516.com` / `cmbchina.com` / `cmbimg.com` / `cmburl.cn` / `hsbc.com.cn` / `hsbc.com.hk` / `icbc.com.cn` / `ccb.com` / `abchina.com` / `boc.cn`
 
-处理：先刷新订阅；Shadowrocket 用户更新完整配置文件，不要只刷新 base64 节点订阅。仍失败时把最近连接里的漏域名按国内 App 补 `DIRECT`，再 promote 到 VPS。
+处理：先刷新订阅并断开重连 VPN；Shadowrocket 用户更新完整配置文件，不要只刷新 base64 节点订阅。仍失败时，在管理员 Mac 上跑：
+
+```bash
+scripts/test/check-mobile-direct.sh
+```
+
+如果客户端最近连接里出现了这个脚本未覆盖的新域名，按国内 App 补 `DIRECT`，验证后 promote 到 VPS。
 
 ### Q7：家人 Windows 图标变红了 / 灰了
 

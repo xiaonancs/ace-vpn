@@ -526,72 +526,6 @@ MEDIA_PROXY = [
     "hbomax.com", "max.com", "primevideo.com",
 ]
 
-CHINA_DIRECT = [
-    # ByteDance / Douyin
-    "douyin.com", "aweme.snssdk.com", "snssdk.com", "bytedance.com", "bytedancecdn.com",
-    "douyincdn.com", "douyinpic.com", "douyinstatic.com", "douyinvod.com", "idouyinvod.com",
-    "iesdouyin.com", "pstatp.com", "byteimg.com", "bytednsdoc.com", "zjcdn.com",
-    "toutiao.com", "toutiaoimg.com", "toutiaocdn.com", "ixigua.com", "ixiguavideo.com",
-    "amemv.com", "bdstatic.com",
-    # Alibaba
-    "taobao.com", "tmall.com", "alibaba.com", "alicdn.com", "aliyun.com",
-    "alipay.com", "alipayobjects.com", "1688.com", "tanx.com", "mmstat.com",
-    "tbcdn.cn", "taobaocdn.com",
-    "ele.me", "ele.to", "eleme.com", "eleme.com.cn", "eleme.cn", "eleme.io",
-    "elemecdn.com", "elemecdn.cn", "elenet.me", "fengniao.com",
-    "fengniaopaotui.cn", "fengniaozhongbao.cn", "xingxuanwaimai.com", "xyzele.com", "youcaishop.cn",
-    "goofish.com", "amap.com", "autonavi.com",
-    "dingtalk.com", "dingtalkapps.com", "fliggy.com", "alitrip.com", "uc.cn", "ucweb.com",
-    # Tencent
-    "qq.com", "qpic.cn", "qlogo.cn", "tencent.com", "tencent-cloud.com", "tencent-cloud.net",
-    "weixin.qq.com", "weixin.com", "wechat.com", "wechatpay.com", "wechatlegal.net",
-    "wechatos.net", "weixinbridge.com", "weixinsxy.com", "iot-tencent.com",
-    "gtimg.com", "gtimg.cn", "tenpay.com",
-    "myqcloud.com", "qcloud.com", "qcloudimg.com", "qcloudcdn.com",
-    "servicewechat.com", "weapp.com", "wecom.work", "xy-asia.com",
-    # Social 国内
-    "weibo.com", "weibo.cn", "weibocdn.com", "sinaimg.cn", "sina.com.cn", "sina.cn", "miaopai.com",
-    "zhihu.com", "zhimg.com", "xiaohongshu.com", "xiaohongshu.net", "xhscdn.com",
-    "xhscdn.net", "xhslink.com", "fengkongcloud.com",
-    "douban.com", "doubanio.com",
-    # Baidu
-    "baidu.com", "bdimg.com", "bdstatic.com", "baidupcs.com", "baidubce.com", "bcebos.com",
-    # 视频
-    "acg.tv", "acgvideo.com", "bilibili.com", "bilibili.cn", "bilibili.net", "bilibili.tv",
-    "biliapi.com", "biliapi.net", "biliimg.com",
-    "bilivideo.com", "bilivideo.cn", "bilivideo.net", "hdslb.com", "hdslb.net", "hdslb.org",
-    "b23.tv", "bili22.cn", "bili23.cn", "bili2233.cn", "bili33.cn",
-    "bilicdn1.com", "bilicdn2.com", "bilicdn3.com", "bilicdn4.com", "bilicdn5.com",
-    "bilibiligame.cn", "bilibiligame.com", "bilibiligame.net", "bilicomics.com",
-    "biligo.com", "maoercdn.com", "ourdvsss.com", "ksyungslb.com", "yfcdn.net", "smtcdns.net",
-    "iqiyi.com", "iqiyipic.com",
-    "youku.com", "ykimg.com",
-    "mgtv.com", "hitv.com", "miguvideo.com", "cmvideo.cn", "pptv.com", "le.com",
-    # Local services / delivery / travel
-    "meituan.com", "meituan.net", "dianping.com", "sankuai.com",
-    "mtyun.com", "maoyan.com", "neixin.cn", "dpfile.com",
-    "58.com", "ganji.com", "anjuke.com", "ke.com", "lianjia.com", "beike.com",
-    "didichuxing.com", "xiaojukeji.com", "didistatic.com",
-    "ctrip.com", "trip.com", "tripcdn.com", "qunar.com", "12306.cn",
-    "ly.com", "elong.com", "tuniu.com",
-    # Ecommerce / short video / device vendors / banking
-    "jd.com", "360buy.com", "360buyimg.com", "3.cn", "jdstatic.com", "jdimg.com",
-    "jdcloud.com", "jcloudcs.com", "jdpay.com",
-    "vip.com", "suning.com", "smzdm.com", "dewu.com", "poizon.com",
-    "pinduoduo.com", "yangkeduo.com", "pddpic.com", "pinduoduo.net",
-    "kuaishou.com", "kwai.com", "kwaicdn.com", "kwaicdnx.com", "kwimgs.com",
-    "ksapisrv.com", "gifshow.com", "yximgs.com",
-    "huawei.com", "hicloud.com", "vmall.com",
-    "heytapmobi.com", "oppomobile.com", "vivo.com.cn", "honor.com", "lenovo.com.cn",
-    "unionpay.com", "95516.com", "ccb.com", "icbc.com.cn", "abchina.com", "cmbchina.com",
-    "bankcomm.com", "boc.cn", "cmbc.com.cn", "spdb.com.cn", "cib.com.cn",
-    "cebbank.com", "psbc.com", "pingan.com", "citicbank.com",
-    # Misc
-    "netease.com", "126.net", "163.com",
-    "cn", "hk", "tw",  # TLD 兜底
-]
-
-
 def _dedupe_domains(*groups: List[str]) -> List[str]:
     seen: set[str] = set()
     result: List[str] = []
@@ -603,6 +537,137 @@ def _dedupe_domains(*groups: List[str]) -> List[str]:
             seen.add(key)
             result.append(key)
     return result
+
+
+CHINA_BYTEDANCE_DIRECT = [
+    "douyin.com", "aweme.snssdk.com", "snssdk.com", "bytedance.com", "bytedancecdn.com",
+    "douyincdn.com", "douyinpic.com", "douyinstatic.com", "douyinvod.com", "idouyinvod.com",
+    "iesdouyin.com", "pstatp.com", "byteimg.com", "bytednsdoc.com", "zjcdn.com",
+    "toutiao.com", "toutiaoimg.com", "toutiaocdn.com", "ixigua.com", "ixiguavideo.com",
+    "amemv.com", "bdstatic.com",
+]
+
+CHINA_ALIBABA_DIRECT = [
+    "taobao.com", "tmall.com", "alibaba.com", "alicdn.com", "aliyun.com",
+    "alipay.com", "alipayobjects.com", "1688.com", "tanx.com", "mmstat.com",
+    "tbcdn.cn", "taobaocdn.com", "tmall.hk",
+    "ele.me", "ele.to", "eleme.com", "eleme.com.cn", "eleme.cn", "eleme.io",
+    "elemecdn.com", "elemecdn.cn", "elenet.me", "fengniao.com",
+    "fengniaopaotui.cn", "fengniaozhongbao.cn", "xingxuanwaimai.com", "xyzele.com", "youcaishop.cn",
+    "goofish.com", "amap.com", "autonavi.com",
+    "dingtalk.com", "dingtalkapps.com", "fliggy.com", "alitrip.com",
+    "uc.cn", "ucweb.com", "quark.cn", "myquark.cn", "uczzd.cn", "sm.cn",
+]
+
+CHINA_TENCENT_DIRECT = [
+    "qq.com", "qpic.cn", "qlogo.cn", "tencent.com", "tencent-cloud.com", "tencent-cloud.net",
+    "weixin.qq.com", "weixin.com", "wechat.com", "wechatpay.com", "wechatlegal.net",
+    "wechatos.net", "weixinbridge.com", "weixinsxy.com", "iot-tencent.com",
+    "gtimg.com", "gtimg.cn", "tenpay.com",
+    "myqcloud.com", "qcloud.com", "qcloudimg.com", "qcloudcdn.com",
+    "servicewechat.com", "weapp.com", "wecom.work", "xy-asia.com", "weread.qq.com",
+]
+
+CHINA_SOCIAL_DIRECT = [
+    "weibo.com", "weibo.cn", "weibocdn.com", "sinaimg.cn", "sina.com.cn", "sina.cn", "miaopai.com",
+    "zhihu.com", "zhimg.com", "xiaohongshu.com", "xiaohongshu.net", "xhscdn.com",
+    "xhscdn.net", "xhslink.com", "fengkongcloud.com",
+    "douban.com", "doubanio.com",
+]
+
+CHINA_BAIDU_DIRECT = [
+    "baidu.com", "bdimg.com", "bdstatic.com", "baidupcs.com", "baidubce.com", "bcebos.com",
+]
+
+CHINA_VIDEO_DIRECT = [
+    "acg.tv", "acgvideo.com", "bilibili.com", "bilibili.cn", "bilibili.net", "bilibili.tv",
+    "biliapi.com", "biliapi.net", "biliimg.com",
+    "bilivideo.com", "bilivideo.cn", "bilivideo.net", "hdslb.com", "hdslb.net", "hdslb.org",
+    "b23.tv", "bili22.cn", "bili23.cn", "bili2233.cn", "bili33.cn",
+    "bilicdn1.com", "bilicdn2.com", "bilicdn3.com", "bilicdn4.com", "bilicdn5.com",
+    "bilibiligame.cn", "bilibiligame.com", "bilibiligame.net", "bilicomics.com",
+    "biligo.com", "maoercdn.com", "ourdvsss.com", "ksyungslb.com", "yfcdn.net", "smtcdns.net",
+    "iqiyi.com", "iqiyipic.com",
+    "youku.com", "ykimg.com",
+    "mgtv.com", "hitv.com", "miguvideo.com", "cmvideo.cn", "pptv.com", "le.com",
+]
+
+CHINA_LOCAL_SERVICE_DIRECT = [
+    "meituan.com", "meituan.net", "dianping.com", "sankuai.com",
+    "mtyun.com", "maoyan.com", "neixin.cn", "dpfile.com",
+    "58.com", "ganji.com", "anjuke.com", "ke.com", "lianjia.com", "beike.com",
+    "didichuxing.com", "xiaojukeji.com", "didistatic.com",
+    "ctrip.com", "trip.com", "tripcdn.com", "qunar.com", "12306.cn",
+    "ly.com", "elong.com", "tuniu.com",
+]
+
+CHINA_MAP_DIRECT = [
+    "amap.com", "autonavi.com", "baidu.com", "bdimg.com", "qq.com",
+    "mapbar.com", "sogou.com",
+]
+
+CHINA_ECOMMERCE_DIRECT = [
+    "jd.com", "360buy.com", "360buyimg.com", "3.cn", "jdstatic.com", "jdimg.com",
+    "jdcloud.com", "jcloudcs.com", "jdpay.com",
+    "vip.com", "suning.com", "smzdm.com", "dewu.com", "poizon.com",
+    "pinduoduo.com", "yangkeduo.com", "pddpic.com", "pinduoduo.net",
+]
+
+CHINA_SHORT_VIDEO_DIRECT = [
+    "kuaishou.com", "kwai.com", "kwaicdn.com", "kwaicdnx.com", "kwimgs.com",
+    "ksapisrv.com", "gifshow.com", "yximgs.com",
+]
+
+CHINA_DEVICE_VENDOR_DIRECT = [
+    "huawei.com", "hicloud.com", "vmall.com",
+    "heytapmobi.com", "oppomobile.com", "vivo.com.cn", "honor.com", "lenovo.com.cn",
+]
+
+CHINA_BANKING_DIRECT = [
+    "unionpay.com", "95516.com", "ccb.com", "icbc.com.cn", "abchina.com", "cmbchina.com",
+    "cmbimg.com", "cmburl.cn", "bankcomm.com", "boc.cn", "cmbc.com.cn", "spdb.com.cn",
+    "cib.com.cn", "cebbank.com", "psbc.com", "pingan.com", "citicbank.com",
+    "hsbc.com.cn", "hsbc.com.hk",
+]
+
+CHINA_MISC_DIRECT = [
+    "netease.com", "126.net", "163.com",
+]
+
+CHINA_DIRECT_TLD = ["cn", "hk", "tw"]
+
+CHINA_DIRECT = _dedupe_domains(
+    CHINA_BYTEDANCE_DIRECT,
+    CHINA_ALIBABA_DIRECT,
+    CHINA_TENCENT_DIRECT,
+    CHINA_SOCIAL_DIRECT,
+    CHINA_BAIDU_DIRECT,
+    CHINA_VIDEO_DIRECT,
+    CHINA_LOCAL_SERVICE_DIRECT,
+    CHINA_MAP_DIRECT,
+    CHINA_ECOMMERCE_DIRECT,
+    CHINA_SHORT_VIDEO_DIRECT,
+    CHINA_DEVICE_VENDOR_DIRECT,
+    CHINA_BANKING_DIRECT,
+    CHINA_MISC_DIRECT,
+    CHINA_DIRECT_TLD,
+)
+
+CHINA_DIRECT_DNS_POLICY = _dedupe_domains(
+    CHINA_BYTEDANCE_DIRECT,
+    CHINA_ALIBABA_DIRECT,
+    CHINA_TENCENT_DIRECT,
+    CHINA_SOCIAL_DIRECT,
+    CHINA_BAIDU_DIRECT,
+    CHINA_VIDEO_DIRECT,
+    CHINA_LOCAL_SERVICE_DIRECT,
+    CHINA_MAP_DIRECT,
+    CHINA_ECOMMERCE_DIRECT,
+    CHINA_SHORT_VIDEO_DIRECT,
+    CHINA_DEVICE_VENDOR_DIRECT,
+    CHINA_BANKING_DIRECT,
+    CHINA_MISC_DIRECT,
+)
 
 
 SHADOWROCKET_OVERSEAS_PROXY = _dedupe_domains(AI_DOMAINS, SOCIAL_PROXY, MEDIA_PROXY)
@@ -806,6 +871,10 @@ def build_clash_yaml(
                 **{
                     f"+.{sfx}": list(CN_PUBLIC_DNS)
                     for sfx in (intranet.get("extra_cn") or [])
+                },
+                **{
+                    f"+.{sfx}": list(CN_PUBLIC_DNS)
+                    for sfx in CHINA_DIRECT_DNS_POLICY
                 },
                 **{
                     f"+.{sfx}": list(OVERSEAS_DOH)

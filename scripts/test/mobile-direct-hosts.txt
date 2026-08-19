@@ -1,0 +1,68 @@
+# WeChat / Tencent / WeRead
+mmsns.qpic.cn
+mmbiz.qpic.cn
+wx.qlogo.cn
+thirdwx.qlogo.cn
+res.wx.qq.com
+szextshort.weixin.qq.com
+weixinc2c.qq.com
+wechatpay.com
+tenpay.com
+weread.qq.com
+
+# Douyin / ByteDance
+douyin.com
+api5-normal-c-lf.amemv.com
+p3-sign.douyinpic.com
+p3-pc.douyinpic.com
+v3-web.douyinvod.com
+byteimg.com
+bytednsdoc.com
+zjcdn.com
+
+# Xiaohongshu
+edith.xiaohongshu.com
+sns-img-qc.xhscdn.net
+sns-webpic-qc.xhscdn.com
+sns-video-bd.xhscdn.com
+ci.xiaohongshu.com
+
+# Taobao / Alipay / Alibaba / Quark / UC
+h5.m.taobao.com
+gw.alicdn.com
+render.alipay.com
+taobaocdn.com
+quark.cn
+myquark.cn
+quark.sm.cn
+uczzd.cn
+ucweb.com
+
+# Meituan / Dianping / delivery
+waimai.meituan.com
+p0.meituan.net
+p1.meituan.net
+p0.dianping.com
+api.sankuai.com
+
+# Maps / travel
+restapi.amap.com
+map.baidu.com
+apis.map.qq.com
+mapbar.com
+didichuxing.com
+ctrip.com
+
+# Banking / payment
+95516.com
+ccb.com
+icbc.com.cn
+abchina.com
+cmbchina.com
+cmbimg.com
+cmburl.cn
+bankcomm.com
+boc.cn
+psbc.com
+hsbc.com.cn
+hsbc.com.hk
