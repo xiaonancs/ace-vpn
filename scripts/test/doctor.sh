@@ -167,7 +167,7 @@ if [[ -n "$PROFILE_URL" ]]; then
   if [[ -n "$EXPECTED_IP" && -n "$PROFILE_HOST" && "$PROFILE_HOST" != "$EXPECTED_IP" ]]; then
     warn "当前 Mihomo Party 订阅指向 $PROFILE_HOST，但 private/env.sh 首选 VPS 是 $EXPECTED_IP。"
     echo "  这通常发生在换 IP / 换主 VPS 后，本机 profile 还停在旧订阅。"
-    echo "  可用 SSH 冷启动同步：bash scripts/common-tools/bootstrap-mihomo-party.sh --replace-current"
+    echo "  建议：在 Mihomo Party 手动更新 Remote Profile URL，并运行 bash scripts/ace-vpn.sh party 检查本机状态。"
   fi
   sub_code=$(curl -sS --max-time 10 -o /tmp/ace-vpn-doctor-sub.yaml -w "%{http_code}" "$PROFILE_URL" 2>/dev/null)
   kv "订阅 HTTP" "$sub_code"
@@ -216,7 +216,6 @@ REMOTE
       key_hint="${VPS_SSH_KEY:-$HOME/.ssh/id_ed25519}"
       key_hint="${key_hint/#~/$HOME}"
       echo "  若你有 root 密码，运行：ssh-copy-id -i ${key_hint}.pub ${VPS_SSH_USER:-root}@$EXPECTED_IP"
-      echo "  或运行冷启动脚本交互安装 key：bash scripts/common-tools/bootstrap-mihomo-party.sh --install-ssh-key --replace-current"
     else
       warn "SSH 不可达；若公司 VPN 开着，这是预期，不代表 VPS 坏。"
     fi

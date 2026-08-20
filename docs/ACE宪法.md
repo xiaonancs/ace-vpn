@@ -93,9 +93,9 @@ Mac -> SSH VPS -> curl 127.0.0.1:<LISTEN_PORT>/<SUB_PATH_PREFIX>/<token>?tun=1 -
 1. `bash scripts/test/doctor.sh`
 2. 看当前 Party profile 是否仍指向旧 VPS。
 3. 看 SSH 是否可达，区分 host key 冲突、key 未授权、网络不通。
-4. 用 `bootstrap-mihomo-party.sh --dry-run` 验证冷启动链路。
-5. dry-run 通过后再 `--replace-current` 写入本机 profile。
-6. 重启 Mihomo Party，再看 7890 出口和 TUN 出口。
+4. 手动核对 Mihomo Party 当前 Remote Profile URL 是否指向新 VPS。
+5. 运行 `bash scripts/ace-vpn.sh party` 检查多个 core、端口/TUN/cache 和关键域名。
+6. 必要时运行 `bash scripts/ace-vpn.sh party --fix`，重启 Mihomo Party，再看 7890 出口和 TUN 出口。
 7. 公司 VPN 开着时，优先接受“7890 可用、TUN 不接管系统路由”的现实；要全局 TUN，先退出公司 VPN。
 
 ### 3.2 SSH 前置修复

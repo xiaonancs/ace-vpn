@@ -47,10 +47,12 @@ sudo UPSTREAM_BASE='https://127.0.0.1:2096/<sub_path>' \
 
 ### 客户端接入（详见 [用户手册 user-guide](docs/用户手册%20user-guide.md)）
 
-Mac 首次接入 / 换 VPS 后，如果本机还没法翻墙，先用 SSH 带外导入 Mihomo Party 配置：
+Mac 首次接入 / 换 VPS 后，手动在 Mihomo Party 新建 Remote Profile，填入管理员给的订阅 URL。
+如果刷新订阅后本地仍不生效，先运行本机 Party 体检修复：
 
 ```bash
-bash scripts/common-tools/bootstrap-mihomo-party.sh --replace-current
+bash scripts/ace-vpn.sh party
+bash scripts/ace-vpn.sh party --fix
 ```
 
 | 设备 | 软件 | 订阅 URL |

@@ -15,6 +15,7 @@
 | `bash scripts/ace-vpn.sh promote` | `rules/promote-to-vps.sh` |
 | `bash scripts/ace-vpn.sh smoke --direct` | `test/subscription-smoke.sh` |
 | `bash scripts/ace-vpn.sh sync-sub --vps vultr-tokyo` | `rules/sync-subconverter.sh` |
+| `bash scripts/ace-vpn.sh party` | `common-tools/check-mihomo-party.sh` |
 | `bash scripts/ace-vpn.sh collect --once` | `telemetry/mihomo-traffic-collector.py` |
 | `bash scripts/ace-vpn.sh report` | `telemetry/monthly-traffic-report.py` |
 
@@ -64,6 +65,7 @@
 | [`test/route-regression.py`](test/route-regression.py) | 离线验证 Gmail/Google 图片、Pinterest/海外 App、AI、媒体、国内 App 直连等关键内置规则不会回退 | 改 `sub-converter.py` 里的内置规则后 |
 | [`test/check-mobile-direct.sh`](test/check-mobile-direct.sh) | 批量检查微信/抖音/小红书/淘宝/支付宝/美团/地图/银行等移动端域名是否命中 `DIRECT` | 手机 App 图片/视频/登录卡顿时 |
 | [`test/subscription-smoke.sh`](test/subscription-smoke.sh) | 直连拉取订阅并跑 YAML validator，验证 Windows/家人端刷新订阅不依赖翻墙 | 换订阅 URL / 换 VPS / 推新 sub-converter 后 |
+| [`common-tools/check-mihomo-party.sh`](common-tools/check-mihomo-party.sh) | 检查本机 Clash/Mihomo Party 是否有多个 core、端口/TUN/cache 冲突、当前 profile 是否包含关键内网域名，并可用 `--fix` 清理旧 core/cache | Clash Party 自己退出、TUN 打不开、刷新订阅后本地不生效、内网页面空白时 |
 
 ### D. 流量统计（本机，可选）
 
@@ -81,7 +83,7 @@
 | [`lib/common.sh`](lib/common.sh) | shell 共享工具（日志、apt 锁等待、root 检查） |
 | [`lib/local_rules.py`](lib/local_rules.py) | python 库：本地规则池的读 / 写 / 渲染 / promote / mihomo reload。被 add-rule / list-rules / apply-local-overrides / promote-to-vps / rollback-overrides 共用 |
 | [`git-hooks/`](git-hooks/) | pre-commit hook，防止 private/ 下敏感文件误推到 GitHub |
-| [`common-tools/bootstrap-mihomo-party.sh`](common-tools/bootstrap-mihomo-party.sh) | **Mac 冷启动导入**：本地代理还没通时，通过 SSH 到 VPS 拉取 Clash YAML，写入 Mihomo Party profile |
+| [`common-tools/check-mihomo-party.sh`](common-tools/check-mihomo-party.sh) | **本机 Party 体检/修复**：定位多个 mihomo core、root-owned cache、旧 profile 未刷新、关键域名缺失；`--fix` 会清理旧进程/socket/cache |
 | [`common-tools/sg-tunnel.sh`](common-tools/sg-tunnel.sh) | 临时 SOCKS5 跳板（例如注册 Oracle Cloud 时用新加坡出口） |
 | [`common-tools/patch-mihomo-party.sh`](common-tools/patch-mihomo-party.sh) | 修复 Clash/Mihomo Party 重生成 `work/config.yaml` 时把 `tcp-concurrent` / `find-process-mode` 改坏的问题 |
 
@@ -127,33 +129,15 @@ rm -rf scripts/__pycache__ scripts/lib/__pycache__
 
 ## 🛠 常用工作流
 
-### 工作流 0：新 Mac / 换 VPS 后，代理还没通，先用 SSH 导入 Mihomo Party
-
-这个流程不依赖 Clash Party/Mihomo Party 已经能翻墙。它用 SSH 登录 VPS，在 VPS 本机
-`curl http://127.0.0.1:<port>/<SUB_PATH_PREFIX>/<token>?tun=1` 拉取配置，再写入本机
-Mihomo Party 的 `profile.yaml` 和 `profiles/<id>.yaml`。
+### 工作流 0：本机 Clash/Mihomo Party 异常
 
 ```bash
-# 默认读取 private/env.sh：VPS_IP_LIST 第一台 + SUB_ID_SELF / SUB_TOKENS 第一项
-bash scripts/common-tools/bootstrap-mihomo-party.sh
+# 只读检查：多个 core、端口/TUN/cache 冲突、关键域名是否进本地配置
+bash scripts/ace-vpn.sh party
 
-# 换主 VPS 后，把当前 Party profile 直接改到新机
-bash scripts/common-tools/bootstrap-mihomo-party.sh --vps vultr --replace-current
-
-# 指定 token / profile 名
-bash scripts/common-tools/bootstrap-mihomo-party.sh --vps vultr --token ace-main --name ace-vpn-main
-
-# VPS 没授权当前 Mac 的公钥时，交互安装 key 后继续导入（需要 root 密码）
-bash scripts/common-tools/bootstrap-mihomo-party.sh --install-ssh-key --replace-current
+# 修复：清理旧 core/socket/root-owned cache，然后重新打开 Clash Party 并刷新订阅
+bash scripts/ace-vpn.sh party --fix
 ```
-
-脚本会从远端 `ace-vpn-sub.service` 读取真实 `LISTEN_PORT` / `SUB_PATH_PREFIX`，所以即使本地
-`private/env.sh` 里的旧 URL 还没更新，也能先恢复本机代理。导入后重开 Mihomo Party，
-之后再用 Party 自己的 Update 同步。
-
-若提示 `SSH host key 冲突`，先确认 IP 确实是你的 VPS，再运行 `ssh-keygen -R <VPS_IP>` 后重试。
-若提示 `Permission denied` / 公钥未授权，运行上面的 `--install-ssh-key` 版本，或手动
-`ssh-copy-id -i ~/.ssh/id_ed25519.pub root@<VPS_IP>`。
 
 ### 工作流 1：发现新站需要走 VPS（或被误判走 VPS）
 

@@ -23,6 +23,7 @@ Daily commands:
 
 Diagnostics:
   doctor                  Local Mihomo / system proxy health check
+  party [--fix]           Check/fix local Clash/Mihomo Party stale core state
   speed [args...]         Current network speed / latency test
   ip-check                Check current AI-visible exit IP
   diagnose                Full local diagnostic bundle
@@ -34,7 +35,6 @@ Telemetry:
 
 Deployment:
   install [args...]       Run VPS install entrypoint
-  bootstrap [args...]     Bootstrap Mihomo Party profile via SSH
 
 Examples:
   bash scripts/ace-vpn.sh route https://www.forbes.com/
@@ -77,6 +77,9 @@ case "$cmd" in
   doctor)
     exec bash "$ROOT_DIR/scripts/test/doctor.sh" "$@"
     ;;
+  party|mihomo-party|clash-party)
+    exec bash "$ROOT_DIR/scripts/common-tools/check-mihomo-party.sh" "$@"
+    ;;
   speed|speed-test)
     exec bash "$ROOT_DIR/scripts/test/speed-test.sh" "$@"
     ;;
@@ -97,9 +100,6 @@ case "$cmd" in
     ;;
   install)
     exec bash "$ROOT_DIR/scripts/deploy/install.sh" "$@"
-    ;;
-  bootstrap)
-    exec bash "$ROOT_DIR/scripts/common-tools/bootstrap-mihomo-party.sh" "$@"
     ;;
   *)
     echo "ERROR: unknown command: $cmd" >&2

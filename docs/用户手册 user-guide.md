@@ -113,40 +113,19 @@ brew install --cask mihomo-party
 
 没装 Homebrew？手动下载：https://github.com/mihomo-party-org/mihomo-party/releases 选最新的 `.dmg` 双击装。
 
-#### 一键冷启动导入（管理员 / 自己的新 Mac 推荐）
+#### 本机 Party 体检 / 修复
 
-如果这台 Mac 还没法翻墙，Mihomo Party 直接点 Update 可能会因为旧配置/旧 IP/代理死锁而失败。
-先用 SSH 作为带外通道导入配置：
+如果 Mihomo Party 直接点 Update 后配置不生效，或者出现 TUN 打不开、Clash Party 自己退出、
+内网页面空白等情况，先检查本机是否有多个 mihomo core 或 root-owned cache：
 
 ```bash
 cd ~/workspace/publish/ace-vpn
-bash scripts/common-tools/bootstrap-mihomo-party.sh --dry-run --batch --no-install-app --no-open
-bash scripts/common-tools/bootstrap-mihomo-party.sh --replace-current
+bash scripts/ace-vpn.sh party
+bash scripts/ace-vpn.sh party --fix
 ```
 
-这个命令会读取 `private/env.sh`，SSH 到 `VPS_IP_LIST` 第一台 VPS，在 VPS 本机拉取 Clash YAML，
-然后写入本机 Mihomo Party profile。导入后完全退出并重开 Mihomo Party，之后再走 Mihomo
-Party 自己的 Update 同步。
-
-如果提示 `SSH host key 冲突`，通常是 VPS 重装 / 换 IP 后本机 `known_hosts` 还记着旧指纹。
-先确认 IP 确实是你的 VPS，再执行：
-
-```bash
-ssh-keygen -R <VPS_IP>
-```
-
-如果提示 `SSH 登录被拒` / `Permission denied`，说明 VPS 还没授权这台 Mac 的公钥。有 root
-密码时运行：
-
-```bash
-bash scripts/common-tools/bootstrap-mihomo-party.sh --install-ssh-key --replace-current
-```
-
-常用变体：
-
-```bash
-bash scripts/common-tools/bootstrap-mihomo-party.sh --vps vultr --token ace-main --name ace-vpn-main
-```
+`--fix` 会清理旧 core、旧 socket、`work/cache.db` 和目录权限。修复后重新打开 Mihomo Party，
+刷新当前订阅。
 
 #### 导入订阅
 
