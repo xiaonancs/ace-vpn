@@ -13,6 +13,7 @@ ROOT_DIR=$(cd "$SCRIPT_DIR/../.." && pwd)
 PARTY_DIR="${MIHOMO_PARTY_DIR:-$HOME/Library/Application Support/mihomo-party}"
 PROFILE_YAML="$PARTY_DIR/profile.yaml"
 PROFILES_DIR="$PARTY_DIR/profiles"
+CONFIG_FILE="$PARTY_DIR/config.yaml"
 BASE_CFG="$PARTY_DIR/mihomo.yaml"
 WORK_CFG="$PARTY_DIR/work/config.yaml"
 WORK_DIR="$PARTY_DIR/work"
@@ -51,8 +52,8 @@ while [[ $# -gt 0 ]]; do
     --reopen) REOPEN=1; shift ;;
     --domain) DOMAINS+=("$2"); shift 2 ;;
     --domain=*) DOMAINS+=("${1#*=}"); shift ;;
-    --party-dir) PARTY_DIR="$2"; PROFILE_YAML="$PARTY_DIR/profile.yaml"; PROFILES_DIR="$PARTY_DIR/profiles"; BASE_CFG="$PARTY_DIR/mihomo.yaml"; WORK_CFG="$PARTY_DIR/work/config.yaml"; WORK_DIR="$PARTY_DIR/work"; shift 2 ;;
-    --party-dir=*) PARTY_DIR="${1#*=}"; PROFILE_YAML="$PARTY_DIR/profile.yaml"; PROFILES_DIR="$PARTY_DIR/profiles"; BASE_CFG="$PARTY_DIR/mihomo.yaml"; WORK_CFG="$PARTY_DIR/work/config.yaml"; WORK_DIR="$PARTY_DIR/work"; shift ;;
+    --party-dir) PARTY_DIR="$2"; PROFILE_YAML="$PARTY_DIR/profile.yaml"; PROFILES_DIR="$PARTY_DIR/profiles"; CONFIG_FILE="$PARTY_DIR/config.yaml"; BASE_CFG="$PARTY_DIR/mihomo.yaml"; WORK_CFG="$PARTY_DIR/work/config.yaml"; WORK_DIR="$PARTY_DIR/work"; shift 2 ;;
+    --party-dir=*) PARTY_DIR="${1#*=}"; PROFILE_YAML="$PARTY_DIR/profile.yaml"; PROFILES_DIR="$PARTY_DIR/profiles"; CONFIG_FILE="$PARTY_DIR/config.yaml"; BASE_CFG="$PARTY_DIR/mihomo.yaml"; WORK_CFG="$PARTY_DIR/work/config.yaml"; WORK_DIR="$PARTY_DIR/work"; shift ;;
     --proxy) PROXY="$2"; shift 2 ;;
     --proxy=*) PROXY="${1#*=}"; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -170,6 +171,18 @@ file_owner_line() {
   fi
 }
 
+config_value() {
+  local key=$1
+  [[ -f "$CONFIG_FILE" ]] || return 0
+  awk -F: -v k="$key" '$1 == k {
+    v=$2
+    sub(/^[[:space:]]+/, "", v)
+    gsub(/"/, "", v)
+    print v
+    exit
+  }' "$CONFIG_FILE"
+}
+
 grep_domain_local() {
   local domain=$1
   local paths=()
@@ -227,6 +240,23 @@ grep_domain_remote_cover() {
 proxy_head() {
   local url=$1
   curl -k -x "$PROXY" -I --connect-timeout 8 --max-time 16 "$url" 2>&1
+}
+
+probe_url_for_domain() {
+  local domain=$1
+  case "$domain" in
+    dt.mi.com)
+      printf '%s\n' "https://dt.mi.com/shared-libs-react-18/index.js"
+      ;;
+    mi-dun.com)
+      # CNAME parent for dt.mi.com; it must be in DNS policy/fake-ip-filter, but
+      # the apex is not a useful HTTPS page health probe.
+      return 1
+      ;;
+    *)
+      printf '%s\n' "https://$domain/"
+      ;;
+  esac
 }
 
 run_fix() {
@@ -293,7 +323,24 @@ else
   ok "work/cache 所有权看起来正常"
 fi
 
-hdr "3. Active Profile"
+hdr "3. Clash Party Settings"
+silent_start=$(config_value silentStart)
+auto_light=$(config_value autoQuitWithoutCore)
+light_mode=$(config_value autoQuitWithoutCoreMode)
+light_delay=$(config_value autoQuitWithoutCoreDelay)
+kv "silentStart" "${silent_start:-unknown}"
+kv "auto light mode" "${auto_light:-unknown}"
+kv "light mode behavior" "${light_mode:-unknown}"
+kv "light mode delay" "${light_delay:-unknown}"
+if [[ "$auto_light" == "true" && "$light_mode" == "core" ]]; then
+  bad "Auto Enable Light Mode + Keep Core Only 会在窗口关闭后保留后台 core"
+  echo "  这容易让下次打开 GUI 时再启动一个 core，出现端口/TUN/cache 冲突。"
+  echo "  建议在 Clash Party Settings 里关闭 Auto Enable Light Mode，或改为 Close Renderer Only。"
+else
+  ok "light mode 设置看起来不容易残留后台 core"
+fi
+
+hdr "4. Active Profile"
 profile_id=$(active_profile_id)
 profile_url=$(current_profile_url)
 kv "profile id" "${profile_id:-unknown}"
@@ -314,14 +361,14 @@ if [[ -n "$profile_url" ]]; then
       fi
     done
   else
-    warn "远端订阅直连拉取失败；若当前网络被公司 VPN 限制，可用 bootstrap 脚本通过 SSH 冷启动"
+    warn "远端订阅直连拉取失败；若当前网络被公司 VPN 限制，先切换网络或临时关闭公司 VPN 后再刷新订阅"
   fi
   rm -f "$tmp_sub"
 else
   warn "找不到当前订阅 URL"
 fi
 
-hdr "4. Local Config Domains"
+hdr "5. Local Config Domains"
 for domain in $(dedupe_domains); do
   hits=$(grep_domain_local_cover "$domain")
   if [[ -n "$hits" ]]; then
@@ -333,7 +380,7 @@ for domain in $(dedupe_domains); do
   fi
 done
 
-hdr "5. Controller / Proxy Smoke"
+hdr "6. Controller / Proxy Smoke"
 secret=$(secret_from_config)
 api_json=$(curl_controller "$secret")
 if [[ -n "$api_json" ]]; then
@@ -347,8 +394,11 @@ else
 fi
 
 for domain in $(dedupe_domains); do
-  url="https://$domain/"
-  [[ "$domain" == "dt.mi.com" ]] && url="https://dt.mi.com/shared-libs-react-18/index.js"
+  url=$(probe_url_for_domain "$domain")
+  if [[ -z "$url" ]]; then
+    warn "skip proxy curl $domain: policy/CNAME-only domain, only checking config presence"
+    continue
+  fi
   out=$(proxy_head "$url")
   curl_rc=$?
   status=$(awk '/^HTTP\// && $0 !~ /Connection established/ {last=$0} END {print last}' <<<"$out")
@@ -360,11 +410,12 @@ for domain in $(dedupe_domains); do
   fi
 done
 
-hdr "6. Next Actions"
-if [[ "$core_count" -gt 1 || "$cache_owner" == root:* || "$work_owner" == root:* ]]; then
+hdr "7. Next Actions"
+if [[ "$core_count" -gt 1 || "$cache_owner" == root:* || "$work_owner" == root:* || ( "$auto_light" == "true" && "$light_mode" == "core" ) ]]; then
   echo "  1. bash scripts/ace-vpn.sh party --fix"
-  echo "  2. 重新打开 Clash Party，刷新订阅"
-  echo "  3. bash scripts/ace-vpn.sh party"
+  echo "  2. Clash Party Settings 里关闭 Auto Enable Light Mode，或把 Light Mode Behavior 改成 Close Renderer Only"
+  echo "  3. 重新打开 Clash Party，刷新订阅"
+  echo "  4. bash scripts/ace-vpn.sh party"
 elif grep_domain_local_cover "dt.mi.com" >/dev/null; then
   echo "  - 本地关键域名已存在；若网页仍空白，清理浏览器站点缓存后重试。"
 else
