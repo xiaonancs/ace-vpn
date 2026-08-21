@@ -20,7 +20,7 @@ PROXY="${LOCAL_PROXY:-http://127.0.0.1:7890}"
 CONTROLLER="${MIHOMO_CONTROLLER:-http://127.0.0.1:9090}"
 FIX=0
 REOPEN=0
-DOMAINS=("dt.mi.com" "llm.mioffice.cn" "api.llm.mioffice.cn" "cas.mioffice.cn" "p.dun.mioffice.cn")
+DOMAINS=("dt.mi.com" "mi-dun.com" "llm.mioffice.cn" "api.llm.mioffice.cn" "cas.mioffice.cn" "p.dun.mioffice.cn")
 
 if [[ -t 1 ]]; then
   BOLD=$'\033[1m'; DIM=$'\033[2m'; RED=$'\033[31m'; GRN=$'\033[32m'
