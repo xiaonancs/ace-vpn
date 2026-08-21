@@ -1295,6 +1295,40 @@ networksetup -setsecurewebproxystate Wi-Fi off
 
 如果新发现的是一整个内网父域，管理员应把脱敏后的父域规则作为 `IN` promote 到 VPS，让所有设备刷新订阅即可同步。
 
+### Q5.2：`llm.mioffice.cn/apikey` 能打开但页面全白
+
+这类白屏通常不是主站打不开，而是前端 JS/CSS 依赖域名没有按同一条内网链路解析。2026-08-21 实际排障结论：
+
+- `https://llm.mioffice.cn/apikey` 主页面会跳 CAS，主域和登录域都正常。
+- 页面依赖 `https://dt.mi.com/shared-libs-react-18/index.js`。
+- `dt.mi.com` 的 CNAME 是 `dt.mi.com.v.mi-dun.com`。
+- 只把 `dt.mi.com` 加进规则不够；如果 `mi-dun.com` 没进 `fake-ip-filter` / `nameserver-policy`，mihomo fake-ip 会给出 `198.18.x.x`，TLS 握手直接失败，浏览器表现就是全白。
+
+管理员修复原则：
+
+1. 把业务主域、静态资源域、CNAME 父域都放进同一类规则。
+2. 对公司内网依赖，优先放到当前 enabled intranet profile 的 `domains`，让它走公司内网 DNS，而不是普通 `extra.cn`。
+3. 推送到 VPS 后让客户端刷新订阅。
+
+本次已固化：
+
+```yaml
+profiles:
+  xiaomi:
+    domains:
+      - dt.mi.com
+      - mi-dun.com
+```
+
+客户端验证：
+
+```bash
+bash scripts/ace-vpn.sh party
+curl -k -x http://127.0.0.1:7890 -I https://dt.mi.com/shared-libs-react-18/index.js
+```
+
+预期 `party` 里 `dt.mi.com` / `mi-dun.com` 都存在，`curl` 不再出现 `SSL_ERROR_SYSCALL`。如果规则已正常但浏览器仍白屏，清理 `llm.mioffice.cn` / `dt.mi.com` 站点缓存，或用无痕窗口重开。
+
 ### Q6：抖音加载慢
 
 你的订阅里可能没有 CHINA_DIRECT 规则。**刷新订阅**（规则是服务端统一下发的）。

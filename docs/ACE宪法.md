@@ -50,15 +50,14 @@ http://<VPS_IP>:25500/<SUB_PATH_PREFIX>/<SubId>
 
 `/clash/<token>` 只作为历史兼容示例出现；新增文档、脚本提示和校验都必须使用 `/<SUB_PATH_PREFIX>/<SubId>`。
 
-### 2.4 冷启动通道
+### 2.4 客户端恢复通道
 
-第一次安装、换 VPS、换 IP、Party 自身更新死锁时，客户端不能依赖“先翻墙再更新配置”。必须保留一条带外通道：
+第一次安装、换 VPS、换 IP、Party 自身更新死锁时，客户端不能依赖“先翻墙再更新配置”。当前约束：
 
-```text
-Mac -> SSH VPS -> curl 127.0.0.1:<LISTEN_PORT>/<SUB_PATH_PREFIX>/<token>?tun=1 -> 写入 Mihomo Party 本地 profile
-```
-
-这条链路的前置条件是 SSH 能登录 VPS。若 SSH key 未授权，必须先修 SSH，而不是继续调 Clash。
+1. 不再提供脚本直接写入 Mihomo Party 本地 profile 的冷启动导入链路。
+2. 客户端 profile URL 变更走手动 Remote Profile 编辑 / 新建。
+3. 本机异常先跑 `bash scripts/ace-vpn.sh party`，必要时 `bash scripts/ace-vpn.sh party --fix` 清理多个 core、socket、root-owned cache。
+4. 若 SSH key 未授权，必须先修 SSH；SSH 只用于部署/同步 VPS，不用于自动改本机 profile。
 
 ### 2.5 安全推送
 
@@ -163,7 +162,7 @@ Mac -> SSH VPS -> curl 127.0.0.1:<LISTEN_PORT>/<SUB_PATH_PREFIX>/<token>?tun=1 -
 
 ## 6. 当前优先级
 
-1. 先保证管理员自己的 Mac 可恢复：SSH key 可达、bootstrap dry-run 通过、Party profile 指向主 VPS。
+1. 先保证管理员自己的 Mac 可恢复：SSH key 可达、`bash scripts/ace-vpn.sh party` 可诊断、本机 Party profile 指向主 VPS。
 2. 再保证订阅服务安全：随机 `SUB_PATH_PREFIX`、面板和 3x-ui 原生订阅不公网暴露。
 3. 再保证家人端少改：SubId 稳定，必要时只换 URL 的 IP / path。
 4. 最后优化性能和体验：AI 分组、测速、长期 watch、自动 fallback。
